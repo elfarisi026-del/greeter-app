@@ -79,7 +79,7 @@
 
     let activeQueue = []; 
     let currentSpots = [[null, null, null], [null, null], [null, null]]; 
-    let spotStartTimes = [[null, null, null], [null, null], [null, null]]; 
+    let spotStandbyEndTimes = [[null, null, null], [null, null], [null, null]]; // Menyimpan waktu berakhir timer hitung mundur standby (timestamp)
     let spotShiftOrigin = [[null, null, null], [null, null], [null, null]]; 
     let shiftMorningQueue = [];
     let shiftAfternoonQueue = [];
@@ -90,7 +90,6 @@
     let activeSessionStaff = null;
     let previousStaffPositionBackup = null; 
 
-    // Status lokal khusus device yang sedang membuka sesi buddy
     let localActiveSession = JSON.parse(localStorage.getItem('greeter_active_session')) || null;
 
     let skipSpotIndex = null;
@@ -107,11 +106,6 @@
     let liveStoreMap = null;
     let liveMarkers = [];
 
-    function isMorningCutOffTime() {
-        const now = new Date();
-        return now.getHours() >= 20;
-    }
-
     function isAfternoonCutOffTime() {
         const now = new Date();
         return now.getHours() >= 22;
@@ -126,7 +120,6 @@
         return isWeekendToday() ? 3 : 2;
     }
 
-    // Fungsi Format Angka Otomatis Perseribu (1.000.000)
     function formatRupiahInput(inputElement) {
         let val = inputElement.value.replace(/[^,\d]/g, '').toString();
         let split = val.split(',');
@@ -281,6 +274,7 @@
                         </div>
                         <div class="space-y-2 mt-4 pt-3 border-t border-slate-200/60">
                             <div class="grid grid-cols-3 gap-1" id="spot-0-buttons"></div>
+                            <div class="grid grid-cols-3 gap-1" id="spot-0-standby-buttons"></div>
                             <div class="grid grid-cols-3 gap-1" id="spot-0-skip-buttons"></div>
                         </div>
                     </div>
@@ -301,6 +295,10 @@
                             <div class="grid grid-cols-2 gap-2">
                                 <button onclick="startBuddySession(1, 0)" id="btn-spot-1-a" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition hidden shadow-xs">Mulai (1)</button>
                                 <button onclick="startBuddySession(1, 1)" id="btn-spot-1-b" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition hidden shadow-xs">Mulai (2)</button>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button onclick="startStandbyTimer(1, 0)" id="btn-standby-1-a" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition hidden shadow-xs">⏱️ Standby (1)</button>
+                                <button onclick="startStandbyTimer(1, 1)" id="btn-standby-1-b" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition hidden shadow-xs">⏱️ Standby (2)</button>
                             </div>
                             <div class="grid grid-cols-2 gap-2">
                                 <button onclick="openSkipModal(1, 0)" id="btn-skip-1-a" class="bg-amber-600 hover:bg-amber-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition hidden shadow-xs">⏭️ Skip (1)</button>
@@ -325,6 +323,10 @@
                             <div class="grid grid-cols-2 gap-2">
                                 <button onclick="startBuddySession(2, 0)" id="btn-spot-2-a" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition hidden shadow-xs">Mulai (1)</button>
                                 <button onclick="startBuddySession(2, 1)" id="btn-spot-2-b" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition hidden shadow-xs">Mulai (2)</button>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button onclick="startStandbyTimer(2, 0)" id="btn-standby-2-a" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition hidden shadow-xs">⏱️ Standby (1)</button>
+                                <button onclick="startStandbyTimer(2, 1)" id="btn-standby-2-b" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition hidden shadow-xs">⏱️ Standby (2)</button>
                             </div>
                             <div class="grid grid-cols-2 gap-2">
                                 <button onclick="openSkipModal(2, 0)" id="btn-skip-2-a" class="bg-amber-600 hover:bg-amber-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition hidden shadow-xs">⏭️ Skip (1)</button>
@@ -566,7 +568,6 @@
         renderAppTemplate();
         updateAttendanceStats();
 
-        // CEK APAKAH DEVICE INI SEDANG DALAM SESI BUDDY AKTIF SECARA LOKAL
         if (localActiveSession) {
             activeSpotIndex = localActiveSession.spotIndex;
             activeStaffIndexInSpot = localActiveSession.staffPositionIndex;
@@ -598,7 +599,7 @@
                 if (val.shiftMorningQueue) shiftMorningQueue = val.shiftMorningQueue;
                 if (val.shiftAfternoonQueue) shiftAfternoonQueue = val.shiftAfternoonQueue;
                 if (val.spotShiftOrigin) spotShiftOrigin = val.spotShiftOrigin;
-                if (val.spotStartTimes) spotStartTimes = val.spotStartTimes;
+                if (val.spotStandbyEndTimes) spotStandbyEndTimes = val.spotStandbyEndTimes;
                 if (val.activityLogs) activityLogs = val.activityLogs;
                 
                 updateDisplay();
@@ -615,50 +616,13 @@
             shiftMorningQueue: shiftMorningQueue,
             shiftAfternoonQueue: shiftAfternoonQueue,
             spotShiftOrigin: spotShiftOrigin,
-            spotStartTimes: spotStartTimes,
+            spotStandbyEndTimes: spotStandbyEndTimes,
             activityLogs: activityLogs
         });
     }
 
+    // Interval pengecekan timer hitung mundur standby
     setInterval(() => {
-        const now = new Date();
-        const hours = now.getHours();
-
-        // Cut-off jam 20:00 WIB: HANYA membersihkan shift pagi, shift siang tetap aman
-        if (hours >= 20) {
-            if (shiftMorningQueue.length > 0) {
-                shiftMorningQueue = [];
-                
-                activeQueue = activeQueue.filter(staff => !shiftMorningQueue.some(m => m.nik === staff.nik));
-                for(let s=0; s<3; s++) {
-                    for(let p=0; p<currentSpots[s].length; p++) {
-                        if(spotShiftOrigin[s][p] === 'pagi') {
-                            currentSpots[s][p] = null;
-                            spotStartTimes[s][p] = null;
-                            spotShiftOrigin[s][p] = null;
-                        }
-                    }
-                }
-                
-                let limitSpot1 = getMaxTitik1Slots();
-                for(let s=0; s<3; s++) {
-                    let maxP = s === 0 ? limitSpot1 : 2;
-                    for(let p=0; p<maxP; p++) {
-                        if(!currentSpots[s][p] && activeQueue.length > 0) {
-                            let nextStaff = activeQueue.shift();
-                            currentSpots[s][p] = nextStaff;
-                            spotShiftOrigin[s][p] = 'siang';
-                            spotStartTimes[s][p] = Date.now(); // RESET TIMER SEGAR DARI 00:00
-                        }
-                    }
-                }
-
-                pushStateToFirebase();
-                updateDisplay();
-                updateAttendanceStats();
-            }
-        }
-
         if (isAfternoonCutOffTime()) {
             shiftAfternoonQueue = [];
             shiftMorningQueue = [];
@@ -668,7 +632,7 @@
                 for(let p=0; p<currentSpots[s].length; p++) {
                     if(currentSpots[s][p] !== null) stateChanged = true;
                     currentSpots[s][p] = null;
-                    spotStartTimes[s][p] = null;
+                    spotStandbyEndTimes[s][p] = null;
                 }
             }
             if(stateChanged) {
@@ -680,37 +644,42 @@
         }
 
         const currentTime = Date.now();
-        const THIRTY_MINUTES = 30 * 60 * 1000;
         const limitSpot1 = getMaxTitik1Slots();
 
+        let stateUpdated = false;
         for (let s = 0; s < 3; s++) {
             const maxP = s === 0 ? limitSpot1 : 2;
             for (let p = 0; p < maxP; p++) {
                 const staff = currentSpots[s][p];
-                const startTime = spotStartTimes[s][p];
-                const origin = spotShiftOrigin[s][p];
+                const endTime = spotStandbyEndTimes[s][p];
 
-                if (staff && startTime) {
-                    let effectiveStartTime = startTime;
-                    if (origin === 'pagi') {
-                        let openingTime = new Date();
-                        openingTime.setHours(10, 0, 0, 0);
-                        if (currentTime > openingTime.getTime() && startTime < openingTime.getTime()) {
-                            effectiveStartTime = openingTime.getTime();
-                        }
-                    }
-
-                    if (currentTime - effectiveStartTime >= THIRTY_MINUTES) {
-                        autoRotateTimeoutGreeter(s, p);
-                    }
+                // Jika timer standby aktif dan sudah habis waktunya
+                if (staff && endTime && currentTime >= endTime) {
+                    autoRotateStandbyGreeter(s, p);
+                    stateUpdated = true;
                 }
             }
         }
 
-        updateGreeterTimersUI();
+        if (!stateUpdated) {
+            updateGreeterStandbyTimersUI();
+        }
     }, 1000);
 
-    function autoRotateTimeoutGreeter(spotIndex, staffPositionIndex) {
+    function startStandbyTimer(spotIndex, staffPositionIndex) {
+        if (isAfternoonCutOffTime()) return;
+        const staff = currentSpots[spotIndex][staffPositionIndex];
+        if (!staff) return;
+
+        // Set waktu berakhir 30 menit dari sekarang
+        const THIRTY_MINUTES_MS = 30 * 60 * 1000;
+        spotStandbyEndTimes[spotIndex][staffPositionIndex] = Date.now() + THIRTY_MINUTES_MS;
+
+        pushStateToFirebase();
+        updateDisplay();
+    }
+
+    function autoRotateStandbyGreeter(spotIndex, staffPositionIndex) {
         if (isAfternoonCutOffTime()) return;
 
         const staff = currentSpots[spotIndex][staffPositionIndex];
@@ -726,7 +695,7 @@
             spot: spotNames[spotIndex],
             shift: "TIMEOUT",
             duration: "30m (STANDBY TIMEOUT)",
-            reason: "AUTO-TIMEOUT: Standby di titik 30 menit tanpa klik Mulai",
+            reason: "AUTO-TIMEOUT: Durasi Standby 30 menit habis",
             photo: "Tanpa Foto",
             gps: "-"
         };
@@ -740,10 +709,10 @@
             const isMorningStaff = shiftMorningQueue.some(emp => emp.nik === nextInQueue.nik);
             spotShiftOrigin[spotIndex][staffPositionIndex] = isMorningStaff ? 'pagi' : 'siang';
             triggerNextGreeterNotification(nextInQueue.name, spotNames[spotIndex]);
-            spotStartTimes[spotIndex][staffPositionIndex] = Date.now(); // RESET TIMER SEGAR DARI 00:00
+            spotStandbyEndTimes[spotIndex][staffPositionIndex] = null; // Reset timer standby untuk petugas baru
         } else {
             currentSpots[spotIndex][staffPositionIndex] = null;
-            spotStartTimes[spotIndex][staffPositionIndex] = null;
+            spotStandbyEndTimes[spotIndex][staffPositionIndex] = null;
         }
         activeQueue.push(staff);
 
@@ -752,30 +721,28 @@
         renderLogs();
     }
 
-    function updateGreeterTimersUI() {
+    function updateGreeterStandbyTimersUI() {
         const limitSpot1 = getMaxTitik1Slots();
         const currentTime = Date.now();
 
         for (let s = 0; s < 3; s++) {
             const maxP = s === 0 ? limitSpot1 : 2;
             for (let p = 0; p < maxP; p++) {
-                const startTime = spotStartTimes[s][p];
+                const endTime = spotStandbyEndTimes[s][p];
                 const timerSpan = document.getElementById(`greeter-timer-${s}-${p}`);
-                if (timerSpan && startTime) {
-                    let diffMs = currentTime - startTime;
-                    const origin = spotShiftOrigin[s][p];
-                    if (origin === 'pagi') {
-                        let openingTime = new Date();
-                        openingTime.setHours(10, 0, 0, 0);
-                        if (currentTime > openingTime.getTime() && startTime < openingTime.getTime()) {
-                            diffMs = currentTime - openingTime.getTime();
-                        }
+                if (timerSpan) {
+                    if (endTime) {
+                        let diffMs = endTime - currentTime;
+                        if (diffMs < 0) diffMs = 0;
+                        const totalSec = Math.floor(diffMs / 1000);
+                        const mins = String(Math.floor(totalSec / 60)).padStart(2, '0');
+                        const secs = String(totalSec % 60).padStart(2, '0');
+                        timerSpan.innerText = `⏳ ${mins}:${secs}`;
+                        timerSpan.className = "text-[11px] font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-md";
+                    } else {
+                        timerSpan.innerText = `⏳ Standby Nonaktif`;
+                        timerSpan.className = "text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md";
                     }
-                    if (diffMs < 0) diffMs = 0;
-                    const totalSec = Math.floor(diffMs / 1000);
-                    const mins = String(Math.floor(totalSec / 60)).padStart(2, '0');
-                    const secs = String(totalSec % 60).padStart(2, '0');
-                    timerSpan.innerText = `⏱️ ${mins}:${secs}`;
                 }
             }
         }
@@ -787,7 +754,6 @@
         const msg = document.getElementById('notification-message');
         if (modal && msg) {
             msg.innerText = `Petugas ${staffName} dipersilakan naik ke ${spotName}!`;
-            modal.classList.0 && modal.classList.remove('hidden');
             modal.classList.remove('hidden');
 
             if ("vibrate" in navigator) {
@@ -1055,7 +1021,6 @@
 
         if (needsPopulation) {
             let qIndex = 0;
-            const nowTime = Date.now();
             for(let s=0; s<3; s++) {
                 const maxP = s === 0 ? limitSpot1 : 2;
                 for(let p=0; p<maxP; p++) {
@@ -1063,7 +1028,7 @@
                         currentSpots[s][p] = activeQueue[qIndex];
                         const isMorningStaff = shiftMorningQueue.some(emp => emp.nik === activeQueue[qIndex].nik);
                         spotShiftOrigin[s][p] = isMorningStaff ? 'pagi' : 'siang';
-                        spotStartTimes[s][p] = nowTime; // RESET TIMER SEGAR DARI 00:00
+                        spotStandbyEndTimes[s][p] = null; // Reset timer standby
                         qIndex++;
                     }
                 }
@@ -1096,7 +1061,7 @@
             for(let s=0; s<3; s++) {
                 for(let p=0; p<currentSpots[s].length; p++) {
                     currentSpots[s][p] = null;
-                    spotStartTimes[s][p] = null;
+                    spotStandbyEndTimes[s][p] = null;
                 }
             }
         }
@@ -1104,21 +1069,25 @@
         const limitSpot1 = getMaxTitik1Slots();
         const el0 = document.getElementById('spot-0');
         const btnContainer0 = document.getElementById('spot-0-buttons');
+        const standbyContainer0 = document.getElementById('spot-0-standby-buttons');
         const skipContainer0 = document.getElementById('spot-0-skip-buttons');
         if (!el0) return;
         
         let html0 = '';
         let btnHtml0 = '';
+        let standbyHtml0 = '';
         let skipHtml0 = '';
         
         for(let i=0; i<limitSpot1; i++) {
             let staff = currentSpots[0][i];
             if(staff) {
-                html0 += `<div class="bg-white p-2 rounded-xl border border-slate-200 shadow-2xs flex justify-between items-center"><div><strong class="text-slate-900 text-xs block">${i+1}. ${staff.name}</strong><span class="text-[10px] font-mono text-slate-400">NIK: ${staff.nik}</span></div><span id="greeter-timer-0-${i}" class="text-[11px] font-mono font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-md">⏱️ 00:00</span></div>`;
+                html0 += `<div class="bg-white p-2 rounded-xl border border-slate-200 shadow-2xs flex justify-between items-center"><div><strong class="text-slate-900 text-xs block">${i+1}. ${staff.name}</strong><span class="text-[10px] font-mono text-slate-400">NIK: ${staff.nik}</span></div><span id="greeter-timer-0-${i}" class="text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md">⏳ Standby Nonaktif</span></div>`;
                 btnHtml0 += `<button onclick="startBuddySession(0, ${i})" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] py-1.5 px-0.5 rounded-lg font-semibold transition shadow-xs">Mulai (${i+1})</button>`;
+                standbyHtml0 += `<button onclick="startStandbyTimer(0, ${i})" class="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] py-1 px-0.5 rounded-lg font-semibold transition shadow-xs">⏱️ Standby (${i+1})</button>`;
                 skipHtml0 += `<button onclick="openSkipModal(0, ${i})" class="bg-amber-600 hover:bg-amber-700 text-white text-[10px] py-1 px-0.5 rounded-lg font-semibold transition shadow-xs">⏭️ Skip (${i+1})</button>`;
             } else {
                 btnHtml0 += `<span></span>`;
+                standbyHtml0 += `<span></span>`;
                 skipHtml0 += `<span></span>`;
             }
         }
@@ -1128,6 +1097,8 @@
         el0.innerHTML = html0;
         btnContainer0.innerHTML = btnHtml0;
         btnContainer0.className = `grid grid-cols-${limitSpot1} gap-1`;
+        standbyContainer0.innerHTML = standbyHtml0;
+        standbyContainer0.className = `grid grid-cols-${limitSpot1} gap-1`;
         skipContainer0.innerHTML = skipHtml0;
         skipContainer0.className = `grid grid-cols-${limitSpot1} gap-1`;
 
@@ -1135,6 +1106,8 @@
             const el = document.getElementById(`spot-${i}`);
             const btnA = document.getElementById(`btn-spot-${i}-a`);
             const btnB = document.getElementById(`btn-spot-${i}-b`);
+            const standbyBtnA = document.getElementById(`btn-standby-${i}-a`);
+            const standbyBtnB = document.getElementById(`btn-standby-${i}-b`);
             const skipBtnA = document.getElementById(`btn-skip-${i}-a`);
             const skipBtnB = document.getElementById(`btn-skip-${i}-b`);
             
@@ -1143,20 +1116,24 @@
             
             let htmlStr = '';
             if (staff1) {
-                htmlStr += `<div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs flex justify-between items-center"><div><strong class="text-slate-900 text-xs block">1. ${staff1.name}</strong><span class="text-[11px] font-mono text-slate-400">NIK: ${staff1.nik}</span></div><span id="greeter-timer-${i}-0" class="text-[11px] font-mono font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-md">⏱️ 00:00</span></div>`;
+                htmlStr += `<div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs flex justify-between items-center"><div><strong class="text-slate-900 text-xs block">1. ${staff1.name}</strong><span class="text-[11px] font-mono text-slate-400">NIK: ${staff1.nik}</span></div><span id="greeter-timer-${i}-0" class="text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md">⏳ Standby Nonaktif</span></div>`;
                 if (btnA) btnA.classList.remove('hidden');
+                if (standbyBtnA) standbyBtnA.classList.remove('hidden');
                 if (skipBtnA) skipBtnA.classList.remove('hidden');
             } else {
                 if (btnA) btnA.classList.add('hidden');
+                if (standbyBtnA) standbyBtnA.classList.add('hidden');
                 if (skipBtnA) skipBtnA.classList.add('hidden');
             }
             
             if (staff2) {
-                htmlStr += `<div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs mt-1.5 flex justify-between items-center"><div><strong class="text-slate-900 text-xs block">2. ${staff2.name}</strong><span class="text-[11px] font-mono text-slate-400">NIK: ${staff2.nik}</span></div><span id="greeter-timer-${i}-1" class="text-[11px] font-mono font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-md">⏱️ 00:00</span></div>`;
+                htmlStr += `<div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs mt-1.5 flex justify-between items-center"><div><strong class="text-slate-900 text-xs block">2. ${staff2.name}</strong><span class="text-[11px] font-mono text-slate-400">NIK: ${staff2.nik}</span></div><span id="greeter-timer-${i}-1" class="text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md">⏳ Standby Nonaktif</span></div>`;
                 if (btnB) btnB.classList.remove('hidden');
+                if (standbyBtnB) standbyBtnB.classList.remove('hidden');
                 if (skipBtnB) skipBtnB.classList.remove('hidden');
             } else {
                 if (btnB) btnB.classList.add('hidden');
+                if (standbyBtnB) standbyBtnB.classList.add('hidden');
                 if (skipBtnB) skipBtnB.classList.add('hidden');
             }
             
@@ -1180,7 +1157,7 @@
                 qContainer.innerHTML = `<div class="bg-white p-3 rounded-xl border border-slate-200 text-center"><span class="text-slate-400 italic text-xs">${isAfternoonCutOffTime() ? 'Selesai (Cut-off Jam 22:00 WIB)' : 'Tidak ada antrean cadangan'}</span></div>`;
             }
         }
-        updateGreeterTimersUI();
+        updateGreeterStandbyTimersUI();
     }
 
     function requestRotateVolleyball() {
@@ -1243,7 +1220,7 @@
         for(let s=0; s<3; s++) {
             const maxP = s === 0 ? limitSpot1 : 2;
             for(let p=0; p<maxP; p++) {
-                allCurrentActive.push({ spot: s, pos: p, staff: currentSpots[s][p], origin: spotShiftOrigin[s][p] });
+                allCurrentActive.push({ spot: s, pos: p, staff: currentSpots[s][p], origin: spotShiftOrigin[s][p], standbyEnd: spotStandbyEndTimes[s][p] });
             }
         }
         
@@ -1252,7 +1229,7 @@
         for(let i=0; i<allCurrentActive.length - 1; i++) {
             currentSpots[allCurrentActive[i].spot][allCurrentActive[i].pos] = allCurrentActive[i+1].staff;
             spotShiftOrigin[allCurrentActive[i].spot][allCurrentActive[i].pos] = allCurrentActive[i+1].origin;
-            spotStartTimes[allCurrentActive[i].spot][allCurrentActive[i].pos] = spotStartTimes[allCurrentActive[i+1].spot][allCurrentActive[i+1].pos];
+            spotStandbyEndTimes[allCurrentActive[i].spot][allCurrentActive[i].pos] = allCurrentActive[i+1].standbyEnd;
         }
         
         let lastItem = allCurrentActive[allCurrentActive.length - 1];
@@ -1261,7 +1238,7 @@
         currentSpots[lastItem.spot][lastItem.pos] = chosenStaff;
         const isMorningStaff = shiftMorningQueue.some(emp => emp.nik === chosenStaff.nik);
         spotShiftOrigin[lastItem.spot][lastItem.pos] = isMorningStaff ? 'pagi' : 'siang';
-        spotStartTimes[lastItem.spot][lastItem.pos] = Date.now(); // RESET TIMER SEGAR DARI 00:00
+        spotStandbyEndTimes[lastItem.spot][lastItem.pos] = null; // Reset standby untuk petugas baru
         
         if (chosenStaff) {
             triggerNextGreeterNotification(chosenStaff.name, ["Main Entrance", "CarPark / CP", "HomeGallery / HG"][lastItem.spot]);
@@ -1286,7 +1263,9 @@
         const staff = currentSpots[spotIndex][staffPositionIndex];
         activeSessionStaff = staff;
 
-        // KUNCI SESI KE LOCALSTORAGE KHUSUS DEVICE INI
+        // Reset timer standby karena SMT klik Mulai
+        spotStandbyEndTimes[spotIndex][staffPositionIndex] = null;
+
         localActiveSession = { spotIndex, staffPositionIndex, staff, startTime: Date.now() };
         localStorage.setItem('greeter_active_session', JSON.stringify(localActiveSession));
 
@@ -1296,7 +1275,7 @@
             staff,
             activeQueueSnapshot: [...activeQueue],
             currentSpotsSnapshot: JSON.parse(JSON.stringify(currentSpots)),
-            spotStartTimesSnapshot: JSON.parse(JSON.stringify(spotStartTimes))
+            spotStandbyEndTimesSnapshot: JSON.parse(JSON.stringify(spotStandbyEndTimes))
         };
 
         const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
@@ -1320,11 +1299,11 @@
             currentSpots[spotIndex][staffPositionIndex] = nextInQueue;
             const isMorningStaff = shiftMorningQueue.some(emp => emp.nik === nextInQueue.nik);
             spotShiftOrigin[spotIndex][staffPositionIndex] = isMorningStaff ? 'pagi' : 'siang';
-            spotStartTimes[spotIndex][staffPositionIndex] = Date.now(); // RESET TIMER SEGAR DARI 00:00
+            spotStandbyEndTimes[spotIndex][staffPositionIndex] = null;
             triggerNextGreeterNotification(nextInQueue.name, spotNames[spotIndex]);
         } else {
             currentSpots[spotIndex][staffPositionIndex] = null;
-            spotStartTimes[spotIndex][staffPositionIndex] = null;
+            spotStandbyEndTimes[spotIndex][staffPositionIndex] = null;
         }
         
         activeQueue.push(staff);
@@ -1377,7 +1356,6 @@
     function confirmCancelBuddySession() {
         clearInterval(timerInterval);
 
-        // HAPUS KUNCI LOCALSTORAGE KARENA SESI BATAL
         localStorage.removeItem('greeter_active_session');
         localActiveSession = null;
 
@@ -1390,7 +1368,7 @@
             
             currentSpots = previousStaffPositionBackup.currentSpotsSnapshot;
             activeQueue = previousStaffPositionBackup.activeQueueSnapshot;
-            spotStartTimes = previousStaffPositionBackup.spotStartTimesSnapshot;
+            spotStandbyEndTimes = previousStaffPositionBackup.spotStandbyEndTimesSnapshot;
 
             if (currentSpotStaff && currentSpotStaff.nik !== previousStaffPositionBackup.staff.nik) {
                 activeQueue = activeQueue.filter(s => s.nik !== currentSpotStaff.nik);
@@ -1421,7 +1399,7 @@
         updateDisplay();
         renderLogs();
         document.getElementById('buddy-modal').classList.add('hidden');
-        showCustomAlert('Sesi Dibatalkan', `Sesi dibatalkan (${selectedCancelOption}). Petugas asal kembali ke titik, dan pengganti dikembalikan ke antrean paling atas.`);
+        showCustomAlert('Sesi Dibatalkan', `Sesi dibatalkan (${selectedCancelOption}). Petugas asal kembali ke titik.`);
     }
 
     function toggleReasonInput() {
@@ -1440,7 +1418,6 @@
     function finishBuddySession() {
         clearInterval(timerInterval);
 
-        // HAPUS KUNCI LOCALSTORAGE KARENA SESI SELESAI
         localStorage.removeItem('greeter_active_session');
         localActiveSession = null;
 
@@ -1535,16 +1512,19 @@
         renderLogs();
         closeSkipModal();
 
+        // Reset timer standby karena SMT melakukan skip
+        spotStandbyEndTimes[skipSpotIndex][skipStaffIndexInSpot] = null;
+
         if (activeQueue.length > 0) {
             const nextInQueue = activeQueue.shift();
             currentSpots[skipSpotIndex][skipStaffIndexInSpot] = nextInQueue;
             const isMorningStaff = shiftMorningQueue.some(emp => emp.nik === nextInQueue.nik);
             spotShiftOrigin[skipSpotIndex][skipStaffIndexInSpot] = isMorningStaff ? 'pagi' : 'siang';
-            spotStartTimes[skipSpotIndex][skipStaffIndexInSpot] = Date.now(); // RESET TIMER SEGAR DARI 00:00
+            spotStandbyEndTimes[skipSpotIndex][skipStaffIndexInSpot] = null;
             triggerNextGreeterNotification(nextInQueue.name, spotNames[skipSpotIndex]);
         } else {
             currentSpots[skipSpotIndex][skipStaffIndexInSpot] = null;
-            spotStartTimes[skipSpotIndex][skipStaffIndexInSpot] = null;
+            spotStandbyEndTimes[skipSpotIndex][skipStaffIndexInSpot] = null;
         }
         activeQueue.push(staff);
 
