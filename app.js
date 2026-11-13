@@ -1246,6 +1246,7 @@
         const staff = currentSpots[spotIndex][staffPositionIndex];
         activeSessionStaff = staff;
 
+        // Reset/matikan timer standby saat tombol Mulai diklik
         spotStandbyEndTimes[spotIndex][staffPositionIndex] = null;
 
         localActiveSession = { spotIndex, staffPositionIndex, staff, startTime: Date.now() };
@@ -1494,6 +1495,7 @@
         renderLogs();
         closeSkipModal();
 
+        // Reset/matikan timer standby saat tombol Skip dikonfirmasi
         spotStandbyEndTimes[skipSpotIndex][skipStaffIndexInSpot] = null;
 
         if (activeQueue.length > 0) {
