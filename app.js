@@ -1087,27 +1087,45 @@ function updateDisplay() {
 
     const limitSpot1 = getMaxTitik1Slots();
     
-    // Render Titik 1
+    // ==========================================
+    // RENDER TITIK 1
+    // ==========================================
     const el0 = document.getElementById('spot-0');
     const btnContainer0 = document.getElementById('spot-0-buttons');
     const standbyContainer0 = document.getElementById('spot-0-standby-buttons');
     const skipContainer0 = document.getElementById('spot-0-skip-buttons');
+    
     if (el0) {
         let html0 = '';
         let btnHtml0 = '';
-        let standbyHtml0 = '';
         let skipHtml0 = '';
+        
+        if (standbyContainer0) {
+            standbyContainer0.innerHTML = '';
+            standbyContainer0.className = `grid grid-cols-${limitSpot1} gap-1`;
+        }
         
         for(let i=0; i<limitSpot1; i++) {
             let staff = currentSpots[0][i];
             if(staff) {
                 html0 += `<div class="bg-white p-2 rounded-xl border border-slate-200 shadow-2xs flex justify-between items-center"><div><strong class="text-slate-900 text-xs block">${i+1}. ${staff.name}</strong><span class="text-[10px] font-mono text-slate-400">NIK: ${staff.nik}</span></div><span id="greeter-timer-0-${i}" class="text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md">⏳ Standby Nonaktif</span></div>`;
                 btnHtml0 += `<button onclick="startBuddySession(0, ${i})" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] py-1.5 px-0.5 rounded-lg font-semibold transition shadow-xs cursor-pointer">Mulai (${i+1})</button>`;
-                standbyHtml0 += `<button onclick="startStandbyTimer(0, ${i})" class="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] py-1 px-0.5 rounded-lg font-semibold transition shadow-xs cursor-pointer">⏱️ Standby (${i+1})</button>`;
+                
+                // Tombol Standby Titik 1 menggunakan DOM aman dari blokir Cloudflare
+                if (standbyContainer0) {
+                    const sbBtn = document.createElement('button');
+                    sbBtn.className = "bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] py-1 px-0.5 rounded-lg font-semibold transition shadow-xs cursor-pointer";
+                    sbBtn.textContent = `⏱️ Standby (${i+1})`;
+                    sbBtn.onclick = () => startStandbyTimer(0, i);
+                    standbyContainer0.appendChild(sbBtn);
+                }
+
                 skipHtml0 += `<button onclick="openSkipModal(0, ${i})" class="bg-amber-600 hover:bg-amber-700 text-white text-[10px] py-1 px-0.5 rounded-lg font-semibold transition shadow-xs cursor-pointer">⏭️ Skip (${i+1})</button>`;
             } else {
                 btnHtml0 += `<span></span>`;
-                standbyHtml0 += `<span></span>`;
+                if (standbyContainer0) {
+                    standbyContainer0.appendChild(document.createElement('span'));
+                }
                 skipHtml0 += `<span></span>`;
             }
         }
@@ -1115,15 +1133,19 @@ function updateDisplay() {
             html0 = `<p class="text-sm text-slate-400 italic">${isAfternoonCutOffTime() ? 'Selesai (Cut-off Jam 22:00 WIB)' : 'Belum ada petugas'}</p>`;
         }
         el0.innerHTML = html0;
-        btnContainer0.innerHTML = btnHtml0;
-        btnContainer0.className = `grid grid-cols-${limitSpot1} gap-1`;
-        standbyContainer0.innerHTML = standbyHtml0;
-        standbyContainer0.className = `grid grid-cols-${limitSpot1} gap-1`;
-        skipContainer0.innerHTML = skipHtml0;
-        skipContainer0.className = `grid grid-cols-${limitSpot1} gap-1`;
+        if (btnContainer0) {
+            btnContainer0.innerHTML = btnHtml0;
+            btnContainer0.className = `grid grid-cols-${limitSpot1} gap-1`;
+        }
+        if (skipContainer0) {
+            skipContainer0.innerHTML = skipHtml0;
+            skipContainer0.className = `grid grid-cols-${limitSpot1} gap-1`;
+        }
     }
 
-    // Render Titik 2 dan Titik 3
+    // ==========================================
+    // RENDER TITIK 2 DAN TITIK 3
+    // ==========================================
     for (let i = 1; i < 3; i++) {
         const el = document.getElementById(`spot-${i}`);
         const btnContainer = document.getElementById(`spot-${i}-buttons-mulai`);
@@ -1135,7 +1157,6 @@ function updateDisplay() {
         
         let htmlStr = '';
         let btnHtml = '';
-        let standbyHtml = '';
         let skipHtml = '';
 
         if (staff1) {
@@ -1154,17 +1175,6 @@ function updateDisplay() {
             btnHtml += `<button onclick="startBuddySession(${i}, 1)" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition shadow-xs cursor-pointer">Mulai (2)</button>`;
         } else {
             btnHtml += `<span></span>`;
-        }
-
-        if (staff1) {
-            standbyHtml += `<button onclick="startStandbyTimer(${i}, 0)" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition shadow-xs cursor-pointer">⏱️ Standby (1)</button>`;
-        } else {
-            standbyHtml += `<span></span>`;
-        }
-        if (staff2) {
-            standbyHtml += `<button onclick="startStandbyTimer(${i}, 1)" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition shadow-xs cursor-pointer">⏱️ Standby (2)</button>`;
-        } else {
-            standbyHtml += `<span></span>`;
         }
 
         if (staff1) {
@@ -1187,16 +1197,42 @@ function updateDisplay() {
             btnContainer.innerHTML = btnHtml;
             btnContainer.className = "grid grid-cols-2 gap-1";
         }
+        
+        // Tombol Standby Titik 2 & 3 menggunakan DOM aman
         if (standbyContainer) {
-            standbyContainer.innerHTML = standbyHtml;
+            standbyContainer.innerHTML = '';
             standbyContainer.className = "grid grid-cols-2 gap-1";
+            
+            if (staff1) {
+                const sb1 = document.createElement('button');
+                sb1.className = "bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition shadow-xs cursor-pointer";
+                sb1.textContent = "⏱️ Standby (1)";
+                sb1.onclick = () => startStandbyTimer(i, 0);
+                standbyContainer.appendChild(sb1);
+            } else {
+                standbyContainer.appendChild(document.createElement('span'));
+            }
+
+            if (staff2) {
+                const sb2 = document.createElement('button');
+                sb2.className = "bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition shadow-xs cursor-pointer";
+                sb2.textContent = "⏱️ Standby (2)";
+                sb2.onclick = () => startStandbyTimer(i, 1);
+                standbyContainer.appendChild(sb2);
+            } else {
+                standbyContainer.appendChild(document.createElement('span'));
+            }
         }
+
         if (skipContainer) {
             skipContainer.innerHTML = skipHtml;
             skipContainer.className = "grid grid-cols-2 gap-1";
         }
     }
     
+    // ==========================================
+    // RENDER ANTREAN CADANGAN
+    // ==========================================
     const qContainer = document.getElementById('queue-display');
     if (qContainer) {
         qContainer.innerHTML = '';
