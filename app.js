@@ -637,8 +637,8 @@
             if (val) {
                 const todayWib = getWibDateString();
                 
-                // VALIDASI PERGANTIAN HARI (OTOMATIS BERSIH JIKA TANGGAL DI DATABASE BERBEDA / KEMARIN)
-                if (val.date && val.date !== todayWib) {
+                // VALIDASI PERGANTIAN HARI (OTOMATIS BERSIH JIKA TANGGAL BELUM ADA ATAU BERBEDA)
+                if (!val.date || val.date !== todayWib) {
                     currentSpots = [[null, null, null], [null, null], [null, null]];
                     activeQueue = [];
                     pausedQueue = [];
@@ -674,7 +674,7 @@
 
     function pushStateToFirebase() {
         db.ref('appState').set({
-            date: getWibDateString(), // Simpan stempel tanggal WIB
+            date: getWibDateString(),
             currentSpots: currentSpots,
             activeQueue: activeQueue,
             pausedQueue: pausedQueue,
