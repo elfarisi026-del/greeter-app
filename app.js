@@ -167,7 +167,6 @@
 
     function isWeekendToday() {
         const now = new Date();
-        // Mendapatkan day of week di zona waktu WIB
         const dayStr = now.toLocaleDateString('en-US', { timeZone: 'Asia/Jakarta', weekday: 'short' });
         return dayStr === 'Sat' || dayStr === 'Sun';
     }
@@ -636,6 +635,25 @@
         db.ref('appState').on('value', (snapshot) => {
             const val = snapshot.val();
             if (val) {
+                const todayWib = getWibDateString();
+                
+                // VALIDASI PERGANTIAN HARI (OTOMATIS BERSIH JIKA TANGGAL DI DATABASE BERBEDA / KEMARIN)
+                if (val.date && val.date !== todayWib) {
+                    currentSpots = [[null, null, null], [null, null], [null, null]];
+                    activeQueue = [];
+                    pausedQueue = [];
+                    shiftMorningQueue = [];
+                    shiftAfternoonQueue = [];
+                    spotShiftOrigin = [[null, null, null], [null, null], [null, null]];
+                    spotStandbyEndTimes = [[null, null, null], [null, null], [null, null]];
+                    
+                    pushStateToFirebase();
+                    updateDisplay();
+                    updateAttendanceStats();
+                    renderLogs();
+                    return;
+                }
+
                 if (val.currentSpots) currentSpots = val.currentSpots;
                 if (val.activeQueue) activeQueue = val.activeQueue;
                 if (val.pausedQueue) pausedQueue = val.pausedQueue;
@@ -656,6 +674,7 @@
 
     function pushStateToFirebase() {
         db.ref('appState').set({
+            date: getWibDateString(), // Simpan stempel tanggal WIB
             currentSpots: currentSpots,
             activeQueue: activeQueue,
             pausedQueue: pausedQueue,
@@ -667,7 +686,7 @@
         });
     }
 
-    // Interval utama untuk mengecek cutoff & timer standby
+    // Interval pengecekan cut-off & timer standby setiap detik
     setInterval(() => {
         // 1. CUT-OFF SHIFT PAGI (Jam 20:00 WIB)
         if (isMorningCutOffTime() && shiftMorningQueue.length > 0) {
