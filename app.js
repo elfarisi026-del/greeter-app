@@ -292,18 +292,9 @@
                             </div>
                         </div>
                         <div class="space-y-2 mt-4 pt-3 border-t border-slate-200/60">
-                            <div class="grid grid-cols-2 gap-2">
-                                <button onclick="startBuddySession(1, 0)" id="btn-spot-1-a" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition hidden shadow-xs">Mulai (1)</button>
-                                <button onclick="startBuddySession(1, 1)" id="btn-spot-1-b" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition hidden shadow-xs">Mulai (2)</button>
-                            </div>
-                            <div class="grid grid-cols-2 gap-2">
-                                <button onclick="startStandbyTimer(1, 0)" id="btn-standby-1-a" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition hidden shadow-xs">⏱️ Standby (1)</button>
-                                <button onclick="startStandbyTimer(1, 1)" id="btn-standby-1-b" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition hidden shadow-xs">⏱️ Standby (2)</button>
-                            </div>
-                            <div class="grid grid-cols-2 gap-2">
-                                <button onclick="openSkipModal(1, 0)" id="btn-skip-1-a" class="bg-amber-600 hover:bg-amber-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition hidden shadow-xs">⏭️ Skip (1)</button>
-                                <button onclick="openSkipModal(1, 1)" id="btn-skip-1-b" class="bg-amber-600 hover:bg-amber-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition hidden shadow-xs">⏭️ Skip (2)</button>
-                            </div>
+                            <div class="grid grid-cols-2 gap-2" id="spot-1-buttons-mulai"></div>
+                            <div class="grid grid-cols-2 gap-2" id="spot-1-buttons-standby"></div>
+                            <div class="grid grid-cols-2 gap-2" id="spot-1-buttons-skip"></div>
                         </div>
                     </div>
 
@@ -320,18 +311,9 @@
                             </div>
                         </div>
                         <div class="space-y-2 mt-4 pt-3 border-t border-slate-200/60">
-                            <div class="grid grid-cols-2 gap-2">
-                                <button onclick="startBuddySession(2, 0)" id="btn-spot-2-a" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition hidden shadow-xs">Mulai (1)</button>
-                                <button onclick="startBuddySession(2, 1)" id="btn-spot-2-b" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition hidden shadow-xs">Mulai (2)</button>
-                            </div>
-                            <div class="grid grid-cols-2 gap-2">
-                                <button onclick="startStandbyTimer(2, 0)" id="btn-standby-2-a" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition hidden shadow-xs">⏱️ Standby (1)</button>
-                                <button onclick="startStandbyTimer(2, 1)" id="btn-standby-2-b" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition hidden shadow-xs">⏱️ Standby (2)</button>
-                            </div>
-                            <div class="grid grid-cols-2 gap-2">
-                                <button onclick="openSkipModal(2, 0)" id="btn-skip-2-a" class="bg-amber-600 hover:bg-amber-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition hidden shadow-xs">⏭️ Skip (1)</button>
-                                <button onclick="openSkipModal(2, 1)" id="btn-skip-2-b" class="bg-amber-600 hover:bg-amber-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition hidden shadow-xs">⏭️ Skip (2)</button>
-                            </div>
+                            <div class="grid grid-cols-2 gap-2" id="spot-2-buttons-mulai"></div>
+                            <div class="grid grid-cols-2 gap-2" id="spot-2-buttons-standby"></div>
+                            <div class="grid grid-cols-2 gap-2" id="spot-2-buttons-skip"></div>
                         </div>
                     </div>
                 </div>
@@ -1101,43 +1083,47 @@
 
         for (let i = 1; i < 3; i++) {
             const el = document.getElementById(`spot-${i}`);
-            const btnA = document.getElementById(`btn-spot-${i}-a`);
-            const btnB = document.getElementById(`btn-spot-${i}-b`);
-            const standbyBtnA = document.getElementById(`btn-standby-${i}-a`);
-            const standbyBtnB = document.getElementById(`btn-standby-${i}-b`);
-            const skipBtnA = document.getElementById(`btn-skip-${i}-a`);
-            const skipBtnB = document.getElementById(`btn-skip-${i}-b`);
+            const btnContainer = document.getElementById(`spot-${i}-buttons-mulai`);
+            const standbyContainer = document.getElementById(`spot-${i}-buttons-standby`);
+            const skipContainer = document.getElementById(`spot-${i}-buttons-skip`);
             
             let staff1 = currentSpots[i][0];
             let staff2 = currentSpots[i][1];
             
             let htmlStr = '';
+            let btnHtml = '';
+            let standbyHtml = '';
+            let skipHtml = '';
+
             if (staff1) {
                 htmlStr += `<div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs flex justify-between items-center"><div><strong class="text-slate-900 text-xs block">1. ${staff1.name}</strong><span class="text-[11px] font-mono text-slate-400">NIK: ${staff1.nik}</span></div><span id="greeter-timer-${i}-0" class="text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md">⏳ Standby Nonaktif</span></div>`;
-                if (btnA) btnA.classList.remove('hidden');
-                if (standbyBtnA) standbyBtnA.classList.remove('hidden');
-                if (skipBtnA) skipBtnA.classList.remove('hidden');
+                btnHtml += `<button onclick="startBuddySession(${i}, 0)" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition shadow-xs">Mulai (1)</button>`;
+                standbyHtml += `<button onclick="startStandbyTimer(${i}, 0)" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition shadow-xs">⏱️ Standby (1)</button>`;
+                skipHtml += `<button onclick="openSkipModal(${i}, 0)" class="bg-amber-600 hover:bg-amber-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition shadow-xs">⏭️ Skip (1)</button>`;
             } else {
-                if (btnA) btnA.classList.add('hidden');
-                if (standbyBtnA) standbyBtnA.classList.add('hidden');
-                if (skipBtnA) skipBtnA.classList.add('hidden');
+                btnHtml += `<span></span>`;
+                standbyHtml += `<span></span>`;
+                skipHtml += `<span></span>`;
             }
             
             if (staff2) {
                 htmlStr += `<div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs mt-1.5 flex justify-between items-center"><div><strong class="text-slate-900 text-xs block">2. ${staff2.name}</strong><span class="text-[11px] font-mono text-slate-400">NIK: ${staff2.nik}</span></div><span id="greeter-timer-${i}-1" class="text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md">⏳ Standby Nonaktif</span></div>`;
-                if (btnB) btnB.classList.remove('hidden');
-                if (standbyBtnB) standbyBtnB.classList.remove('hidden');
-                if (skipBtnB) skipBtnB.classList.remove('hidden');
+                btnHtml += `<button onclick="startBuddySession(${i}, 1)" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition shadow-xs">Mulai (2)</button>`;
+                standbyHtml += `<button onclick="startStandbyTimer(${i}, 1)" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition shadow-xs">⏱️ Standby (2)</button>`;
+                skipHtml += `<button onclick="openSkipModal(${i}, 1)" class="bg-amber-600 hover:bg-amber-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition shadow-xs">⏭️ Skip (2)</button>`;
             } else {
-                if (btnB) btnB.classList.add('hidden');
-                if (standbyBtnB) standbyBtnB.classList.add('hidden');
-                if (skipBtnB) skipBtnB.classList.add('hidden');
+                btnHtml += `<span></span>`;
+                standbyHtml += `<span></span>`;
+                skipHtml += `<span></span>`;
             }
             
             if(!staff1 && !staff2) {
                 htmlStr = `<p class="text-sm text-slate-400 italic">${isAfternoonCutOffTime() ? 'Selesai (Cut-off Jam 22:00 WIB)' : 'Belum ada petugas'}</p>`;
             }
             if (el) el.innerHTML = htmlStr;
+            if (btnContainer) btnContainer.innerHTML = btnHtml;
+            if (standbyContainer) standbyContainer.innerHTML = standbyHtml;
+            if (skipContainer) skipContainer.innerHTML = skipHtml;
         }
         
         const qContainer = document.getElementById('queue-display');
