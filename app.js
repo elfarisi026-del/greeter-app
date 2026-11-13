@@ -988,7 +988,7 @@
         }
         
         const combinedQueueMap = new Map();
-        [...shiftMorningQueue, ...shiftAfternoonQueue, ...activeQueue].forEach(staff => {
+        [...shiftMorningQueue, ...shiftAfternoonQueue].forEach(staff => {
             if (staff && staff.nik) combinedQueueMap.set(staff.nik, staff);
         });
 
@@ -1131,7 +1131,7 @@
                 htmlStr += `<div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs mt-1.5 flex justify-between items-center"><div><strong class="text-slate-900 text-xs block">2. ${staff2.name}</strong><span class="text-[11px] font-mono text-slate-400">NIK: ${staff2.nik}</span></div><span id="greeter-timer-${i}-1" class="text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md">⏳ Standby Nonaktif</span></div>`;
             }
 
-            // Tombol Mulai (1) & (2) - Terpisah murni
+            // Tombol Mulai (1) & (2)
             if (staff1) {
                 btnHtml += `<button onclick="startBuddySession(${i}, 0)" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition shadow-xs cursor-pointer">Mulai (1)</button>`;
             } else {
@@ -1143,7 +1143,7 @@
                 btnHtml += `<span></span>`;
             }
 
-            // Tombol Standby (1) & (2) - Terpisah murni
+            // Tombol Standby (1) & (2)
             if (staff1) {
                 standbyHtml += `<button onclick="startStandbyTimer(${i}, 0)" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition shadow-xs cursor-pointer">⏱️ Standby (1)</button>`;
             } else {
@@ -1155,7 +1155,7 @@
                 standbyHtml += `<span></span>`;
             }
 
-            // Tombol Skip (1) & (2) - Terpisah murni
+            // Tombol Skip (1) & (2)
             if (staff1) {
                 skipHtml += `<button onclick="openSkipModal(${i}, 0)" class="bg-amber-600 hover:bg-amber-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition shadow-xs cursor-pointer">⏭️ Skip (1)</button>`;
             } else {
@@ -1646,7 +1646,7 @@
     function sendWhatsApp() {
         const filtered = getFilteredLogs();
         const period = document.getElementById('report-period').value;
-        if (filtered.length === 0) {
+        if (filtered.length ===, 0) {
             showCustomAlert('Perhatian', 'Tidak ada data rekap untuk dikirim.');
             return;
         }
