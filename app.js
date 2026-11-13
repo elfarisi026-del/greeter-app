@@ -987,7 +987,20 @@
             shiftAfternoonQueue = [...selectedStaffQueue];
         }
         
-        activeQueue = [...shiftMorningQueue, ...shiftAfternoonQueue];
+        // Gabungkan shift pagi, shift siang, dan pastikan NIK unik untuk antrean aktif
+        const combinedQueueMap = new Map();
+        [...shiftMorningQueue, ...shiftAfternoonQueue, ...activeQueue].forEach(staff => {
+            if (staff && staff.nik) combinedQueueMap.set(staff.nik, staff);
+        });
+
+        // Keluarkan staf yang sedang aktif di titik agar tidak dobel masuk antrean bawah
+        currentSpots.forEach(spotGroup => {
+            spotGroup.forEach(staff => {
+                if (staff && staff.nik) combinedQueueMap.delete(staff.nik);
+            });
+        });
+
+        activeQueue = Array.from(combinedQueueMap.values());
 
         const limitSpot1 = getMaxTitik1Slots();
         let needsPopulation = false;
@@ -1019,14 +1032,30 @@
         updateDisplay();
         updateAttendanceStats();
         closeSmtModal();
-        showCustomAlert("Berhasil", `Data SMT Shift ${mode.toUpperCase()} berhasil disimpan dan langsung digabungkan ke dalam antrean.`);
+        showCustomAlert("Berhasil", `Data SMT Shift ${mode.toUpperCase()} berhasil disimpan dan disinkronkan ke dalam antrean.`);
     }
 
     function updateAttendanceStats() {
-        const uniqueNik = new Set([...shiftMorningQueue.map(s => s.nik), ...shiftAfternoonQueue.map(s => s.nik), ...activeQueue.map(s => s.nik)]);
-        for(let s=0; s<3; s++) {
-            currentSpots[s].forEach(staff => { if(staff) uniqueNik.add(staff.nik); });
+        const uniqueNik = new Set();
+        
+        // Kumpulkan dari semua sumber data dengan aman
+        if (Array.isArray(shiftMorningQueue)) {
+            shiftMorningQueue.forEach(s => { if (s && s.nik) uniqueNik.add(s.nik); });
         }
+        if (Array.isArray(shiftAfternoonQueue)) {
+            shiftAfternoonQueue.forEach(s => { if (s && s.nik) uniqueNik.add(s.nik); });
+        }
+        if (Array.isArray(activeQueue)) {
+            activeQueue.forEach(s => { if (s && s.nik) uniqueNik.add(s.nik); });
+        }
+        if (Array.isArray(currentSpots)) {
+            currentSpots.forEach(spotGroup => {
+                if (Array.isArray(spotGroup)) {
+                    spotGroup.forEach(staff => { if (staff && staff.nik) uniqueNik.add(staff.nik); });
+                }
+            });
+        }
+
         const present = uniqueNik.size;
         const off = employees.length - present;
         const pEl = document.getElementById('stat-present');
@@ -1246,7 +1275,6 @@
         const staff = currentSpots[spotIndex][staffPositionIndex];
         activeSessionStaff = staff;
 
-        // Reset/matikan timer standby saat tombol Mulai diklik
         spotStandbyEndTimes[spotIndex][staffPositionIndex] = null;
 
         localActiveSession = { spotIndex, staffPositionIndex, staff, startTime: Date.now() };
@@ -1495,7 +1523,6 @@
         renderLogs();
         closeSkipModal();
 
-        // Reset/matikan timer standby saat tombol Skip dikonfirmasi
         spotStandbyEndTimes[skipSpotIndex][skipStaffIndexInSpot] = null;
 
         if (activeQueue.length > 0) {
