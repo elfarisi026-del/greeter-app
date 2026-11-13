@@ -292,9 +292,9 @@
                             </div>
                         </div>
                         <div class="space-y-2 mt-4 pt-3 border-t border-slate-200/60">
-                            <div class="grid grid-cols-2 gap-2" id="spot-1-buttons-mulai"></div>
-                            <div class="grid grid-cols-2 gap-2" id="spot-1-buttons-standby"></div>
-                            <div class="grid grid-cols-2 gap-2" id="spot-1-buttons-skip"></div>
+                            <div class="grid grid-cols-2 gap-1" id="spot-1-buttons-mulai"></div>
+                            <div class="grid grid-cols-2 gap-1" id="spot-1-buttons-standby"></div>
+                            <div class="grid grid-cols-2 gap-1" id="spot-1-buttons-skip"></div>
                         </div>
                     </div>
 
@@ -311,9 +311,9 @@
                             </div>
                         </div>
                         <div class="space-y-2 mt-4 pt-3 border-t border-slate-200/60">
-                            <div class="grid grid-cols-2 gap-2" id="spot-2-buttons-mulai"></div>
-                            <div class="grid grid-cols-2 gap-2" id="spot-2-buttons-standby"></div>
-                            <div class="grid grid-cols-2 gap-2" id="spot-2-buttons-skip"></div>
+                            <div class="grid grid-cols-2 gap-1" id="spot-2-buttons-mulai"></div>
+                            <div class="grid grid-cols-2 gap-1" id="spot-2-buttons-standby"></div>
+                            <div class="grid grid-cols-2 gap-1" id="spot-2-buttons-skip"></div>
                         </div>
                     </div>
                 </div>
@@ -1088,9 +1088,9 @@
                 let staff = currentSpots[0][i];
                 if(staff) {
                     html0 += `<div class="bg-white p-2 rounded-xl border border-slate-200 shadow-2xs flex justify-between items-center"><div><strong class="text-slate-900 text-xs block">${i+1}. ${staff.name}</strong><span class="text-[10px] font-mono text-slate-400">NIK: ${staff.nik}</span></div><span id="greeter-timer-0-${i}" class="text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md">⏳ Standby Nonaktif</span></div>`;
-                    btnHtml0 += `<button onclick="startBuddySession(0, ${i})" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] py-1.5 px-0.5 rounded-lg font-semibold transition shadow-xs">Mulai (${i+1})</button>`;
-                    standbyHtml0 += `<button onclick="startStandbyTimer(0, ${i})" class="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] py-1 px-0.5 rounded-lg font-semibold transition shadow-xs">⏱️ Standby (${i+1})</button>`;
-                    skipHtml0 += `<button onclick="openSkipModal(0, ${i})" class="bg-amber-600 hover:bg-amber-700 text-white text-[10px] py-1 px-0.5 rounded-lg font-semibold transition shadow-xs">⏭️ Skip (${i+1})</button>`;
+                    btnHtml0 += `<button onclick="startBuddySession(0, ${i})" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] py-1.5 px-0.5 rounded-lg font-semibold transition shadow-xs cursor-pointer">Mulai (${i+1})</button>`;
+                    standbyHtml0 += `<button onclick="startStandbyTimer(0, ${i})" class="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] py-1 px-0.5 rounded-lg font-semibold transition shadow-xs cursor-pointer">⏱️ Standby (${i+1})</button>`;
+                    skipHtml0 += `<button onclick="openSkipModal(0, ${i})" class="bg-amber-600 hover:bg-amber-700 text-white text-[10px] py-1 px-0.5 rounded-lg font-semibold transition shadow-xs cursor-pointer">⏭️ Skip (${i+1})</button>`;
                 } else {
                     btnHtml0 += `<span></span>`;
                     standbyHtml0 += `<span></span>`;
@@ -1126,33 +1126,64 @@
 
             if (staff1) {
                 htmlStr += `<div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs flex justify-between items-center"><div><strong class="text-slate-900 text-xs block">1. ${staff1.name}</strong><span class="text-[11px] font-mono text-slate-400">NIK: ${staff1.nik}</span></div><span id="greeter-timer-${i}-0" class="text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md">⏳ Standby Nonaktif</span></div>`;
-                btnHtml += `<button onclick="startBuddySession(${i}, 0)" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition shadow-xs">Mulai (1)</button>`;
-                standbyHtml += `<button onclick="startStandbyTimer(${i}, 0)" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition shadow-xs">⏱️ Standby (1)</button>`;
-                skipHtml += `<button onclick="openSkipModal(${i}, 0)" class="bg-amber-600 hover:bg-amber-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition shadow-xs">⏭️ Skip (1)</button>`;
-            } else {
-                btnHtml += `<span></span>`;
-                standbyHtml += `<span></span>`;
-                skipHtml += `<span></span>`;
             }
-            
             if (staff2) {
                 htmlStr += `<div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs mt-1.5 flex justify-between items-center"><div><strong class="text-slate-900 text-xs block">2. ${staff2.name}</strong><span class="text-[11px] font-mono text-slate-400">NIK: ${staff2.nik}</span></div><span id="greeter-timer-${i}-1" class="text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md">⏳ Standby Nonaktif</span></div>`;
-                btnHtml += `<button onclick="startBuddySession(${i}, 1)" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition shadow-xs">Mulai (2)</button>`;
-                standbyHtml += `<button onclick="startStandbyTimer(${i}, 1)" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition shadow-xs">⏱️ Standby (2)</button>`;
-                skipHtml += `<button onclick="openSkipModal(${i}, 1)" class="bg-amber-600 hover:bg-amber-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition shadow-xs">⏭️ Skip (2)</button>`;
+            }
+
+            // Tombol Mulai (1) & (2) - Terpisah murni
+            if (staff1) {
+                btnHtml += `<button onclick="startBuddySession(${i}, 0)" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition shadow-xs cursor-pointer">Mulai (1)</button>`;
             } else {
                 btnHtml += `<span></span>`;
+            }
+            if (staff2) {
+                btnHtml += `<button onclick="startBuddySession(${i}, 1)" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition shadow-xs cursor-pointer">Mulai (2)</button>`;
+            } else {
+                btnHtml += `<span></span>`;
+            }
+
+            // Tombol Standby (1) & (2) - Terpisah murni
+            if (staff1) {
+                standbyHtml += `<button onclick="startStandbyTimer(${i}, 0)" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition shadow-xs cursor-pointer">⏱️ Standby (1)</button>`;
+            } else {
                 standbyHtml += `<span></span>`;
+            }
+            if (staff2) {
+                standbyHtml += `<button onclick="startStandbyTimer(${i}, 1)" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition shadow-xs cursor-pointer">⏱️ Standby (2)</button>`;
+            } else {
+                standbyHtml += `<span></span>`;
+            }
+
+            // Tombol Skip (1) & (2) - Terpisah murni
+            if (staff1) {
+                skipHtml += `<button onclick="openSkipModal(${i}, 0)" class="bg-amber-600 hover:bg-amber-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition shadow-xs cursor-pointer">⏭️ Skip (1)</button>`;
+            } else {
+                skipHtml += `<span></span>`;
+            }
+            if (staff2) {
+                skipHtml += `<button onclick="openSkipModal(${i}, 1)" class="bg-amber-600 hover:bg-amber-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition shadow-xs cursor-pointer">⏭️ Skip (2)</button>`;
+            } else {
                 skipHtml += `<span></span>`;
             }
             
             if(!staff1 && !staff2) {
                 htmlStr = `<p class="text-sm text-slate-400 italic">${isAfternoonCutOffTime() ? 'Selesai (Cut-off Jam 22:00 WIB)' : 'Belum ada petugas'}</p>`;
             }
+            
             if (el) el.innerHTML = htmlStr;
-            if (btnContainer) btnContainer.innerHTML = btnHtml;
-            if (standbyContainer) standbyContainer.innerHTML = standbyHtml;
-            if (skipContainer) skipContainer.innerHTML = skipHtml;
+            if (btnContainer) {
+                btnContainer.innerHTML = btnHtml;
+                btnContainer.className = "grid grid-cols-2 gap-1";
+            }
+            if (standbyContainer) {
+                standbyContainer.innerHTML = standbyHtml;
+                standbyContainer.className = "grid grid-cols-2 gap-1";
+            }
+            if (skipContainer) {
+                skipContainer.innerHTML = skipHtml;
+                skipContainer.className = "grid grid-cols-2 gap-1";
+            }
         }
         
         const qContainer = document.getElementById('queue-display');
