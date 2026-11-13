@@ -646,6 +646,7 @@
                     shiftAfternoonQueue = [];
                     spotShiftOrigin = [[null, null, null], [null, null], [null, null]];
                     spotStandbyEndTimes = [[null, null, null], [null, null], [null, null]];
+                    activityLogs = []; // <-- DITAMBAHKAN AGAR LOG HARIAN BERSIH SAAT GANTI HARI
                     
                     pushStateToFirebase();
                     updateDisplay();
@@ -1858,12 +1859,17 @@
     function renderLogs() {
         const tbody = document.getElementById('log-table-body');
         if (!tbody) return;
-        if (activityLogs.length === 0) {
+        
+        // FILTER AGAR TABEL WEB HANYA MENAMPILKAN AKTIVITAS HARI INI (WIB)
+        const todayStr = getWibDateString();
+        const todayLogs = activityLogs.filter(l => l.date === todayStr);
+
+        if (todayLogs.length === 0) {
             tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400 italic">Belum ada aktivitas tercatat hari ini.</td></tr>`;
             return;
         }
         tbody.innerHTML = '';
-        activityLogs.forEach(log => {
+        todayLogs.forEach(log => {
             const tr = document.createElement('tr');
             tr.className = 'hover:bg-slate-50/80 transition';
             tr.innerHTML = `
