@@ -620,6 +620,7 @@
                 pushStateToFirebase();
                 updateDisplay();
                 updateAttendanceStats();
+                renderLogs();
             }
             return;
         }
@@ -1109,7 +1110,7 @@
             skipContainer0.className = `grid grid-cols-${limitSpot1} gap-1`;
         }
 
-        // Render Titik 2 dan Titik 3
+        // Render Titik 2 dan Titik 3 (Diperbaiki agar id greeter-timer sesuai dengan baris index)
         for (let i = 1; i < 3; i++) {
             const el = document.getElementById(`spot-${i}`);
             const btnContainer = document.getElementById(`spot-${i}-buttons-mulai`);
