@@ -30,7 +30,8 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
     <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzx7E1umKZ5pi_Z40LyAGOx0p1EfYu22_Z_AYk86nCW7NITj6D7we_k6K81pfXLsPk_/exec";
+    // SCRIPT_URL Google Apps Script Deployment Terbaru Anda
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxV7gT9nBt9c7GoKEc8Xa-QqcG5k8sLNHe5JdgTuwP0R_CfF4TZ8rLY77iz5Qwnxa0p/exec";
 
     const firebaseConfig = {
         apiKey: "AIzaSyDJQOCIKvHgDCqbGDx9h49hJWWTTVzHH5s",
@@ -637,7 +638,6 @@
             if (val) {
                 const todayWib = getWibDateString();
                 
-                // VALIDASI PERGANTIAN HARI (OTOMATIS BERSIH JIKA TANGGAL BELUM ADA ATAU BERBEDA)
                 if (!val.date || val.date !== todayWib) {
                     currentSpots = [[null, null, null], [null, null], [null, null]];
                     activeQueue = [];
@@ -688,7 +688,6 @@
 
     // Interval pengecekan cut-off & timer standby setiap detik
     setInterval(() => {
-        // 1. CUT-OFF SHIFT PAGI (Jam 20:00 WIB)
         if (isMorningCutOffTime() && shiftMorningQueue.length > 0) {
             let stateChanged = false;
             const morningNiks = new Set(shiftMorningQueue.map(emp => emp.nik));
@@ -731,7 +730,6 @@
             }
         }
 
-        // 2. CUT-OFF TOKO / KESELURUHAN (Jam 22:00 WIB)
         if (isAfternoonCutOffTime()) {
             let hasActiveData = shiftAfternoonQueue.length > 0 || shiftMorningQueue.length > 0 || activeQueue.length > 0 || pausedQueue.length > 0;
             shiftAfternoonQueue = [];
@@ -756,7 +754,6 @@
             return;
         }
 
-        // Cek SMT izin jam (pausedQueue)
         if (pausedQueue && pausedQueue.length > 0) {
             const currentTime = Date.now();
             let updatedPausedQueue = [];
@@ -1255,9 +1252,7 @@
         const limitSpot1 = getMaxTitik1Slots();
         const currentTime = Date.now();
         
-        // ==========================================
         // RENDER TITIK 1
-        // ==========================================
         const el0 = document.getElementById('spot-0');
         const btnContainer0 = document.getElementById('spot-0-buttons');
         const standbyContainer0 = document.getElementById('spot-0-standby-buttons');
@@ -1323,9 +1318,7 @@
             }
         }
 
-        // ==========================================
         // RENDER TITIK 2 DAN TITIK 3
-        // ==========================================
         for (let i = 1; i < 3; i++) {
             const el = document.getElementById(`spot-${i}`);
             const btnContainer = document.getElementById(`spot-${i}-buttons-mulai`);
@@ -1433,9 +1426,7 @@
             }
         }
         
-        // ==========================================
         // RENDER ANTREAN CADANGAN
-        // ==========================================
         const qContainer = document.getElementById('queue-display');
         if (qContainer) {
             qContainer.innerHTML = '';
@@ -1888,46 +1879,115 @@
         });
     }
 
-    function getFilteredLogs() {
-        const period = document.getElementById('report-period').value;
-        const todayStr = getWibDateString();
-        if (period === 'daily') return activityLogs.filter(l => l.date === todayStr);
-        else if (period === 'weekly') {
-            const d = new Date();
-            d.setDate(d.getDate() - 7);
-            return activityLogs.filter(l => new Date(l.date) >= d);
-        } else {
-            return activityLogs.filter(l => l.date.startsWith(todayStr.substring(0, 7)));
+    // ==========================================================
+    // FUNGSI FETCH REKAP LANGSUNG DARI GOOGLE SPREADSHEET (GET)
+    // ==========================================================
+    async function fetchSpreadsheetLogs() {
+        if (!SCRIPT_URL) return [];
+        try {
+            const response = await fetch(SCRIPT_URL);
+            const result = await response.json();
+            const rawData = Array.isArray(result) ? result : (result.data || []);
+            
+            return rawData.map((item, idx) => {
+                let timestampStr = item.timestamp || "";
+                let datePart = "";
+                let timePart = "";
+                
+                if (timestampStr.includes(" ")) {
+                    let parts = timestampStr.split(" ");
+                    datePart = parts[0];
+                    timePart = parts[1];
+                } else {
+                    datePart = timestampStr.substring(0, 10);
+                    timePart = timestampStr.substring(11, 19);
+                }
+
+                return {
+                    No: idx + 1,
+                    date: datePart,
+                    time: timePart,
+                    staffName: item.nama || "",
+                    spot: item.point || "",
+                    shift: "AKTIF",
+                    duration: "-",
+                    reason: item.status || "",
+                    gps: "-",
+                    photo: "-"
+                };
+            });
+        } catch (err) {
+            console.error("Gagal mengambil data dari Spreadsheet:", err);
+            return [];
         }
     }
 
-    function exportExcel() {
-        const filtered = getFilteredLogs();
+    function filterLogsByPeriod(logs, period) {
+        const todayStr = getWibDateString();
+        if (period === 'daily') {
+            return logs.filter(l => l.date === todayStr);
+        } else if (period === 'weekly') {
+            const d = new Date();
+            d.setDate(d.getDate() - 7);
+            return logs.filter(l => new Date(l.date) >= d);
+        } else {
+            return logs.filter(l => l.date.startsWith(todayStr.substring(0, 7)));
+        }
+    }
+
+    async function exportExcel() {
+        const period = document.getElementById('report-period').value;
+        const allLogs = await fetchSpreadsheetLogs();
+        
+        if (allLogs.length === 0) {
+            showCustomAlert('Perhatian', 'Tidak ada data rekap pada Spreadsheet.');
+            return;
+        }
+        
+        const filtered = filterLogsByPeriod(allLogs, period);
+        
         if (filtered.length === 0) {
             showCustomAlert('Perhatian', 'Tidak ada data rekap pada periode ini.');
             return;
         }
+
         const dataToExport = filtered.map((l, idx) => ({
-            No: idx + 1, Tanggal: l.date, Waktu: l.time, Petugas: l.staffName, Titik: l.spot, Shift: l.shift, Durasi: l.duration, "Reason / Alasan": l.reason, GPS: l.gps, Foto: l.photo
+            No: idx + 1, 
+            Tanggal: l.date, 
+            Waktu: l.time, 
+            Petugas: l.staffName, 
+            Titik: l.spot, 
+            "Detail / Status": l.reason
         }));
+        
         const worksheet = XLSX.utils.json_to_sheet(dataToExport);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Rekap Buddy");
-        XLSX.writeFile(workbook, `Rekap_Buddy_${document.getElementById('report-period').value}.xlsx`);
+        XLSX.writeFile(workbook, `Rekap_Buddy_${period}.xlsx`);
         closeReportModal();
     }
 
-    function sendWhatsApp() {
-        const filtered = getFilteredLogs();
+    async function sendWhatsApp() {
         const period = document.getElementById('report-period').value;
-        if (filtered.length === 0) {
+        const allLogs = await fetchSpreadsheetLogs();
+        
+        if (allLogs.length === 0) {
             showCustomAlert('Perhatian', 'Tidak ada data rekap untuk dikirim.');
             return;
         }
+        
+        const filtered = filterLogsByPeriod(allLogs, period);
+        
+        if (filtered.length === 0) {
+            showCustomAlert('Perhatian', 'Tidak ada data rekap untuk periode ini.');
+            return;
+        }
+
         let text = `📋 *REKAP SESI BUDDY & SMT* (${period.toUpperCase()})\n\n`;
         filtered.forEach((l, i) => {
-            text += `${i+1}. [${l.date} ${l.time}] *${l.staffName}* di *${l.spot}*\n⏱️ Durasi: ${l.duration} | 📝 ${l.reason} | 📍 GPS: ${l.gps}\n\n`;
+            text += `${i+1}. [${l.date} ${l.time}] *${l.staffName}* di *${l.spot}*\n📝 ${l.reason}\n\n`;
         });
+        
         window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
         closeReportModal();
     }
