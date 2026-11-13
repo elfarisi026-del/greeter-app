@@ -106,6 +106,24 @@
     let liveStoreMap = null;
     let liveMarkers = [];
 
+    function sanitizeStandbyEndTimes(raw) {
+        let result = [[null, null, null], [null, null], [null, null]];
+        if (!raw) return result;
+        let rows = Array.isArray(raw) ? raw : Object.values(raw);
+        for (let s = 0; s < 3; s++) {
+            let row = rows[s];
+            if (row) {
+                let cols = Array.isArray(row) ? row : Object.values(row);
+                let maxP = s === 0 ? 3 : 2;
+                for (let p = 0; p < maxP; p++) {
+                    let val = cols[p];
+                    result[s][p] = (typeof val === 'number' && !isNaN(val)) ? val : null;
+                }
+            }
+        }
+        return result;
+    }
+
     function isAfternoonCutOffTime() {
         const now = new Date();
         return now.getHours() >= 22;
@@ -581,7 +599,9 @@
                 if (val.shiftMorningQueue) shiftMorningQueue = val.shiftMorningQueue;
                 if (val.shiftAfternoonQueue) shiftAfternoonQueue = val.shiftAfternoonQueue;
                 if (val.spotShiftOrigin) spotShiftOrigin = val.spotShiftOrigin;
-                if (val.spotStandbyEndTimes) spotStandbyEndTimes = val.spotStandbyEndTimes;
+                if (val.spotStandbyEndTimes) {
+                    spotStandbyEndTimes = sanitizeStandbyEndTimes(val.spotStandbyEndTimes);
+                }
                 if (val.activityLogs) activityLogs = val.activityLogs;
                 
                 updateDisplay();
@@ -647,12 +667,10 @@
         }
     }, 1000);
 
-function startStandbyTimer(spotIndex, staffPositionIndex) {
+    function startStandbyTimer(spotIndex, staffPositionIndex) {
         if (isAfternoonCutOffTime()) return;
         
-        if (typeof spotStandbyEndTimes === 'undefined' || !spotStandbyEndTimes) {
-            window.spotStandbyEndTimes = [[], [], []];
-        }
+        spotStandbyEndTimes = sanitizeStandbyEndTimes(spotStandbyEndTimes);
         if (!spotStandbyEndTimes[spotIndex]) {
             spotStandbyEndTimes[spotIndex] = [];
         }
@@ -710,17 +728,12 @@ function startStandbyTimer(spotIndex, staffPositionIndex) {
     }
 
     function updateGreeterStandbyTimersUI() {
-        if (!Array.isArray(spotStandbyEndTimes) || spotStandbyEndTimes.length < 3) {
-            spotStandbyEndTimes = [[null, null, null], [null, null], [null, null]];
-        }
+        spotStandbyEndTimes = sanitizeStandbyEndTimes(spotStandbyEndTimes);
 
         const limitSpot1 = getMaxTitik1Slots();
         const currentTime = Date.now();
 
         for (let s = 0; s < 3; s++) {
-            if (!Array.isArray(spotStandbyEndTimes[s])) {
-                spotStandbyEndTimes[s] = s === 0 ? [null, null, null] : [null, null];
-            }
             const maxP = s === 0 ? limitSpot1 : 2;
             for (let p = 0; p < maxP; p++) {
                 const endTime = spotStandbyEndTimes[s][p];
@@ -1049,41 +1062,43 @@ function startStandbyTimer(spotIndex, staffPositionIndex) {
         showCustomAlert("Berhasil", `Data SMT Shift ${mode.toUpperCase()} berhasil disimpan dan disinkronkan ke dalam antrean.`);
     }
 
-function updateAttendanceStats() {
-    const uniqueNik = new Set();
-    
-    function collectNiks(source) {
-        if (!source) return;
-        if (Array.isArray(source)) {
-            source.forEach(s => { if (s && s.nik) uniqueNik.add(s.nik); });
-        } else if (typeof source === 'object') {
-            Object.values(source).forEach(s => { if (s && s.nik) uniqueNik.add(s.nik); });
+    function updateAttendanceStats() {
+        const uniqueNik = new Set();
+        
+        function collectNiks(source) {
+            if (!source) return;
+            if (Array.isArray(source)) {
+                source.forEach(s => { if (s && s.nik) uniqueNik.add(s.nik); });
+            } else if (typeof source === 'object') {
+                Object.values(source).forEach(s => { if (s && s.nik) uniqueNik.add(s.nik); });
+            }
         }
+
+        collectNiks(shiftMorningQueue);
+        collectNiks(shiftAfternoonQueue);
+        collectNiks(activeQueue);
+        
+        if (Array.isArray(currentSpots)) {
+            currentSpots.forEach(spotGroup => {
+                collectNiks(spotGroup);
+            });
+        } else if (typeof currentSpots === 'object' && currentSpots !== null) {
+            Object.values(currentSpots).forEach(spotGroup => {
+                collectNiks(spotGroup);
+            });
+        }
+
+        const present = uniqueNik.size;
+        const off = employees.length - present;
+        const pEl = document.getElementById('stat-present');
+        const oEl = document.getElementById('stat-off');
+        if (pEl) pEl.innerText = present;
+        if (oEl) oEl.innerText = off >= 0 ? off : employees.length;
     }
 
-    collectNiks(shiftMorningQueue);
-    collectNiks(shiftAfternoonQueue);
-    collectNiks(activeQueue);
-    
-    if (Array.isArray(currentSpots)) {
-        currentSpots.forEach(spotGroup => {
-            collectNiks(spotGroup);
-        });
-    } else if (typeof currentSpots === 'object' && currentSpots !== null) {
-        Object.values(currentSpots).forEach(spotGroup => {
-            collectNiks(spotGroup);
-        });
-    }
+    function updateDisplay() {
+        spotStandbyEndTimes = sanitizeStandbyEndTimes(spotStandbyEndTimes);
 
-    const present = uniqueNik.size;
-    const off = employees.length - present;
-    const pEl = document.getElementById('stat-present');
-    const oEl = document.getElementById('stat-off');
-    if (pEl) pEl.innerText = present;
-    if (oEl) oEl.innerText = off >= 0 ? off : employees.length;
-}
-
-function updateDisplay() {
         if (isAfternoonCutOffTime()) {
             for(let s=0; s<3; s++) {
                 for(let p=0; p<currentSpots[s].length; p++) {
@@ -1094,6 +1109,7 @@ function updateDisplay() {
         }
 
         const limitSpot1 = getMaxTitik1Slots();
+        const currentTime = Date.now();
         
         // ==========================================
         // RENDER TITIK 1
@@ -1116,7 +1132,20 @@ function updateDisplay() {
             for(let i=0; i<limitSpot1; i++) {
                 let staff = currentSpots[0][i];
                 if(staff) {
-                    html0 += `<div class="bg-white p-2 rounded-xl border border-slate-200 shadow-2xs flex justify-between items-center"><div><strong class="text-slate-900 text-xs block">${i+1}. ${staff.name}</strong><span class="text-[10px] font-mono text-slate-400">NIK: ${staff.nik}</span></div><span id="greeter-timer-0-${i}" class="text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md">⏳ Standby Nonaktif</span></div>`;
+                    let endTime = (spotStandbyEndTimes[0] && spotStandbyEndTimes[0][i]) ? spotStandbyEndTimes[0][i] : null;
+                    let timerText = "⏳ Standby Nonaktif";
+                    let timerClass = "text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md";
+                    if (endTime) {
+                        let diffMs = endTime - currentTime;
+                        if (diffMs < 0) diffMs = 0;
+                        const totalSec = Math.floor(diffMs / 1000);
+                        const mins = String(Math.floor(totalSec / 60)).padStart(2, '0');
+                        const secs = String(totalSec % 60).padStart(2, '0');
+                        timerText = `⏳ ${mins}:${secs}`;
+                        timerClass = "text-[11px] font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-md";
+                    }
+
+                    html0 += `<div class="bg-white p-2 rounded-xl border border-slate-200 shadow-2xs flex justify-between items-center"><div><strong class="text-slate-900 text-xs block">${i+1}. ${staff.name}</strong><span class="text-[10px] font-mono text-slate-400">NIK: ${staff.nik}</span></div><span id="greeter-timer-0-${i}" class="${timerClass}">${timerText}</span></div>`;
                     btnHtml0 += `<button onclick="startBuddySession(0, ${i})" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] py-1.5 px-0.5 rounded-lg font-semibold transition shadow-xs cursor-pointer">Mulai (${i+1})</button>`;
                     
                     if (standbyContainer0) {
@@ -1167,10 +1196,34 @@ function updateDisplay() {
             let skipHtml = '';
 
             if (staff1) {
-                htmlStr += `<div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs flex justify-between items-center"><div><strong class="text-slate-900 text-xs block">1. ${staff1.name}</strong><span class="text-[11px] font-mono text-slate-400">NIK: ${staff1.nik}</span></div><span id="greeter-timer-${i}-0" class="text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md">⏳ Standby Nonaktif</span></div>`;
+                let endTime1 = (spotStandbyEndTimes[i] && spotStandbyEndTimes[i][0]) ? spotStandbyEndTimes[i][0] : null;
+                let text1 = "⏳ Standby Nonaktif";
+                let class1 = "text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md";
+                if (endTime1) {
+                    let diffMs = endTime1 - currentTime;
+                    if (diffMs < 0) diffMs = 0;
+                    const totalSec = Math.floor(diffMs / 1000);
+                    const mins = String(Math.floor(totalSec / 60)).padStart(2, '0');
+                    const secs = String(totalSec % 60).padStart(2, '0');
+                    text1 = `⏳ ${mins}:${secs}`;
+                    class1 = "text-[11px] font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-md";
+                }
+                htmlStr += `<div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs flex justify-between items-center"><div><strong class="text-slate-900 text-xs block">1. ${staff1.name}</strong><span class="text-[11px] font-mono text-slate-400">NIK: ${staff1.nik}</span></div><span id="greeter-timer-${i}-0" class="${class1}">${text1}</span></div>`;
             }
             if (staff2) {
-                htmlStr += `<div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs mt-1.5 flex justify-between items-center"><div><strong class="text-slate-900 text-xs block">2. ${staff2.name}</strong><span class="text-[11px] font-mono text-slate-400">NIK: ${staff2.nik}</span></div><span id="greeter-timer-${i}-1" class="text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md">⏳ Standby Nonaktif</span></div>`;
+                let endTime2 = (spotStandbyEndTimes[i] && spotStandbyEndTimes[i][1]) ? spotStandbyEndTimes[i][1] : null;
+                let text2 = "⏳ Standby Nonaktif";
+                let class2 = "text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md";
+                if (endTime2) {
+                    let diffMs = endTime2 - currentTime;
+                    if (diffMs < 0) diffMs = 0;
+                    const totalSec = Math.floor(diffMs / 1000);
+                    const mins = String(Math.floor(totalSec / 60)).padStart(2, '0');
+                    const secs = String(totalSec % 60).padStart(2, '0');
+                    text2 = `⏳ ${mins}:${secs}`;
+                    class2 = "text-[11px] font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-md";
+                }
+                htmlStr += `<div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs mt-1.5 flex justify-between items-center"><div><strong class="text-slate-900 text-xs block">2. ${staff2.name}</strong><span class="text-[11px] font-mono text-slate-400">NIK: ${staff2.nik}</span></div><span id="greeter-timer-${i}-1" class="${class2}">${text2}</span></div>`;
             }
 
             if (staff1) {
@@ -1256,6 +1309,7 @@ function updateDisplay() {
         updateGreeterStandbyTimersUI();
         updateAttendanceStats();
     }
+
     function requestRotateVolleyball() {
         if (isAfternoonCutOffTime()) {
             showCustomAlert('Waktu Cut-Off', 'Pukul 22.00 WIB telah tercapai. Rotasi dihentikan.');
