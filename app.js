@@ -917,7 +917,7 @@
             document.getElementById('report-pin-section').classList.add('hidden');
             document.getElementById('report-content-section').classList.remove('hidden');
         } else {
-            document.getElementById('report-pin-error').classList.remove('hidden');
+            document.getElementById('report-pin-error').classList.add('hidden');
         }
     }
 
@@ -1646,7 +1646,7 @@
     function sendWhatsApp() {
         const filtered = getFilteredLogs();
         const period = document.getElementById('report-period').value;
-        if (filtered.length ===, 0) {
+        if (filtered.length === 0) {
             showCustomAlert('Perhatian', 'Tidak ada data rekap untuk dikirim.');
             return;
         }
