@@ -1075,7 +1075,7 @@ function updateAttendanceStats() {
     if (oEl) oEl.innerText = off >= 0 ? off : employees.length;
 }
 
-    function updateDisplay() {
+function updateDisplay() {
         if (isAfternoonCutOffTime()) {
             for(let s=0; s<3; s++) {
                 for(let p=0; p<currentSpots[s].length; p++) {
@@ -1123,7 +1123,7 @@ function updateAttendanceStats() {
             skipContainer0.className = `grid grid-cols-${limitSpot1} gap-1`;
         }
 
-        // Render Titik 2 dan Titik 3 (Diperbaiki agar id greeter-timer sesuai dengan baris index)
+        // Render Titik 2 dan Titik 3
         for (let i = 1; i < 3; i++) {
             const el = document.getElementById(`spot-${i}`);
             const btnContainer = document.getElementById(`spot-${i}-buttons-mulai`);
@@ -1145,7 +1145,6 @@ function updateAttendanceStats() {
                 htmlStr += `<div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs mt-1.5 flex justify-between items-center"><div><strong class="text-slate-900 text-xs block">2. ${staff2.name}</strong><span class="text-[11px] font-mono text-slate-400">NIK: ${staff2.nik}</span></div><span id="greeter-timer-${i}-1" class="text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md">⏳ Standby Nonaktif</span></div>`;
             }
 
-            // Tombol Mulai (1) & (2)
             if (staff1) {
                 btnHtml += `<button onclick="startBuddySession(${i}, 0)" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition shadow-xs cursor-pointer">Mulai (1)</button>`;
             } else {
@@ -1157,7 +1156,6 @@ function updateAttendanceStats() {
                 btnHtml += `<span></span>`;
             }
 
-            // Tombol Standby (1) & (2) - Diperbaiki total agar memanggil startStandbyTimer dengan argumen index yang benar
             if (staff1) {
                 standbyHtml += `<button onclick="startStandbyTimer(${i}, 0)" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition shadow-xs cursor-pointer">⏱️ Standby (1)</button>`;
             } else {
@@ -1169,7 +1167,6 @@ function updateAttendanceStats() {
                 standbyHtml += `<span></span>`;
             }
 
-            // Tombol Skip (1) & (2)
             if (staff1) {
                 skipHtml += `<button onclick="openSkipModal(${i}, 0)" class="bg-amber-600 hover:bg-amber-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition shadow-xs cursor-pointer">⏭️ Skip (1)</button>`;
             } else {
