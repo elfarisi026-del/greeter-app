@@ -987,13 +987,11 @@
             shiftAfternoonQueue = [...selectedStaffQueue];
         }
         
-        // Gabungkan shift pagi, shift siang, dan pastikan NIK unik untuk antrean aktif
         const combinedQueueMap = new Map();
         [...shiftMorningQueue, ...shiftAfternoonQueue, ...activeQueue].forEach(staff => {
             if (staff && staff.nik) combinedQueueMap.set(staff.nik, staff);
         });
 
-        // Keluarkan staf yang sedang aktif di titik agar tidak dobel masuk antrean bawah
         currentSpots.forEach(spotGroup => {
             spotGroup.forEach(staff => {
                 if (staff && staff.nik) combinedQueueMap.delete(staff.nik);
@@ -1038,7 +1036,6 @@
     function updateAttendanceStats() {
         const uniqueNik = new Set();
         
-        // Kumpulkan dari semua sumber data dengan aman
         if (Array.isArray(shiftMorningQueue)) {
             shiftMorningQueue.forEach(s => { if (s && s.nik) uniqueNik.add(s.nik); });
         }
@@ -1075,41 +1072,44 @@
         }
 
         const limitSpot1 = getMaxTitik1Slots();
+        
+        // Render Titik 1
         const el0 = document.getElementById('spot-0');
         const btnContainer0 = document.getElementById('spot-0-buttons');
         const standbyContainer0 = document.getElementById('spot-0-standby-buttons');
         const skipContainer0 = document.getElementById('spot-0-skip-buttons');
-        if (!el0) return;
-        
-        let html0 = '';
-        let btnHtml0 = '';
-        let standbyHtml0 = '';
-        let skipHtml0 = '';
-        
-        for(let i=0; i<limitSpot1; i++) {
-            let staff = currentSpots[0][i];
-            if(staff) {
-                html0 += `<div class="bg-white p-2 rounded-xl border border-slate-200 shadow-2xs flex justify-between items-center"><div><strong class="text-slate-900 text-xs block">${i+1}. ${staff.name}</strong><span class="text-[10px] font-mono text-slate-400">NIK: ${staff.nik}</span></div><span id="greeter-timer-0-${i}" class="text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md">⏳ Standby Nonaktif</span></div>`;
-                btnHtml0 += `<button onclick="startBuddySession(0, ${i})" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] py-1.5 px-0.5 rounded-lg font-semibold transition shadow-xs">Mulai (${i+1})</button>`;
-                standbyHtml0 += `<button onclick="startStandbyTimer(0, ${i})" class="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] py-1 px-0.5 rounded-lg font-semibold transition shadow-xs">⏱️ Standby (${i+1})</button>`;
-                skipHtml0 += `<button onclick="openSkipModal(0, ${i})" class="bg-amber-600 hover:bg-amber-700 text-white text-[10px] py-1 px-0.5 rounded-lg font-semibold transition shadow-xs">⏭️ Skip (${i+1})</button>`;
-            } else {
-                btnHtml0 += `<span></span>`;
-                standbyHtml0 += `<span></span>`;
-                skipHtml0 += `<span></span>`;
+        if (el0) {
+            let html0 = '';
+            let btnHtml0 = '';
+            let standbyHtml0 = '';
+            let skipHtml0 = '';
+            
+            for(let i=0; i<limitSpot1; i++) {
+                let staff = currentSpots[0][i];
+                if(staff) {
+                    html0 += `<div class="bg-white p-2 rounded-xl border border-slate-200 shadow-2xs flex justify-between items-center"><div><strong class="text-slate-900 text-xs block">${i+1}. ${staff.name}</strong><span class="text-[10px] font-mono text-slate-400">NIK: ${staff.nik}</span></div><span id="greeter-timer-0-${i}" class="text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md">⏳ Standby Nonaktif</span></div>`;
+                    btnHtml0 += `<button onclick="startBuddySession(0, ${i})" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] py-1.5 px-0.5 rounded-lg font-semibold transition shadow-xs">Mulai (${i+1})</button>`;
+                    standbyHtml0 += `<button onclick="startStandbyTimer(0, ${i})" class="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] py-1 px-0.5 rounded-lg font-semibold transition shadow-xs">⏱️ Standby (${i+1})</button>`;
+                    skipHtml0 += `<button onclick="openSkipModal(0, ${i})" class="bg-amber-600 hover:bg-amber-700 text-white text-[10px] py-1 px-0.5 rounded-lg font-semibold transition shadow-xs">⏭️ Skip (${i+1})</button>`;
+                } else {
+                    btnHtml0 += `<span></span>`;
+                    standbyHtml0 += `<span></span>`;
+                    skipHtml0 += `<span></span>`;
+                }
             }
+            if(!currentSpots[0].some(s => s !== null)) {
+                html0 = `<p class="text-sm text-slate-400 italic">${isAfternoonCutOffTime() ? 'Selesai (Cut-off Jam 22:00 WIB)' : 'Belum ada petugas'}</p>`;
+            }
+            el0.innerHTML = html0;
+            btnContainer0.innerHTML = btnHtml0;
+            btnContainer0.className = `grid grid-cols-${limitSpot1} gap-1`;
+            standbyContainer0.innerHTML = standbyHtml0;
+            standbyContainer0.className = `grid grid-cols-${limitSpot1} gap-1`;
+            skipContainer0.innerHTML = skipHtml0;
+            skipContainer0.className = `grid grid-cols-${limitSpot1} gap-1`;
         }
-        if(!currentSpots[0].some(s => s !== null)) {
-            html0 = `<p class="text-sm text-slate-400 italic">${isAfternoonCutOffTime() ? 'Selesai (Cut-off Jam 22:00 WIB)' : 'Belum ada petugas'}</p>`;
-        }
-        el0.innerHTML = html0;
-        btnContainer0.innerHTML = btnHtml0;
-        btnContainer0.className = `grid grid-cols-${limitSpot1} gap-1`;
-        standbyContainer0.innerHTML = standbyHtml0;
-        standbyContainer0.className = `grid grid-cols-${limitSpot1} gap-1`;
-        skipContainer0.innerHTML = skipHtml0;
-        skipContainer0.className = `grid grid-cols-${limitSpot1} gap-1`;
 
+        // Render Titik 2 dan Titik 3
         for (let i = 1; i < 3; i++) {
             const el = document.getElementById(`spot-${i}`);
             const btnContainer = document.getElementById(`spot-${i}-buttons-mulai`);
