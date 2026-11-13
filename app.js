@@ -107,6 +107,38 @@
     let liveStoreMap = null;
     let liveMarkers = [];
 
+    // ==========================================
+    // HELPER WAKTU MUTLAK WIB (ASIA/JAKARTA)
+    // ==========================================
+    function getWibHour() {
+        const now = new Date();
+        return parseInt(now.toLocaleString("id-ID", { 
+            timeZone: "Asia/Jakarta", 
+            hour: "2-digit", 
+            hour12: false 
+        }));
+    }
+
+    function getWibDateString() {
+        const now = new Date();
+        const options = { timeZone: "Asia/Jakarta", year: 'numeric', month: '2-digit', day: '2-digit' };
+        const parts = new Intl.DateTimeFormat('id-ID', options).formatToParts(now);
+        const y = parts.find(p => p.type === 'year').value;
+        const m = parts.find(p => p.type === 'month').value;
+        const d = parts.find(p => p.type === 'day').value;
+        return `${y}-${m}-${d}`;
+    }
+
+    function getWibTimeString() {
+        const now = new Date();
+        return now.toLocaleTimeString('id-ID', { 
+            timeZone: "Asia/Jakarta", 
+            hour: '2-digit', 
+            minute: '2-digit', 
+            hour12: false 
+        });
+    }
+
     function sanitizeStandbyEndTimes(raw) {
         let result = [[null, null, null], [null, null], [null, null]];
         if (!raw) return result;
@@ -126,18 +158,18 @@
     }
 
     function isMorningCutOffTime() {
-        const now = new Date();
-        return now.getHours() >= 20;
+        return getWibHour() >= 20;
     }
 
     function isAfternoonCutOffTime() {
-        const now = new Date();
-        return now.getHours() >= 22;
+        return getWibHour() >= 22;
     }
 
     function isWeekendToday() {
-        const day = new Date().getDay();
-        return day === 0 || day === 6;
+        const now = new Date();
+        // Mendapatkan day of week di zona waktu WIB
+        const dayStr = now.toLocaleDateString('en-US', { timeZone: 'Asia/Jakarta', weekday: 'short' });
+        return dayStr === 'Sat' || dayStr === 'Sun';
     }
 
     function getMaxTitik1Slots() {
@@ -297,7 +329,6 @@
                             </div>
                         </div>
                         <div class="space-y-2 mt-4 pt-3 border-t border-slate-200/60">
-                            <!-- Susunan baru: Standby di atas, Mulai di tengah, Skip di bawah -->
                             <div class="grid grid-cols-3 gap-1" id="spot-0-standby-buttons"></div>
                             <div class="grid grid-cols-3 gap-1" id="spot-0-buttons"></div>
                             <div class="grid grid-cols-3 gap-1" id="spot-0-skip-buttons"></div>
@@ -317,7 +348,6 @@
                             </div>
                         </div>
                         <div class="space-y-2 mt-4 pt-3 border-t border-slate-200/60">
-                            <!-- Susunan baru: Standby di atas, Mulai di tengah, Skip di bawah -->
                             <div class="grid grid-cols-2 gap-1" id="spot-1-buttons-standby"></div>
                             <div class="grid grid-cols-2 gap-1" id="spot-1-buttons-mulai"></div>
                             <div class="grid grid-cols-2 gap-1" id="spot-1-buttons-skip"></div>
@@ -337,7 +367,6 @@
                             </div>
                         </div>
                         <div class="space-y-2 mt-4 pt-3 border-t border-slate-200/60">
-                            <!-- Susunan baru: Standby di atas, Mulai di tengah, Skip di bawah -->
                             <div class="grid grid-cols-2 gap-1" id="spot-2-buttons-standby"></div>
                             <div class="grid grid-cols-2 gap-1" id="spot-2-buttons-mulai"></div>
                             <div class="grid grid-cols-2 gap-1" id="spot-2-buttons-skip"></div>
@@ -573,7 +602,8 @@
         </div>
     `;
 
-        document.getElementById('current-date').innerText = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        const nowWibText = new Date().toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        document.getElementById('current-date').innerText = nowWibText;
     }
 
     document.addEventListener("DOMContentLoaded", () => {
@@ -637,6 +667,7 @@
         });
     }
 
+    // Interval utama untuk mengecek cutoff & timer standby
     setInterval(() => {
         // 1. CUT-OFF SHIFT PAGI (Jam 20:00 WIB)
         if (isMorningCutOffTime() && shiftMorningQueue.length > 0) {
@@ -683,16 +714,18 @@
 
         // 2. CUT-OFF TOKO / KESELURUHAN (Jam 22:00 WIB)
         if (isAfternoonCutOffTime()) {
+            let hasActiveData = shiftAfternoonQueue.length > 0 || shiftMorningQueue.length > 0 || activeQueue.length > 0 || pausedQueue.length > 0;
             shiftAfternoonQueue = [];
             shiftMorningQueue = [];
             activeQueue = [];
             pausedQueue = [];
-            let stateChanged = false;
+            let stateChanged = hasActiveData;
             for(let s=0; s<3; s++) {
                 for(let p=0; p<currentSpots[s].length; p++) {
                     if(currentSpots[s][p] !== null) stateChanged = true;
                     currentSpots[s][p] = null;
                     spotStandbyEndTimes[s][p] = null;
+                    spotShiftOrigin[s][p] = null;
                 }
             }
             if(stateChanged) {
@@ -773,10 +806,10 @@
         if (!staff) return;
 
         const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
-        const timeNow = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        const timeNow = getWibTimeString();
 
         const logData = {
-            date: new Date().toISOString().split('T')[0],
+            date: getWibDateString(),
             time: timeNow,
             staffName: staff.name,
             spot: spotNames[spotIndex],
@@ -1106,14 +1139,12 @@
             if (staff && staff.nik) combinedQueueMap.set(staff.nik, staff);
         });
 
-        // Kecualikan SMT yang sedang aktif di titik
         currentSpots.forEach(spotGroup => {
             spotGroup.forEach(staff => {
                 if (staff && staff.nik) combinedQueueMap.delete(staff.nik);
             });
         });
 
-        // Kecualikan SMT yang sedang di-pause (izin jam)
         if (pausedQueue && pausedQueue.length > 0) {
             pausedQueue.forEach(item => {
                 if (item && item.staff && item.staff.nik) combinedQueueMap.delete(item.staff.nik);
@@ -1620,10 +1651,10 @@
 
             const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
             const staff = previousStaffPositionBackup.staff;
-            const timeNow = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+            const timeNow = getWibTimeString();
 
             const logData = {
-                date: new Date().toISOString().split('T')[0],
+                date: getWibDateString(),
                 time: timeNow,
                 staffName: staff.name,
                 spot: spotNames[previousStaffPositionBackup.spotIndex],
@@ -1681,10 +1712,10 @@
 
         const hasPhoto = document.getElementById('buddy-photo').files.length > 0 ? "Ada Foto" : "Tanpa Foto";
         const gpsStr = staffLatitude ? `${staffLatitude.toFixed(5)}, ${staffLongitude.toFixed(5)}` : "Layout Kotwis";
-        const timeNow = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        const timeNow = getWibTimeString();
 
         const logData = {
-            date: new Date().toISOString().split('T')[0],
+            date: getWibDateString(),
             time: timeNow,
             staffName: staff.name,
             spot: spotNames[activeSpotIndex],
@@ -1735,7 +1766,7 @@
         const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
         const category = document.getElementById('skip-reason-category').value;
         const detail = document.getElementById('skip-reason-detail').value || '-';
-        const timeNow = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        const timeNow = getWibTimeString();
 
         let hoursToAdd = 0;
         if (category === '1_Jam') hoursToAdd = 1;
@@ -1743,12 +1774,11 @@
         else if (category === '3_Jam') hoursToAdd = 3;
 
         if (hoursToAdd > 0) {
-            // SMT dikeluarkan dari antrean sementara selama durasi jam tertentu
             const resumeTime = Date.now() + (hoursToAdd * 60 * 60 * 1000);
             pausedQueue.push({ staff: staff, resumeTime: resumeTime });
 
             const logData = {
-                date: new Date().toISOString().split('T')[0],
+                date: getWibDateString(),
                 time: timeNow,
                 staffName: staff.name,
                 spot: spotNames[skipSpotIndex],
@@ -1761,9 +1791,8 @@
             activityLogs.unshift(logData);
             syncLogToSpreadsheet(logData);
         } else {
-            // Skip standar: SMT langsung dipindah ke urutan paling bawah activeQueue
             const logData = {
-                date: new Date().toISOString().split('T')[0],
+                date: getWibDateString(),
                 time: timeNow,
                 staffName: staff.name,
                 spot: spotNames[skipSpotIndex],
@@ -1842,7 +1871,7 @@
 
     function getFilteredLogs() {
         const period = document.getElementById('report-period').value;
-        const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = getWibDateString();
         if (period === 'daily') return activityLogs.filter(l => l.date === todayStr);
         else if (period === 'weekly') {
             const d = new Date();
