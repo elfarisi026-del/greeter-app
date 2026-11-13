@@ -79,7 +79,7 @@
 
     let activeQueue = []; 
     let currentSpots = [[null, null, null], [null, null], [null, null]]; 
-    let spotStandbyEndTimes = [[null, null, null], [null, null], [null, null]]; // Menyimpan waktu berakhir timer hitung mundur standby (timestamp)
+    let spotStandbyEndTimes = [[null, null, null], [null, null], [null, null]]; 
     let spotShiftOrigin = [[null, null, null], [null, null], [null, null]]; 
     let shiftMorningQueue = [];
     let shiftAfternoonQueue = [];
@@ -621,7 +621,6 @@
         });
     }
 
-    // Interval pengecekan timer hitung mundur standby
     setInterval(() => {
         if (isAfternoonCutOffTime()) {
             shiftAfternoonQueue = [];
@@ -653,7 +652,6 @@
                 const staff = currentSpots[s][p];
                 const endTime = spotStandbyEndTimes[s][p];
 
-                // Jika timer standby aktif dan sudah habis waktunya
                 if (staff && endTime && currentTime >= endTime) {
                     autoRotateStandbyGreeter(s, p);
                     stateUpdated = true;
@@ -671,7 +669,6 @@
         const staff = currentSpots[spotIndex][staffPositionIndex];
         if (!staff) return;
 
-        // Set waktu berakhir 30 menit dari sekarang
         const THIRTY_MINUTES_MS = 30 * 60 * 1000;
         spotStandbyEndTimes[spotIndex][staffPositionIndex] = Date.now() + THIRTY_MINUTES_MS;
 
@@ -709,7 +706,7 @@
             const isMorningStaff = shiftMorningQueue.some(emp => emp.nik === nextInQueue.nik);
             spotShiftOrigin[spotIndex][staffPositionIndex] = isMorningStaff ? 'pagi' : 'siang';
             triggerNextGreeterNotification(nextInQueue.name, spotNames[spotIndex]);
-            spotStandbyEndTimes[spotIndex][staffPositionIndex] = null; // Reset timer standby untuk petugas baru
+            spotStandbyEndTimes[spotIndex][staffPositionIndex] = null;
         } else {
             currentSpots[spotIndex][staffPositionIndex] = null;
             spotStandbyEndTimes[spotIndex][staffPositionIndex] = null;
@@ -1028,7 +1025,7 @@
                         currentSpots[s][p] = activeQueue[qIndex];
                         const isMorningStaff = shiftMorningQueue.some(emp => emp.nik === activeQueue[qIndex].nik);
                         spotShiftOrigin[s][p] = isMorningStaff ? 'pagi' : 'siang';
-                        spotStandbyEndTimes[s][p] = null; // Reset timer standby
+                        spotStandbyEndTimes[s][p] = null;
                         qIndex++;
                     }
                 }
@@ -1238,7 +1235,7 @@
         currentSpots[lastItem.spot][lastItem.pos] = chosenStaff;
         const isMorningStaff = shiftMorningQueue.some(emp => emp.nik === chosenStaff.nik);
         spotShiftOrigin[lastItem.spot][lastItem.pos] = isMorningStaff ? 'pagi' : 'siang';
-        spotStandbyEndTimes[lastItem.spot][lastItem.pos] = null; // Reset standby untuk petugas baru
+        spotStandbyEndTimes[lastItem.spot][lastItem.pos] = null;
         
         if (chosenStaff) {
             triggerNextGreeterNotification(chosenStaff.name, ["Main Entrance", "CarPark / CP", "HomeGallery / HG"][lastItem.spot]);
@@ -1263,7 +1260,6 @@
         const staff = currentSpots[spotIndex][staffPositionIndex];
         activeSessionStaff = staff;
 
-        // Reset timer standby karena SMT klik Mulai
         spotStandbyEndTimes[spotIndex][staffPositionIndex] = null;
 
         localActiveSession = { spotIndex, staffPositionIndex, staff, startTime: Date.now() };
@@ -1512,7 +1508,6 @@
         renderLogs();
         closeSkipModal();
 
-        // Reset timer standby karena SMT melakukan skip
         spotStandbyEndTimes[skipSpotIndex][skipStaffIndexInSpot] = null;
 
         if (activeQueue.length > 0) {
