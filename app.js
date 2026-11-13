@@ -1143,7 +1143,7 @@
                 btnHtml += `<span></span>`;
             }
 
-            // Tombol Standby (1) & (2) - Diperbaiki agar memanggil startStandbyTimer dengan argumen index yang benar
+            // Tombol Standby (1) & (2) - Diperbaiki total agar memanggil startStandbyTimer dengan argumen index yang benar
             if (staff1) {
                 standbyHtml += `<button onclick="startStandbyTimer(${i}, 0)" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition shadow-xs cursor-pointer">⏱️ Standby (1)</button>`;
             } else {
@@ -1201,7 +1201,7 @@
             }
         }
         updateGreeterStandbyTimersUI();
-        updateAttendanceStats(); // Memastikan statistik update otomatis saat render ulang
+        updateAttendanceStats();
     }
 
     function requestRotateVolleyball() {
