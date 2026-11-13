@@ -701,32 +701,39 @@
         renderLogs();
     }
 
-    function updateGreeterStandbyTimersUI() {
-        const limitSpot1 = getMaxTitik1Slots();
-        const currentTime = Date.now();
+function updateGreeterStandbyTimersUI() {
+    if (!Array.isArray(spotStandbyEndTimes) || spotStandbyEndTimes.length < 3) {
+        spotStandbyEndTimes = [[null, null, null], [null, null], [null, null]];
+    }
 
-        for (let s = 0; s < 3; s++) {
-            const maxP = s === 0 ? limitSpot1 : 2;
-            for (let p = 0; p < maxP; p++) {
-                const endTime = spotStandbyEndTimes[s][p];
-                const timerSpan = document.getElementById(`greeter-timer-${s}-${p}`);
-                if (timerSpan) {
-                    if (endTime) {
-                        let diffMs = endTime - currentTime;
-                        if (diffMs < 0) diffMs = 0;
-                        const totalSec = Math.floor(diffMs / 1000);
-                        const mins = String(Math.floor(totalSec / 60)).padStart(2, '0');
-                        const secs = String(totalSec % 60).padStart(2, '0');
-                        timerSpan.innerText = `⏳ ${mins}:${secs}`;
-                        timerSpan.className = "text-[11px] font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-md";
-                    } else {
-                        timerSpan.innerText = `⏳ Standby Nonaktif`;
-                        timerSpan.className = "text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md";
-                    }
+    const limitSpot1 = getMaxTitik1Slots();
+    const currentTime = Date.now();
+
+    for (let s = 0; s < 3; s++) {
+        if (!Array.isArray(spotStandbyEndTimes[s])) {
+            spotStandbyEndTimes[s] = s === 0 ? [null, null, null] : [null, null];
+        }
+        const maxP = s === 0 ? limitSpot1 : 2;
+        for (let p = 0; p < maxP; p++) {
+            const endTime = spotStandbyEndTimes[s][p];
+            const timerSpan = document.getElementById(`greeter-timer-${s}-${p}`);
+            if (timerSpan) {
+                if (endTime) {
+                    let diffMs = endTime - currentTime;
+                    if (diffMs < 0) diffMs = 0;
+                    const totalSec = Math.floor(diffMs / 1000);
+                    const mins = String(Math.floor(totalSec / 60)).padStart(2, '0');
+                    const secs = String(totalSec % 60).padStart(2, '0');
+                    timerSpan.innerText = `⏳ ${mins}:${secs}`;
+                    timerSpan.className = "text-[11px] font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-md";
+                } else {
+                    timerSpan.innerText = `⏳ Standby Nonaktif`;
+                    timerSpan.className = "text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md";
                 }
             }
         }
     }
+}
 
     function triggerNextGreeterNotification(staffName, spotName) {
         if (isAfternoonCutOffTime()) return;
@@ -1034,33 +1041,39 @@
         showCustomAlert("Berhasil", `Data SMT Shift ${mode.toUpperCase()} berhasil disimpan dan disinkronkan ke dalam antrean.`);
     }
 
-    function updateAttendanceStats() {
-        const uniqueNik = new Set();
-        
-        if (Array.isArray(shiftMorningQueue)) {
-            shiftMorningQueue.forEach(s => { if (s && s.nik) uniqueNik.add(s.nik); });
+function updateAttendanceStats() {
+    const uniqueNik = new Set();
+    
+    function collectNiks(source) {
+        if (!source) return;
+        if (Array.isArray(source)) {
+            source.forEach(s => { if (s && s.nik) uniqueNik.add(s.nik); });
+        } else if (typeof source === 'object') {
+            Object.values(source).forEach(s => { if (s && s.nik) uniqueNik.add(s.nik); });
         }
-        if (Array.isArray(shiftAfternoonQueue)) {
-            shiftAfternoonQueue.forEach(s => { if (s && s.nik) uniqueNik.add(s.nik); });
-        }
-        if (Array.isArray(activeQueue)) {
-            activeQueue.forEach(s => { if (s && s.nik) uniqueNik.add(s.nik); });
-        }
-        if (Array.isArray(currentSpots)) {
-            currentSpots.forEach(spotGroup => {
-                if (Array.isArray(spotGroup)) {
-                    spotGroup.forEach(staff => { if (staff && staff.nik) uniqueNik.add(staff.nik); });
-                }
-            });
-        }
-
-        const present = uniqueNik.size;
-        const off = employees.length - present;
-        const pEl = document.getElementById('stat-present');
-        const oEl = document.getElementById('stat-off');
-        if (pEl) pEl.innerText = present;
-        if (oEl) oEl.innerText = off >= 0 ? off : employees.length;
     }
+
+    collectNiks(shiftMorningQueue);
+    collectNiks(shiftAfternoonQueue);
+    collectNiks(activeQueue);
+    
+    if (Array.isArray(currentSpots)) {
+        currentSpots.forEach(spotGroup => {
+            collectNiks(spotGroup);
+        });
+    } else if (typeof currentSpots === 'object' && currentSpots !== null) {
+        Object.values(currentSpots).forEach(spotGroup => {
+            collectNiks(spotGroup);
+        });
+    }
+
+    const present = uniqueNik.size;
+    const off = employees.length - present;
+    const pEl = document.getElementById('stat-present');
+    const oEl = document.getElementById('stat-off');
+    if (pEl) pEl.innerText = present;
+    if (oEl) oEl.innerText = off >= 0 ? off : employees.length;
+}
 
     function updateDisplay() {
         if (isAfternoonCutOffTime()) {
