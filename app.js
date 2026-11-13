@@ -78,6 +78,7 @@
     ];
 
     let activeQueue = []; 
+    let pausedQueue = []; 
     let currentSpots = [[null, null, null], [null, null], [null, null]]; 
     let spotStandbyEndTimes = [[null, null, null], [null, null], [null, null]]; 
     let spotShiftOrigin = [[null, null, null], [null, null], [null, null]]; 
@@ -122,6 +123,11 @@
             }
         }
         return result;
+    }
+
+    function isMorningCutOffTime() {
+        const now = new Date();
+        return now.getHours() >= 20;
     }
 
     function isAfternoonCutOffTime() {
@@ -291,8 +297,9 @@
                             </div>
                         </div>
                         <div class="space-y-2 mt-4 pt-3 border-t border-slate-200/60">
-                            <div class="grid grid-cols-3 gap-1" id="spot-0-buttons"></div>
+                            <!-- Susunan baru: Standby di atas, Mulai di tengah, Skip di bawah -->
                             <div class="grid grid-cols-3 gap-1" id="spot-0-standby-buttons"></div>
+                            <div class="grid grid-cols-3 gap-1" id="spot-0-buttons"></div>
                             <div class="grid grid-cols-3 gap-1" id="spot-0-skip-buttons"></div>
                         </div>
                     </div>
@@ -310,8 +317,9 @@
                             </div>
                         </div>
                         <div class="space-y-2 mt-4 pt-3 border-t border-slate-200/60">
-                            <div class="grid grid-cols-2 gap-1" id="spot-1-buttons-mulai"></div>
+                            <!-- Susunan baru: Standby di atas, Mulai di tengah, Skip di bawah -->
                             <div class="grid grid-cols-2 gap-1" id="spot-1-buttons-standby"></div>
+                            <div class="grid grid-cols-2 gap-1" id="spot-1-buttons-mulai"></div>
                             <div class="grid grid-cols-2 gap-1" id="spot-1-buttons-skip"></div>
                         </div>
                     </div>
@@ -329,8 +337,9 @@
                             </div>
                         </div>
                         <div class="space-y-2 mt-4 pt-3 border-t border-slate-200/60">
-                            <div class="grid grid-cols-2 gap-1" id="spot-2-buttons-mulai"></div>
+                            <!-- Susunan baru: Standby di atas, Mulai di tengah, Skip di bawah -->
                             <div class="grid grid-cols-2 gap-1" id="spot-2-buttons-standby"></div>
+                            <div class="grid grid-cols-2 gap-1" id="spot-2-buttons-mulai"></div>
                             <div class="grid grid-cols-2 gap-1" id="spot-2-buttons-skip"></div>
                         </div>
                     </div>
@@ -541,11 +550,14 @@
 
                 <div class="space-y-4 mb-6">
                     <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Pilih Alasan (Reason) Skip</label>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Pilih Kategori Skip</label>
                         <select id="skip-reason-category" onchange="toggleSkipReasonInput()" class="border border-slate-300 rounded-xl px-3.5 py-2.5 w-full text-sm mb-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium">
-                            <option value="Istirahat/Toilet">1. Istirahat / Toilet</option>
-                            <option value="Progress">2. Progress</option>
-                            <option value="Lainnya">3. Lainnya</option>
+                            <option value="Istirahat/Toilet">1. Istirahat / Toilet (Standar)</option>
+                            <option value="1_Jam">2. Izin 1 Jam (Keluar Antrean)</option>
+                            <option value="2_Jam">3. Izin 2 Jam (Keluar Antrean)</option>
+                            <option value="3_Jam">4. Izin 3 Jam (Keluar Antrean)</option>
+                            <option value="Progress">5. Progress Pekerjaan</option>
+                            <option value="Lainnya">6. Lainnya</option>
                         </select>
                         <div id="skip-reason-detail-container">
                             <input type="text" id="skip-reason-detail" placeholder="Keterangan tambahan..." class="border border-slate-300 rounded-xl px-3.5 py-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium">
@@ -596,6 +608,7 @@
             if (val) {
                 if (val.currentSpots) currentSpots = val.currentSpots;
                 if (val.activeQueue) activeQueue = val.activeQueue;
+                if (val.pausedQueue) pausedQueue = val.pausedQueue;
                 if (val.shiftMorningQueue) shiftMorningQueue = val.shiftMorningQueue;
                 if (val.shiftAfternoonQueue) shiftAfternoonQueue = val.shiftAfternoonQueue;
                 if (val.spotShiftOrigin) spotShiftOrigin = val.spotShiftOrigin;
@@ -615,6 +628,7 @@
         db.ref('appState').set({
             currentSpots: currentSpots,
             activeQueue: activeQueue,
+            pausedQueue: pausedQueue,
             shiftMorningQueue: shiftMorningQueue,
             shiftAfternoonQueue: shiftAfternoonQueue,
             spotShiftOrigin: spotShiftOrigin,
@@ -624,10 +638,55 @@
     }
 
     setInterval(() => {
+        // 1. CUT-OFF SHIFT PAGI (Jam 20:00 WIB)
+        if (isMorningCutOffTime() && shiftMorningQueue.length > 0) {
+            let stateChanged = false;
+            const morningNiks = new Set(shiftMorningQueue.map(emp => emp.nik));
+            
+            shiftMorningQueue = [];
+            stateChanged = true;
+
+            const filteredActiveQueue = activeQueue.filter(staff => !morningNiks.has(staff.nik));
+            if (filteredActiveQueue.length !== activeQueue.length) {
+                activeQueue = filteredActiveQueue;
+                stateChanged = true;
+            }
+
+            if (pausedQueue && pausedQueue.length > 0) {
+                const filteredPausedQueue = pausedQueue.filter(item => !morningNiks.has(item.staff.nik));
+                if (filteredPausedQueue.length !== pausedQueue.length) {
+                    pausedQueue = filteredPausedQueue;
+                    stateChanged = true;
+                }
+            }
+
+            for (let s = 0; s < 3; s++) {
+                let maxP = s === 0 ? getMaxTitik1Slots() : 2;
+                for (let p = 0; p < maxP; p++) {
+                    let staff = currentSpots[s][p];
+                    if (staff && (morningNiks.has(staff.nik) || spotShiftOrigin[s][p] === 'pagi')) {
+                        currentSpots[s][p] = null;
+                        spotStandbyEndTimes[s][p] = null;
+                        spotShiftOrigin[s][p] = null;
+                        stateChanged = true;
+                    }
+                }
+            }
+
+            if (stateChanged) {
+                pushStateToFirebase();
+                updateDisplay();
+                updateAttendanceStats();
+                renderLogs();
+            }
+        }
+
+        // 2. CUT-OFF TOKO / KESELURUHAN (Jam 22:00 WIB)
         if (isAfternoonCutOffTime()) {
             shiftAfternoonQueue = [];
             shiftMorningQueue = [];
             activeQueue = [];
+            pausedQueue = [];
             let stateChanged = false;
             for(let s=0; s<3; s++) {
                 for(let p=0; p<currentSpots[s].length; p++) {
@@ -643,6 +702,28 @@
                 renderLogs();
             }
             return;
+        }
+
+        // Cek SMT izin jam (pausedQueue)
+        if (pausedQueue && pausedQueue.length > 0) {
+            const currentTime = Date.now();
+            let updatedPausedQueue = [];
+            let stateChanged = false;
+
+            pausedQueue.forEach(item => {
+                if (currentTime >= item.resumeTime) {
+                    activeQueue.push(item.staff);
+                    stateChanged = true;
+                } else {
+                    updatedPausedQueue.push(item);
+                }
+            });
+
+            if (stateChanged) {
+                pausedQueue = updatedPausedQueue;
+                pushStateToFirebase();
+                updateDisplay();
+            }
         }
 
         const currentTime = Date.now();
@@ -1011,6 +1092,10 @@
 
         const mode = document.querySelector('input[name="shift-mode"]:checked').value;
         if(mode === 'pagi') {
+            if (isMorningCutOffTime()) {
+                showCustomAlert("Waktu Cut-Off Shift Pagi", "Pukul 20.00 WIB telah tercapai. Shift Pagi tidak dapat diinput kembali.");
+                return;
+            }
             shiftMorningQueue = [...selectedStaffQueue];
         } else {
             shiftAfternoonQueue = [...selectedStaffQueue];
@@ -1021,11 +1106,19 @@
             if (staff && staff.nik) combinedQueueMap.set(staff.nik, staff);
         });
 
+        // Kecualikan SMT yang sedang aktif di titik
         currentSpots.forEach(spotGroup => {
             spotGroup.forEach(staff => {
                 if (staff && staff.nik) combinedQueueMap.delete(staff.nik);
             });
         });
+
+        // Kecualikan SMT yang sedang di-pause (izin jam)
+        if (pausedQueue && pausedQueue.length > 0) {
+            pausedQueue.forEach(item => {
+                if (item && item.staff && item.staff.nik) combinedQueueMap.delete(item.staff.nik);
+            });
+        }
 
         activeQueue = Array.from(combinedQueueMap.values());
 
@@ -1077,6 +1170,7 @@
         collectNiks(shiftMorningQueue);
         collectNiks(shiftAfternoonQueue);
         collectNiks(activeQueue);
+        if (pausedQueue) pausedQueue.forEach(item => { if(item && item.staff && item.staff.nik) uniqueNik.add(item.staff.nik); });
         
         if (Array.isArray(currentSpots)) {
             currentSpots.forEach(spotGroup => {
@@ -1643,20 +1737,46 @@
         const detail = document.getElementById('skip-reason-detail').value || '-';
         const timeNow = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 
-        const logData = {
-            date: new Date().toISOString().split('T')[0],
-            time: timeNow,
-            staffName: staff.name,
-            spot: spotNames[skipSpotIndex],
-            shift: "SKIP",
-            duration: "00:00 (SKIP)",
-            reason: `SKIP [${category}]: ${detail}`,
-            photo: "Tanpa Foto",
-            gps: "-"
-        };
+        let hoursToAdd = 0;
+        if (category === '1_Jam') hoursToAdd = 1;
+        else if (category === '2_Jam') hoursToAdd = 2;
+        else if (category === '3_Jam') hoursToAdd = 3;
 
-        activityLogs.unshift(logData);
-        syncLogToSpreadsheet(logData);
+        if (hoursToAdd > 0) {
+            // SMT dikeluarkan dari antrean sementara selama durasi jam tertentu
+            const resumeTime = Date.now() + (hoursToAdd * 60 * 60 * 1000);
+            pausedQueue.push({ staff: staff, resumeTime: resumeTime });
+
+            const logData = {
+                date: new Date().toISOString().split('T')[0],
+                time: timeNow,
+                staffName: staff.name,
+                spot: spotNames[skipSpotIndex],
+                shift: "SKIP IZIN",
+                duration: `${hoursToAdd} Jam`,
+                reason: `SKIP [Izin ${hoursToAdd} Jam]: ${detail}`,
+                photo: "Tanpa Foto",
+                gps: "-"
+            };
+            activityLogs.unshift(logData);
+            syncLogToSpreadsheet(logData);
+        } else {
+            // Skip standar: SMT langsung dipindah ke urutan paling bawah activeQueue
+            const logData = {
+                date: new Date().toISOString().split('T')[0],
+                time: timeNow,
+                staffName: staff.name,
+                spot: spotNames[skipSpotIndex],
+                shift: "SKIP",
+                duration: "00:00 (SKIP)",
+                reason: `SKIP [${category}]: ${detail}`,
+                photo: "Tanpa Foto",
+                gps: "-"
+            };
+            activityLogs.unshift(logData);
+            syncLogToSpreadsheet(logData);
+            activeQueue.push(staff);
+        }
 
         renderLogs();
         closeSkipModal();
@@ -1674,11 +1794,10 @@
             currentSpots[skipSpotIndex][skipStaffIndexInSpot] = null;
             spotStandbyEndTimes[skipSpotIndex][skipStaffIndexInSpot] = null;
         }
-        activeQueue.push(staff);
 
         pushStateToFirebase();
         updateDisplay();
-        showCustomAlert('Berhasil Skip', `Petugas ${staff.name} berhasil skip dan ditaruh ke antrean paling bawah.`);
+        showCustomAlert('Berhasil Skip', `Petugas ${staff.name} berhasil di-skip ${hoursToAdd > 0 ? 'selama ' + hoursToAdd + ' jam (Keluar dari antrean sementara)' : 'dan ditaruh ke antrean paling bawah'}.`);
     }
 
     function syncLogToSpreadsheet(log) {
