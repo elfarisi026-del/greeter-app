@@ -292,15 +292,15 @@
                             </div>
                         </div>
                         <div class="space-y-2 mt-4 pt-3 border-t border-slate-200/60">
-                            <div class="grid grid-cols-2 gap-2" id="spot-1-buttons-mulai">
+                            <div class="grid grid-cols-2 gap-2">
                                 <button onclick="startBuddySession(1, 0)" id="btn-spot-1-a" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition hidden shadow-xs">Mulai (1)</button>
                                 <button onclick="startBuddySession(1, 1)" id="btn-spot-1-b" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition hidden shadow-xs">Mulai (2)</button>
                             </div>
-                            <div class="grid grid-cols-2 gap-2" id="spot-1-buttons-standby">
+                            <div class="grid grid-cols-2 gap-2">
                                 <button onclick="startStandbyTimer(1, 0)" id="btn-standby-1-a" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition hidden shadow-xs">⏱️ Standby (1)</button>
                                 <button onclick="startStandbyTimer(1, 1)" id="btn-standby-1-b" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition hidden shadow-xs">⏱️ Standby (2)</button>
                             </div>
-                            <div class="grid grid-cols-2 gap-2" id="spot-1-buttons-skip">
+                            <div class="grid grid-cols-2 gap-2">
                                 <button onclick="openSkipModal(1, 0)" id="btn-skip-1-a" class="bg-amber-600 hover:bg-amber-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition hidden shadow-xs">⏭️ Skip (1)</button>
                                 <button onclick="openSkipModal(1, 1)" id="btn-skip-1-b" class="bg-amber-600 hover:bg-amber-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition hidden shadow-xs">⏭️ Skip (2)</button>
                             </div>
@@ -320,15 +320,15 @@
                             </div>
                         </div>
                         <div class="space-y-2 mt-4 pt-3 border-t border-slate-200/60">
-                            <div class="grid grid-cols-2 gap-2" id="spot-2-buttons-mulai">
+                            <div class="grid grid-cols-2 gap-2">
                                 <button onclick="startBuddySession(2, 0)" id="btn-spot-2-a" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition hidden shadow-xs">Mulai (1)</button>
                                 <button onclick="startBuddySession(2, 1)" id="btn-spot-2-b" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition hidden shadow-xs">Mulai (2)</button>
                             </div>
-                            <div class="grid grid-cols-2 gap-2" id="spot-2-buttons-standby">
+                            <div class="grid grid-cols-2 gap-2">
                                 <button onclick="startStandbyTimer(2, 0)" id="btn-standby-2-a" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition hidden shadow-xs">⏱️ Standby (1)</button>
                                 <button onclick="startStandbyTimer(2, 1)" id="btn-standby-2-b" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition hidden shadow-xs">⏱️ Standby (2)</button>
                             </div>
-                            <div class="grid grid-cols-2 gap-2" id="spot-2-buttons-skip">
+                            <div class="grid grid-cols-2 gap-2">
                                 <button onclick="openSkipModal(2, 0)" id="btn-skip-2-a" class="bg-amber-600 hover:bg-amber-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition hidden shadow-xs">⏭️ Skip (1)</button>
                                 <button onclick="openSkipModal(2, 1)" id="btn-skip-2-b" class="bg-amber-600 hover:bg-amber-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition hidden shadow-xs">⏭️ Skip (2)</button>
                             </div>
