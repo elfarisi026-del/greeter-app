@@ -1101,20 +1101,18 @@
 
         const staff = sess.staff;
         const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
-        const targetSpotIndex = sess.spotIndex;
-        const targetSpotPos = sess.spotPositionIndex;
+        const targetSpotIndex = Number(sess.spotIndex);
+        const targetSpotPos = Number(sess.spotPositionIndex);
 
-        // Ambil urutan alur slot greeter secara linear
         const slots = getOrderedFlowSlots();
-        const targetSlotIdx = slots.findIndex(sl => sl.s === targetSpotIndex && sl.p === targetSpotPos);
+        let originalLinearIndex = slots.findIndex(sl => sl.s === targetSpotIndex && sl.p === targetSpotPos);
 
-        // Kumpulkan semua petugas yang sedang aktif di titik-titik greeter saat ini
         let currentActiveStaffList = [];
         slots.forEach(sl => {
             if (currentSpots[sl.s] && currentSpots[sl.s][sl.p]) {
                 currentActiveStaffList.push({
                     staff: currentSpots[sl.s][sl.p],
-                    origin: spotShiftOrigin[sl.s][sl.p]
+                    origin: spotShiftOrigin[sl.s][sl.p] || 'pagi'
                 });
             }
         });
@@ -1122,15 +1120,12 @@
         const isMorningStaff = shiftMorningQueue.some(emp => emp.nik === staff.nik);
         const staffOrigin = isMorningStaff ? 'pagi' : 'siang';
 
-        if (targetSlotIdx !== -1) {
-            // Hapus jika petugas tersebut masih tersisa di list aktif (untuk mencegah duplikasi)
+        if (originalLinearIndex !== -1) {
             currentActiveStaffList = currentActiveStaffList.filter(item => item.staff.nik !== staff.nik);
 
-            // Sisipkan kembali petugas persis ke posisi/titik asalnya semula
-            const insertIdx = Math.min(targetSlotIdx, currentActiveStaffList.length);
+            const insertIdx = Math.min(originalLinearIndex, currentActiveStaffList.length);
             currentActiveStaffList.splice(insertIdx, 0, { staff: staff, origin: staffOrigin });
 
-            // Kosongkan seluruh titik greeter terlebih dahulu
             for (let s = 0; s < 3; s++) {
                 if (currentSpots[s]) {
                     for (let p = 0; p < currentSpots[s].length; p++) {
@@ -1140,7 +1135,6 @@
                 }
             }
 
-            // Terapkan kembali petugas ke slot urutan alur secara rapi (urutan lain mundur/maju otomatis)
             for (let i = 0; i < slots.length; i++) {
                 if (i < currentActiveStaffList.length) {
                     const slotInfo = slots[i];
@@ -1150,15 +1144,18 @@
                 }
             }
 
-            // Jika ada petugas berlebih akibat pergeseran di ujung slot, masukkan kembali ke antrean cadangan
             for (let i = slots.length; i < currentActiveStaffList.length; i++) {
                 activeQueue.unshift(currentActiveStaffList[i].staff);
             }
         } else {
-            // Fallback aman jika slot index tidak ditemukan
-            if (!currentSpots[targetSpotIndex][targetSpotPos]) {
-                currentSpots[targetSpotIndex][targetSpotPos] = staff;
-                spotShiftOrigin[targetSpotIndex][targetSpotPos] = staffOrigin;
+            if (!isNaN(targetSpotIndex) && !isNaN(targetSpotPos) && currentSpots[targetSpotIndex]) {
+                if (!currentSpots[targetSpotIndex][targetSpotPos]) {
+                    currentSpots[targetSpotIndex][targetSpotPos] = staff;
+                    spotShiftOrigin[targetSpotIndex][targetSpotPos] = staffOrigin;
+                } else {
+                    activeQueue.unshift(staff);
+                    advanceRotationAndFill();
+                }
             } else {
                 activeQueue.unshift(staff);
                 advanceRotationAndFill();
@@ -1170,7 +1167,7 @@
             date: getWibDateString(),
             time: timeNow,
             staffName: staff.name,
-            spot: spotNames[targetSpotIndex],
+            spot: spotNames[targetSpotIndex] || "Titik Greeter",
             shift: "CANCEL",
             duration: "00:00",
             reason: "BATAL [Customer Sudah Janjian] -> Kembali ke Titik Awal",
@@ -1660,8 +1657,8 @@
 
         const newSession = {
             id: 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
-            spotIndex: spotIndex,
-            staffPositionIndex: staffPositionIndex,
+            spotIndex: Number(spotIndex),
+            spotPositionIndex: Number(staffPositionIndex),
             staff: staff,
             startTime: Date.now()
         };
