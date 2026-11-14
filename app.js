@@ -1579,7 +1579,6 @@
 
         initBuddyMapWithLayout();
 
-        // SAAT KLIK MULAI: Titik langsung digantikan antrean berikutnya, SMT yang mulai keluar dari titik (di luar)
         if (activeQueue.length > 0) {
             const nextInQueue = activeQueue.shift();
             currentSpots[spotIndex][staffPositionIndex] = nextInQueue;
@@ -1739,7 +1738,6 @@
         activityLogs.unshift(logData);
         syncLogToSpreadsheet(logData);
 
-        // SAAT KLIK SELESAI: SMT yang baru selesai dimasukkan ke antrean paling bawah
         activeQueue.push(staff);
 
         pushStateToFirebase();
