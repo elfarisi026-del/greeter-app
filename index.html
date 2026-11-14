@@ -70,7 +70,7 @@
         { nik: "172906", name: "IQBAL MUZAKAROH" }, { nik: "163710", name: "ARZALIA RAHMADANI" },
         { nik: "166522", name: "MUHAMMAD VIKRI FAUZAN" }, { nik: "178670", name: "MISBAHHUDIN" },
         { nik: "178211", name: "YUSRIL NURHAMDHI" }, { nik: "164854", name: "ZAKY MALIK AL SALAM" },
-        { nik: "166545", name: "SRI RAHAYU" }, { nik: "176952", name: "MOHAMMAD PUTRA ABIDIN" },
+        { nik: "166545", name: "SRI RAHAYU" }, { nik: "176952", name: "MOHAMMAD RIZA PUTRA ABIDIN" },
         { nik: "169045", name: "CALM KARINA SIALLAGAN" }, { nik: "175137", name: "RISKA ZULYANDIPA" },
         { nik: "181775", name: "NABILLA PUTRI HAMIDAH" }, { nik: "168233", name: "INDRA KURNIAWAN" },
         { nik: "167201", name: "DELVIA ERSA PUTRI" }, { nik: "178549", name: "DEVA FERIKA" },
@@ -80,23 +80,19 @@
     let activeQueue = []; 
     let pausedQueue = []; 
     let currentSpots = [[null, null, null], [null, null], [null, null]]; 
-    let spotStandbyEndTimes = [[null, null, null], [null, null], [null, null]]; 
     let spotShiftOrigin = [[null, null, null], [null, null], [null, null]]; 
     let shiftMorningQueue = [];
     let shiftAfternoonQueue = [];
     let selectedStaffQueue = [];
 
-    let activeSpotIndex = null;
-    let activeStaffIndexInSpot = null;
-    let activeSessionStaff = null;
-    let previousStaffPositionBackup = null; 
+    // Multiple Active Sessions Array
+    let activeSessions = JSON.parse(localStorage.getItem('greeter_active_sessions')) || [];
+    let targetFinishingSessionId = null;
 
-    let localActiveSession = JSON.parse(localStorage.getItem('greeter_active_session')) || null;
-
+    let pendingStaffAction = null;
     let skipSpotIndex = null;
     let skipStaffIndexInSpot = null;
-    let timerInterval = null;
-    let secondsElapsed = 0;
+    let globalTimerInterval = null;
     let activityLogs = [];
 
     let currentMap = null;
@@ -106,7 +102,6 @@
 
     let liveStoreMap = null;
     let liveMarkers = [];
-    let pendingStaffAction = null;
 
     function getWibHour() {
         const now = new Date();
@@ -135,30 +130,6 @@
             minute: '2-digit', 
             hour12: false 
         });
-    }
-
-    function sanitizeStandbyEndTimes(raw) {
-        let result = [[null, null, null], [null, null], [null, null]];
-        if (!raw) return result;
-        let rows = Array.isArray(raw) ? raw : Object.values(raw);
-        let now = Date.now();
-
-        for (let s = 0; s < 3; s++) {
-            let row = rows[s];
-            if (row) {
-                let cols = Array.isArray(row) ? row : Object.values(row);
-                let maxP = s === 0 ? 3 : 2;
-                for (let p = 0; p < maxP; p++) {
-                    let val = cols[p];
-                    if (typeof val === 'number' && !isNaN(val) && val > now) {
-                        result[s][p] = val;
-                    } else {
-                        result[s][p] = null;
-                    }
-                }
-            }
-        }
-        return result;
     }
 
     function isMorningCutOffTime() {
@@ -299,7 +270,7 @@
                     <button onclick="openSmtModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2">
                         <span>⚙️ Menu Input SMT & Shift</span>
                     </button>
-                    <button onclick="openBuddyModalActiveView()" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2">
+                    <button onclick="openBuddyModalActiveList()" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2">
                         <span>⏳ Sesi Buddy Aktif</span>
                     </button>
                     <button onclick="openHistoryModal()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2">
@@ -394,6 +365,71 @@
                     </div>
                 </div>
             </section>
+        </div>
+
+        <!-- MODAL LIST SESI BUDDY AKTIF -->
+        <div id="active-sessions-modal" class="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
+            <div class="bg-white rounded-2xl max-w-2xl w-full p-6 md:p-8 shadow-2xl max-h-[90vh] overflow-y-auto border border-slate-100">
+                <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+                    <h3 class="text-xl font-bold text-slate-900">⏳ Daftar Sesi Buddy Aktif</h3>
+                    <button onclick="closeActiveSessionsModal()" class="text-slate-400 hover:text-slate-600 text-2xl font-bold">&times;</button>
+                </div>
+                <p class="text-xs text-slate-500 mb-4 font-medium">Berikut adalah daftar petugas yang sedang aktif menjalani sesi buddy/customer saat ini:</p>
+                <div id="active-sessions-list-container" class="space-y-3 mb-6">
+                    <p class="text-sm text-slate-400 italic text-center py-4">Tidak ada sesi buddy yang sedang aktif saat ini.</p>
+                </div>
+                <div class="flex justify-end">
+                    <button onclick="closeActiveSessionsModal()" class="bg-slate-800 hover:bg-slate-900 text-white px-5 py-2.5 rounded-xl text-xs font-semibold shadow-sm">Tutup</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL PENYELESAIAN SESI BUDDY (DETAIL & TRANSAKSI) -->
+        <div id="buddy-modal" class="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
+            <div class="bg-white rounded-2xl max-w-lg w-full p-6 md:p-8 shadow-2xl max-h-[90vh] overflow-y-auto border border-slate-100">
+                <h3 class="text-xl font-bold text-slate-900 mb-1">Selesaikan Sesi Buddy & Customer</h3>
+                <p class="text-xs text-slate-500 mb-4 font-medium" id="buddy-info-text">Titik: - | Petugas: -</p>
+
+                <div class="bg-blue-50/80 border border-blue-200/80 rounded-2xl p-4 text-center mb-4">
+                    <span class="text-xs text-blue-700 font-bold uppercase tracking-wider">Durasi Sesi Buddy Terakhir</span>
+                    <div id="timer-display" class="text-4xl font-mono font-black text-blue-950 mt-1">00:00</div>
+                    <p class="text-[11px] text-blue-600 mt-1 font-medium">✨ Selesaikan sesi dengan mengisi data transaksi/alasan di bawah.</p>
+                </div>
+
+                <div class="space-y-4 mb-5">
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5">📍 Lokasi Denah Toko & SMT</label>
+                        <div id="buddy-map" class="w-full h-48 rounded-lg border border-slate-200 z-10"></div>
+                        <p id="coord-text" class="text-[11px] text-slate-500 mt-1 font-mono">Memuat denah layout toko...</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Upload Foto Buddy</label>
+                        <input type="file" id="buddy-photo" accept="image/*" capture="environment" class="w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition cursor-pointer border border-slate-200 rounded-xl">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Pilih Status Transaksi / Pending</label>
+                        <select id="reason-category" onchange="toggleReasonInput()" class="border border-slate-300 rounded-xl px-3.5 py-2.5 w-full text-sm mb-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">
+                            <option value="Transaksi">1. Transaksi (Wajib Input Value)</option>
+                            <option value="Pending">2. Pending (Wajib Input Value & Alasan)</option>
+                            <option value="Lain">3. Lain-lain</option>
+                        </select>
+                        <div id="reason-value-container" class="space-y-2">
+                            <input type="text" id="reason-value-input" onkeyup="formatRupiahInput(this)" placeholder="Masukkan nilai (Value)..." class="border border-slate-300 rounded-xl px-3.5 py-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="closeBuddyModalViewOnly()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 py-3 rounded-xl font-bold text-xs md:text-sm transition shadow-2xs">
+                        Batal
+                    </button>
+                    <button onclick="finishBuddySessionConfirmed()" class="bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold text-xs md:text-sm transition shadow-sm">
+                        Selesai Sesi ✓
+                    </button>
+                </div>
+            </div>
         </div>
 
         <!-- MODAL RIWAYAT SESI BUDDY -->
@@ -519,80 +555,6 @@
             </div>
         </div>
 
-        <!-- MODAL SESI BUDDY & CUSTOMER -->
-        <div id="buddy-modal" class="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
-            <div class="bg-white rounded-2xl max-w-lg w-full p-6 md:p-8 shadow-2xl max-h-[90vh] overflow-y-auto border border-slate-100">
-                <h3 class="text-xl font-bold text-slate-900 mb-1">Sesi Buddy & Customer</h3>
-                <p class="text-xs text-slate-500 mb-4 font-medium" id="buddy-info-text">Titik: - | Petugas: -</p>
-
-                <div class="bg-blue-50/80 border border-blue-200/80 rounded-2xl p-4 text-center mb-4">
-                    <span class="text-xs text-blue-700 font-bold uppercase tracking-wider">Durasi Sesi Buddy Berjalan</span>
-                    <div id="timer-display" class="text-4xl font-mono font-black text-blue-950 mt-1">00:00</div>
-                    <p class="text-[11px] text-blue-600 mt-1 font-medium">✨ Timer ini murni mencatat durasi (bebas selama apa pun).</p>
-                </div>
-
-                <div class="space-y-4 mb-5">
-                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                        <label class="block text-xs font-bold text-slate-700 mb-1.5">📍 Lokasi Denah Toko & SMT</label>
-                        <div id="buddy-map" class="w-full h-48 rounded-lg border border-slate-200 z-10"></div>
-                        <p id="coord-text" class="text-[11px] text-slate-500 mt-1 font-mono">Memuat denah layout toko...</p>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Upload Foto Buddy</label>
-                        <input type="file" id="buddy-photo" accept="image/*" capture="environment" class="w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition cursor-pointer border border-slate-200 rounded-xl">
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Pilih Status Transaksi / Pending</label>
-                        <select id="reason-category" onchange="toggleReasonInput()" class="border border-slate-300 rounded-xl px-3.5 py-2.5 w-full text-sm mb-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">
-                            <option value="Transaksi">1. Transaksi (Wajib Input Value)</option>
-                            <option value="Pending">2. Pending (Wajib Input Value & Alasan)</option>
-                            <option value="Lain">3. Lain-lain</option>
-                        </select>
-                        <div id="reason-value-container" class="space-y-2">
-                            <input type="text" id="reason-value-input" onkeyup="formatRupiahInput(this)" placeholder="Masukkan nilai (Value)..." class="border border-slate-300 rounded-xl px-3.5 py-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-3 gap-2">
-                    <button onclick="closeBuddyModalViewOnly()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 py-3 rounded-xl font-bold text-xs md:text-sm transition shadow-2xs">
-                        OK (Tutup)
-                    </button>
-                    <button onclick="openCancelReasonModal()" class="bg-rose-100 hover:bg-rose-200 text-rose-700 py-3 rounded-xl font-bold text-xs md:text-sm transition shadow-2xs">
-                        ❌ Cancel
-                    </button>
-                    <button onclick="finishBuddySession()" class="bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold text-xs md:text-sm transition shadow-sm">
-                        Selesai ✓
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <div id="cancel-reason-modal" class="fixed inset-0 bg-black/65 backdrop-blur-xs flex items-center justify-center p-4 hidden z-[60]">
-            <div class="bg-white rounded-2xl max-w-md w-full p-6 md:p-8 shadow-2xl border border-slate-100">
-                <h3 class="text-xl font-bold text-slate-900 mb-1">❌ Alasan Cancel</h3>
-                <p class="text-xs text-slate-500 mb-4 font-medium">Pilih salah satu alasan pembatalan sesi:</p>
-
-                <div class="space-y-3 mb-6">
-                    <label class="flex items-start gap-3 p-3.5 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition">
-                        <input type="radio" name="cancel-option" value="Customer sudah janjian" class="mt-0.5 text-blue-600 focus:ring-blue-500" checked>
-                        <span class="text-sm font-semibold text-slate-800">Customer sudah janjian</span>
-                    </label>
-                    <label class="flex items-start gap-3 p-3.5 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition">
-                        <input type="radio" name="cancel-option" value="Customer hanya lewat ke azko/mall/toilet" class="mt-0.5 text-blue-600 focus:ring-blue-500">
-                        <span class="text-sm font-semibold text-slate-800">Customer hanya lewat ke azko/mall/toilet</span>
-                    </label>
-                </div>
-
-                <div class="flex justify-end gap-3">
-                    <button onclick="closeCancelReasonModal()" class="border border-slate-300 text-slate-700 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-50 transition">Kembali</button>
-                    <button onclick="confirmCancelBuddySession()" class="bg-rose-600 hover:bg-rose-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition">Konfirmasi Cancel</button>
-                </div>
-            </div>
-        </div>
-
         <div id="skip-modal" class="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
             <div class="bg-white rounded-2xl max-w-md w-full p-6 md:p-8 shadow-2xl border border-slate-100">
                 <h3 class="text-xl font-bold text-slate-900 mb-1">⏭️ Skip Giliran Greeter</h3>
@@ -631,26 +593,10 @@
         renderAppTemplate();
         updateAttendanceStats();
 
-        if (localActiveSession) {
-            activeSpotIndex = localActiveSession.spotIndex;
-            activeStaffIndexInSpot = localActiveSession.staffPositionIndex;
-            activeSessionStaff = localActiveSession.staff;
-
-            const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
-            document.getElementById('buddy-info-text').innerText = `Titik: ${spotNames[activeSpotIndex]} (Petugas #${activeStaffIndexInSpot + 1}) | Petugas: ${activeSessionStaff.name}`;
-
-            secondsElapsed = Math.floor((Date.now() - localActiveSession.startTime) / 1000);
-            if (secondsElapsed < 0) secondsElapsed = 0;
-
-            if (timerInterval) clearInterval(timerInterval);
-            timerInterval = setInterval(() => {
-                secondsElapsed++;
-                const mins = String(Math.floor(secondsElapsed / 60)).padStart(2, '0');
-                const secs = String(secondsElapsed % 60).padStart(2, '0');
-                const tEl = document.getElementById('timer-display');
-                if (tEl) tEl.innerText = `${mins}:${secs}`;
-            }, 1000);
-        }
+        if (globalTimerInterval) clearInterval(globalTimerInterval);
+        globalTimerInterval = setInterval(() => {
+            updateActiveSessionsTimersUI();
+        }, 1000);
 
         db.ref('appState').on('value', (snapshot) => {
             const val = snapshot.val();
@@ -664,7 +610,7 @@
                     shiftMorningQueue = [];
                     shiftAfternoonQueue = [];
                     spotShiftOrigin = [[null, null, null], [null, null], [null, null]];
-                    spotStandbyEndTimes = [[null, null, null], [null, null], [null, null]];
+                    activeSessions = [];
                     activityLogs = [];
 
                     updateDisplay();
@@ -679,9 +625,7 @@
                 if (val.shiftMorningQueue) shiftMorningQueue = val.shiftMorningQueue;
                 if (val.shiftAfternoonQueue) shiftAfternoonQueue = val.shiftAfternoonQueue;
                 if (val.spotShiftOrigin) spotShiftOrigin = val.spotShiftOrigin;
-                if (val.spotStandbyEndTimes) {
-                    spotStandbyEndTimes = sanitizeStandbyEndTimes(val.spotStandbyEndTimes);
-                }
+                if (val.activeSessions) activeSessions = val.activeSessions;
                 if (val.activityLogs) activityLogs = val.activityLogs;
 
                 updateDisplay();
@@ -700,25 +644,21 @@
             shiftMorningQueue: shiftMorningQueue,
             shiftAfternoonQueue: shiftAfternoonQueue,
             spotShiftOrigin: spotShiftOrigin,
-            spotStandbyEndTimes: spotStandbyEndTimes,
+            activeSessions: activeSessions,
             activityLogs: activityLogs
         });
     }
 
-    // Urutan flow titik: Titik 1 (Main Entrance) -> Titik 2 (CarPark) -> Titik 3 (HomeGallery)
     function getOrderedFlowSlots() {
         let slots = [];
         const limitSpot1 = getMaxTitik1Slots();
 
-        // 1. Titik 1 (Main Entrance)
         for(let p = 0; p < limitSpot1; p++) {
             slots.push({ s: 0, p: p });
         }
-        // 2. Titik 2 (CarPark / CP)
         for(let p = 0; p < 2; p++) {
             slots.push({ s: 1, p: p });
         }
-        // 3. Titik 3 (HomeGallery / HG)
         for(let p = 0; p < 2; p++) {
             slots.push({ s: 2, p: p });
         }
@@ -728,22 +668,18 @@
     function advanceRotationAndFill() {
         const slots = getOrderedFlowSlots();
 
-        // Pergerakan maju: jika slot di depan kosong dan slot di belakang ada orangnya, tarik ke depan (Titik 3 -> Titik 2 -> Titik 1)
         for (let i = 0; i < slots.length - 1; i++) {
             let curr = slots[i];
             let next = slots[i+1];
             if (!currentSpots[curr.s][curr.p] && currentSpots[next.s][next.p]) {
                 currentSpots[curr.s][curr.p] = currentSpots[next.s][next.p];
                 spotShiftOrigin[curr.s][curr.p] = spotShiftOrigin[next.s][next.p];
-                spotStandbyEndTimes[curr.s][curr.p] = spotStandbyEndTimes[next.s][next.p];
 
                 currentSpots[next.s][next.p] = null;
                 spotShiftOrigin[next.s][next.p] = null;
-                spotStandbyEndTimes[next.s][next.p] = null;
             }
         }
 
-        // Mengisi slot kosong yang tersisa dari antrean cadangan (activeQueue)
         for (let i = 0; i < slots.length; i++) {
             let slot = slots[i];
             if (!currentSpots[slot.s][slot.p] && activeQueue.length > 0) {
@@ -751,7 +687,6 @@
                 currentSpots[slot.s][slot.p] = nextStaff;
                 const isMorningStaff = shiftMorningQueue.some(emp => emp.nik === nextStaff.nik);
                 spotShiftOrigin[slot.s][slot.p] = isMorningStaff ? 'pagi' : 'siang';
-                spotStandbyEndTimes[slot.s][slot.p] = null;
             }
         }
     }
@@ -772,7 +707,7 @@
 
             if (pausedQueue && pausedQueue.length > 0) {
                 const filteredPausedQueue = pausedQueue.filter(item => !morningNiks.has(item.staff.nik));
-                if (filteredPausedQueue.length !== pausedQueue.length) {
+                if (filteredPausedQueue.length !== pausedPausedQueueLength => filteredPausedQueue.length !== pausedQueue.length) {
                     pausedQueue = filteredPausedQueue;
                     stateChanged = true;
                 }
@@ -785,7 +720,6 @@
                     let staff = currentSpots[s][p];
                     if (staff && (morningNiks.has(staff.nik) || spotShiftOrigin[s][p] === 'pagi')) {
                         currentSpots[s][p] = null;
-                        spotStandbyEndTimes[s][p] = null;
                         spotShiftOrigin[s][p] = null;
                         stateChanged = true;
                     }
@@ -803,17 +737,17 @@
         }
 
         if (isAfternoonCutOffTime()) {
-            let hasActiveData = shiftAfternoonQueue.length > 0 || shiftMorningQueue.length > 0 || activeQueue.length > 0 || pausedQueue.length > 0;
+            let hasActiveData = shiftAfternoonQueue.length > 0 || shiftMorningQueue.length > 0 || activeQueue.length > 0 || pausedQueue.length > 0 || activeSessions.length > 0;
             shiftAfternoonQueue = [];
             shiftMorningQueue = [];
             activeQueue = [];
             pausedQueue = [];
+            activeSessions = [];
             let stateChanged = hasActiveData;
             for(let s=0; s<3; s++) {
                 for(let p=0; p<currentSpots[s].length; p++) {
                     if(currentSpots[s][p] !== null) stateChanged = true;
                     currentSpots[s][p] = null;
-                    spotStandbyEndTimes[s][p] = null;
                     spotShiftOrigin[s][p] = null;
                 }
             }
@@ -847,111 +781,7 @@
                 updateDisplay();
             }
         }
-
-        const currentTime = Date.now();
-        const limitSpot1 = getMaxTitik1Slots();
-
-        let stateUpdated = false;
-        for (let s = 0; s < 3; s++) {
-            const maxP = s === 0 ? limitSpot1 : 2;
-            for (let p = 0; p < maxP; p++) {
-                const staff = currentSpots[s][p];
-                const endTime = spotStandbyEndTimes[s][p];
-
-                if (staff && endTime && currentTime >= endTime) {
-                    autoRotateStandbyGreeter(s, p);
-                    stateUpdated = true;
-                }
-            }
-        }
-
-        if (!stateUpdated) {
-            updateGreeterStandbyTimersUI();
-        }
     }, 1000);
-
-    function startStandbyTimer(spotIndex, staffPositionIndex) {
-        if (isAfternoonCutOffTime()) return;
-
-        spotStandbyEndTimes = sanitizeStandbyEndTimes(spotStandbyEndTimes);
-        if (!spotStandbyEndTimes[spotIndex]) {
-            spotStandbyEndTimes[spotIndex] = [];
-        }
-
-        const staff = currentSpots[spotIndex][staffPositionIndex];
-        if (!staff) return;
-
-        const THIRTY_MINUTES_MS = 30 * 60 * 1000;
-        spotStandbyEndTimes[spotIndex][staffPositionIndex] = Date.now() + THIRTY_MINUTES_MS;
-
-        pushStateToFirebase();
-        updateDisplay();
-    }
-
-    function autoRotateStandbyGreeter(spotIndex, staffPositionIndex) {
-        if (isAfternoonCutOffTime()) return;
-
-        const staff = currentSpots[spotIndex][staffPositionIndex];
-        if (!staff) return;
-
-        const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
-        const timeNow = getWibTimeString();
-
-        const logData = {
-            date: getWibDateString(),
-            time: timeNow,
-            staffName: staff.name,
-            spot: spotNames[spotIndex],
-            shift: "TIMEOUT",
-            duration: "30m (STANDBY TIMEOUT)",
-            reason: "AUTO-TIMEOUT: Durasi Standby 30 menit habis",
-            photo: "Tanpa Foto",
-            gps: "-"
-        };
-
-        activityLogs.unshift(logData);
-        syncLogToSpreadsheet(logData);
-
-        currentSpots[spotIndex][staffPositionIndex] = null;
-        spotStandbyEndTimes[spotIndex][staffPositionIndex] = null;
-        spotShiftOrigin[spotIndex][staffPositionIndex] = null;
-
-        activeQueue.push(staff);
-        advanceRotationAndFill();
-
-        pushStateToFirebase();
-        updateDisplay();
-        renderLogs();
-    }
-
-    function updateGreeterStandbyTimersUI() {
-        spotStandbyEndTimes = sanitizeStandbyEndTimes(spotStandbyEndTimes);
-
-        const limitSpot1 = getMaxTitik1Slots();
-        const currentTime = Date.now();
-
-        for (let s = 0; s < 3; s++) {
-            const maxP = s === 0 ? limitSpot1 : 2;
-            for (let p = 0; p < maxP; p++) {
-                const endTime = spotStandbyEndTimes[s][p];
-                const timerSpan = document.getElementById(`greeter-timer-${s}-${p}`);
-                if (timerSpan) {
-                    if (endTime) {
-                        let diffMs = endTime - currentTime;
-                        if (diffMs < 0) diffMs = 0;
-                        const totalSec = Math.floor(diffMs / 1000);
-                        const mins = String(Math.floor(totalSec / 60)).padStart(2, '0');
-                        const secs = String(totalSec % 60).padStart(2, '0');
-                        timerSpan.innerText = `⏳ ${mins}:${secs}`;
-                        timerSpan.className = "text-[11px] font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-md";
-                    } else {
-                        timerSpan.innerText = `⏳ Standby Nonaktif`;
-                        timerSpan.className = "text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md";
-                    }
-                }
-            }
-        }
-    }
 
     function triggerNextGreeterNotification(staffName, spotName) {
         if (isAfternoonCutOffTime()) return;
@@ -1060,7 +890,7 @@
             document.getElementById('live-map-modal').classList.remove('hidden');
             initLiveStoreMap();
         } else {
-            document.getElementById('live-map-pin-error').classList.remove('hidden');
+            document.getElementById('live-map-pin-error').classList.add('hidden');
         }
     }
 
@@ -1141,7 +971,7 @@
             document.getElementById('smt-selection-section').classList.remove('hidden');
             renderEmployeeList(employees);
         } else {
-            document.getElementById('pin-error').classList.remove('hidden');
+            document.getElementById('pin-error').classList.add('hidden');
         }
     }
 
@@ -1184,7 +1014,7 @@
             document.getElementById('report-pin-section').classList.add('hidden');
             document.getElementById('report-content-section').classList.remove('hidden');
         } else {
-            document.getElementById('report-pin-error').classList.remove('hidden');
+            document.getElementById('report-pin-error').classList.add('hidden');
         }
     }
 
@@ -1199,21 +1029,203 @@
         if (modal) modal.classList.add('hidden');
     }
 
-    function openBuddyModalActiveView() {
-        if (!localActiveSession) {
-            showCustomAlert('Informasi', 'Tidak ada sesi buddy yang sedang berjalan saat ini.');
-            return;
-        }
-        const modal = document.getElementById('buddy-modal');
+    // --- SESI BUDDY AKTIF LIST MODAL ---
+    function openBuddyModalActiveList() {
+        const modal = document.getElementById('active-sessions-modal');
         if (modal) {
             modal.classList.remove('hidden');
-            initBuddyMapWithLayout();
+            renderActiveSessionsList();
         }
     }
 
-    function closeBuddyModalViewOnly() {
-        const modal = document.getElementById('buddy-modal');
+    function closeActiveSessionsModal() {
+        const modal = document.getElementById('active-sessions-modal');
         if (modal) modal.classList.add('hidden');
+    }
+
+    function renderActiveSessionsList() {
+        const container = document.getElementById('active-sessions-list-container');
+        if (!container) return;
+
+        if (!activeSessions || activeSessions.length === 0) {
+            container.innerHTML = `<p class="text-sm text-slate-400 italic text-center py-4">Tidak ada sesi buddy yang sedang aktif saat ini.</p>`;
+            return;
+        }
+
+        const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
+        const currentTime = Date.now();
+
+        container.innerHTML = '';
+        activeSessions.forEach((sess) => {
+            const diffSec = Math.floor((currentTime - sess.startTime) / 1000);
+            const mins = String(Math.floor(diffSec / 60)).padStart(2, '0');
+            const secs = String(diffSec % 60).padStart(2, '0');
+
+            const div = document.createElement('div');
+            div.className = 'bg-slate-50 border border-slate-200 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shadow-2xs';
+            div.innerHTML = `
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-extrabold uppercase tracking-wider text-blue-700 bg-blue-100 px-2 py-0.5 rounded-md">${spotNames[sess.spotIndex]}</span>
+                        <span class="text-xs font-mono text-slate-500">NIK: ${sess.staff.nik}</span>
+                    </div>
+                    <h4 class="font-bold text-slate-900 text-base mt-1">${sess.staff.name}</h4>
+                    <p class="text-xs font-mono font-bold text-indigo-700 mt-0.5" id="active-item-timer-${sess.id}">⏳ Durasi: ${mins}:${secs}</p>
+                </div>
+                <button onclick="openFinishSessionModal('${sess.id}')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-sm transition">
+                    Selesai ✓
+                </button>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    function updateActiveSessionsTimersUI() {
+        if (!activeSessions || activeSessions.length === 0) return;
+        const currentTime = Date.now();
+        activeSessions.forEach(sess => {
+            const timerEl = document.getElementById(`active-item-timer-${sess.id}`);
+            if (timerEl) {
+                const diffSec = Math.floor((currentTime - sess.startTime) / 1000);
+                const mins = String(Math.floor(diffSec / 60)).padStart(2, '0');
+                const secs = String(diffSec % 60).padStart(2, '0');
+                timerEl.innerText = `⏳ Durasi: ${mins}:${secs}`;
+            }
+        });
+    }
+
+    function openFinishSessionModal(sessionId) {
+        const sess = activeSessions.find(s => s.id === sessionId);
+        if (!sess) return;
+
+        targetFinishingSessionId = sessionId;
+        closeActiveSessionsModal();
+
+        const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
+        document.getElementById('buddy-info-text').innerText = `Titik: ${spotNames[sess.spotIndex]} | Petugas: ${sess.staff.name}`;
+
+        const diffSec = Math.floor((Date.now() - sess.startTime) / 1000);
+        const mins = String(Math.floor(diffSec / 60)).padStart(2, '0');
+        const secs = String(diffSec % 60).padStart(2, '0');
+        document.getElementById('timer-display').innerText = `${mins}:${secs}`;
+
+        document.getElementById('buddy-modal').classList.remove('hidden');
+        initBuddyMapWithLayout();
+    }
+
+    function closeBuddyModalViewOnly() {
+        document.getElementById('buddy-modal').classList.add('hidden');
+        targetFinishingSessionId = null;
+    }
+
+    function initBuddyMapWithLayout() {
+        setTimeout(() => {
+            if (!currentMap) {
+                const bounds = [[0, 0], [1000, 1414]];
+                currentMap = L.map('buddy-map', {
+                    crs: L.CRS.Simple,
+                    minZoom: -2,
+                    maxZoom: 3
+                });
+                L.imageOverlay('layout-informa.jpg', bounds).addTo(currentMap);
+                currentMap.fitBounds(bounds);
+
+                currentMarker = L.marker([500, 707]).addTo(currentMap).bindPopup("Lokasi Standby SMT").openPopup();
+            } else {
+                currentMap.invalidateSize();
+            }
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        staffLatitude = position.coords.latitude;
+                        staffLongitude = position.coords.longitude;
+                        const cText = document.getElementById('coord-text');
+                        if (cText) cText.innerText = `Denah Aktif: Informa LW Kotwis | GPS: ${staffLatitude.toFixed(5)}, ${staffLongitude.toFixed(5)}`;
+                    },
+                    (error) => {
+                        const cText = document.getElementById('coord-text');
+                        if (cText) cText.innerText = "Denah Aktif: Informa LW Kotwis (Area Toko Utama)";
+                    },
+                    { enableHighAccuracy: true }
+                );
+            }
+        }, 300);
+    }
+
+    function toggleReasonInput() {
+        const cat = document.getElementById('reason-category').value;
+        const cont = document.getElementById('reason-value-container');
+        if (cont) {
+            if (cat === 'Transaksi' || cat === 'Pending') {
+                cont.innerHTML = `<input type="text" id="reason-value-input" onkeyup="formatRupiahInput(this)" placeholder="Masukkan nilai (Value)..." class="border border-slate-300 rounded-xl px-3.5 py-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">`;
+                if (cat === 'Pending') {
+                    cont.innerHTML += `<input type="text" id="reason-detail-input" placeholder="Masukkan alasan pending..." class="border border-slate-300 rounded-xl px-3.5 py-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium mt-2">`;
+                }
+            } else {
+                cont.innerHTML = `<input type="text" id="reason-detail-input" placeholder="Masukkan keterangan..." class="border border-slate-300 rounded-xl px-3.5 py-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">`;
+            }
+        }
+    }
+
+    function finishBuddySessionConfirmed() {
+        if (!targetFinishingSessionId) return;
+
+        const sessIdx = activeSessions.findIndex(s => s.id === targetFinishingSessionId);
+        if (sessIdx === -1) return;
+
+        const sess = activeSessions.splice(sessIdx, 1)[0];
+        localStorage.setItem('greeter_active_sessions', JSON.stringify(activeSessions));
+
+        const staff = sess.staff;
+        const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
+        
+        const diffSec = Math.floor((Date.now() - sess.startTime) / 1000);
+        const mins = String(Math.floor(diffSec / 60)).padStart(2, '0');
+        const secs = String(diffSec % 60).padStart(2, '0');
+        const duration = `${mins}:${secs}`;
+
+        const category = document.getElementById('reason-category').value;
+        let detailVal = document.getElementById('reason-value-input') ? document.getElementById('reason-value-input').value : '0';
+        let detailText = document.getElementById('reason-detail-input') ? document.getElementById('reason-detail-input').value : '';
+
+        let fullReason = `${category}: Value=${detailVal}`;
+        if (category === 'Pending' && detailText) {
+            fullReason += ` | Alasan=${detailText}`;
+        } else if (category === 'Lain' && detailText) {
+            fullReason = `Lain-lain: ${detailText}`;
+        }
+
+        const photoInput = document.getElementById('buddy-photo');
+        const hasPhoto = photoInput && photoInput.files.length > 0 ? "Ada Foto" : "Tanpa Foto";
+        const gpsStr = staffLatitude ? `${staffLatitude.toFixed(5)}, ${staffLongitude.toFixed(5)}` : "Layout Kotwis";
+        const timeNow = getWibTimeString();
+
+        const logData = {
+            date: getWibDateString(),
+            time: timeNow,
+            staffName: staff.name,
+            spot: spotNames[sess.spotIndex],
+            shift: "AKTIF",
+            duration: duration,
+            reason: fullReason,
+            photo: hasPhoto,
+            gps: gpsStr
+        };
+
+        activityLogs.unshift(logData);
+        syncLogToSpreadsheet(logData);
+
+        activeQueue.push(staff);
+        advanceRotationAndFill();
+
+        renderLogs();
+        updateDisplay();
+        document.getElementById('buddy-modal').classList.add('hidden');
+        targetFinishingSessionId = null;
+
+        pushStateToFirebase();
+        showCustomAlert('Laporan Selesai', `Sesi buddy ${staff.name} selesai, tercatat ke sistem, dan petugas masuk ke antrean paling bawah.`);
     }
 
     function renderEmployeeList(list) {
@@ -1298,6 +1310,12 @@
             });
         }
 
+        if (activeSessions && activeSessions.length > 0) {
+            activeSessions.forEach(sess => {
+                if (sess && sess.staff && sess.staff.nik) combinedQueueMap.delete(sess.staff.nik);
+            });
+        }
+
         activeQueue = Array.from(combinedQueueMap.values());
 
         advanceRotationAndFill();
@@ -1325,6 +1343,7 @@
         collectNiks(shiftAfternoonQueue);
         collectNiks(activeQueue);
         if (pausedQueue) pausedQueue.forEach(item => { if(item && item.staff && item.staff.nik) uniqueNik.add(item.staff.nik); });
+        if (activeSessions) activeSessions.forEach(sess => { if(sess && sess.staff && sess.staff.nik) uniqueNik.add(sess.staff.nik); });
 
         if (Array.isArray(currentSpots)) {
             currentSpots.forEach(spotGroup => {
@@ -1345,19 +1364,15 @@
     }
 
     function updateDisplay() {
-        spotStandbyEndTimes = sanitizeStandbyEndTimes(spotStandbyEndTimes);
-
         if (isAfternoonCutOffTime()) {
             for(let s=0; s<3; s++) {
                 for(let p=0; p<currentSpots[s].length; p++) {
                     currentSpots[s][p] = null;
-                    spotStandbyEndTimes[s][p] = null;
                 }
             }
         }
 
         const limitSpot1 = getMaxTitik1Slots();
-        const currentTime = Date.now();
 
         // Render Titik 1
         const el0 = document.getElementById('spot-0');
@@ -1366,29 +1381,15 @@
             for(let i=0; i<limitSpot1; i++) {
                 let staff = currentSpots[0][i];
                 if(staff) {
-                    let endTime = (spotStandbyEndTimes[0] && spotStandbyEndTimes[0][i]) ? spotStandbyEndTimes[0][i] : null;
-                    let timerText = "⏳ Standby Nonaktif";
-                    let timerClass = "text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md";
-                    if (endTime) {
-                        let diffMs = endTime - currentTime;
-                        if (diffMs < 0) diffMs = 0;
-                        const totalSec = Math.floor(diffMs / 1000);
-                        const mins = String(Math.floor(totalSec / 60)).padStart(2, '0');
-                        const secs = String(totalSec % 60).padStart(2, '0');
-                        timerText = `⏳ ${mins}:${secs}`;
-                        timerClass = "text-[11px] font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-md";
-                    }
-
                     html0 += `
                         <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-2">
                             <div class="flex justify-between items-center">
                                 <strong class="text-slate-900 text-xs">${i+1}. ${staff.name}</strong>
-                                <span id="greeter-timer-0-${i}" class="${timerClass}">${timerText}</span>
+                                <span class="text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md">Aktif di Titik</span>
                             </div>
-                            <div class="grid grid-cols-3 gap-1 pt-1 border-t border-slate-100">
-                                <button onclick="startStandbyTimer(0, ${i})" class="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] py-1.5 px-1 rounded-lg font-semibold transition cursor-pointer">⏱️ Standby</button>
-                                <button onclick="requestStaffPin('mulai', 0, ${i})" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] py-1.5 px-1 rounded-lg font-semibold transition cursor-pointer">🟢 Mulai</button>
-                                <button onclick="requestStaffPin('skip', 0, ${i})" class="bg-amber-600 hover:bg-amber-700 text-white text-[10px] py-1.5 px-1 rounded-lg font-semibold transition cursor-pointer">⏭️ Skip</button>
+                            <div class="grid grid-cols-2 gap-1.5 pt-1 border-t border-slate-100">
+                                <button onclick="requestStaffPin('mulai', 0, ${i})" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition cursor-pointer">🟢 Mulai Sesi</button>
+                                <button onclick="requestStaffPin('skip', 0, ${i})" class="bg-amber-600 hover:bg-amber-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition cursor-pointer">⏭️ Skip</button>
                             </div>
                         </div>
                     `;
@@ -1409,29 +1410,15 @@
             for (let p = 0; p < maxP; p++) {
                 let staff = currentSpots[i][p];
                 if (staff) {
-                    let endTime = (spotStandbyEndTimes[i] && spotStandbyEndTimes[i][p]) ? spotStandbyEndTimes[i][p] : null;
-                    let text = "⏳ Standby Nonaktif";
-                    let classTxt = "text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md";
-                    if (endTime) {
-                        let diffMs = endTime - currentTime;
-                        if (diffMs < 0) diffMs = 0;
-                        const totalSec = Math.floor(diffMs / 1000);
-                        const mins = String(Math.floor(totalSec / 60)).padStart(2, '0');
-                        const secs = String(totalSec % 60).padStart(2, '0');
-                        text = `⏳ ${mins}:${secs}`;
-                        classTxt = "text-[11px] font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-md";
-                    }
-
                     htmlStr += `
                         <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-2 mb-2">
                             <div class="flex justify-between items-center">
                                 <strong class="text-slate-900 text-xs">${p+1}. ${staff.name}</strong>
-                                <span id="greeter-timer-${i}-${p}" class="${classTxt}">${text}</span>
+                                <span class="text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md">Aktif di Titik</span>
                             </div>
-                            <div class="grid grid-cols-3 gap-1 pt-1 border-t border-slate-100">
-                                <button onclick="startStandbyTimer(${i}, ${p})" class="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] py-1.5 px-1 rounded-lg font-semibold transition cursor-pointer">⏱️ Standby</button>
-                                <button onclick="requestStaffPin('mulai', ${i}, ${p})" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] py-1.5 px-1 rounded-lg font-semibold transition cursor-pointer">🟢 Mulai</button>
-                                <button onclick="requestStaffPin('skip', ${i}, ${p})" class="bg-amber-600 hover:bg-amber-700 text-white text-[10px] py-1.5 px-1 rounded-lg font-semibold transition cursor-pointer">⏭️ Skip</button>
+                            <div class="grid grid-cols-2 gap-1.5 pt-1 border-t border-slate-100">
+                                <button onclick="requestStaffPin('mulai', ${i}, ${p})" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition cursor-pointer">🟢 Mulai Sesi</button>
+                                <button onclick="requestStaffPin('skip', ${i}, ${p})" class="bg-amber-600 hover:bg-amber-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition cursor-pointer">⏭️ Skip</button>
                             </div>
                         </div>
                     `;
@@ -1460,7 +1447,6 @@
                 qContainer.innerHTML = `<div class="bg-white p-3 rounded-xl border border-slate-200 text-center"><span class="text-slate-400 italic text-xs">${isAfternoonCutOffTime() ? 'Selesai (Cut-off Jam 22:00 WIB)' : 'Tidak ada antrean cadangan'}</span></div>`;
             }
         }
-        updateGreeterStandbyTimersUI();
         updateAttendanceStats();
     }
 
@@ -1500,7 +1486,7 @@
                 });
             }
         } else {
-            document.getElementById('rotasi-pin-error').classList.remove('hidden');
+            document.getElementById('rotasi-pin-error').classList.add('hidden');
         }
     }
 
@@ -1524,7 +1510,6 @@
         currentSpots[firstSlot.s][firstSlot.p] = chosenStaff;
         const isMorningStaff = shiftMorningQueue.some(emp => emp.nik === chosenStaff.nik);
         spotShiftOrigin[firstSlot.s][firstSlot.p] = isMorningStaff ? 'pagi' : 'siang';
-        spotStandbyEndTimes[firstSlot.s][firstSlot.p] = null;
 
         if (displacedStaff) {
             activeQueue.push(displacedStaff);
@@ -1548,203 +1533,28 @@
             return;
         }
 
-        activeSpotIndex = spotIndex;
-        activeStaffIndexInSpot = staffPositionIndex;
         const staff = currentSpots[spotIndex][staffPositionIndex];
-        activeSessionStaff = staff;
+        if (!staff) return;
 
-        spotStandbyEndTimes[spotIndex][staffPositionIndex] = null;
-
-        localActiveSession = { spotIndex, staffPositionIndex, staff, startTime: Date.now() };
-        localStorage.setItem('greeter_active_session', JSON.stringify(localActiveSession));
-
-        previousStaffPositionBackup = { 
-            spotIndex, 
-            staffPositionIndex, 
-            staff,
-            activeQueueSnapshot: [...activeQueue],
-            currentSpotsSnapshot: JSON.parse(JSON.stringify(currentSpots)),
-            spotStandbyEndTimesSnapshot: JSON.parse(JSON.stringify(spotStandbyEndTimes))
+        const newSession = {
+            id: 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+            spotIndex: spotIndex,
+            staffPositionIndex: staffPositionIndex,
+            staff: staff,
+            startTime: Date.now()
         };
 
-        const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
-        document.getElementById('buddy-info-text').innerText = `Titik: ${spotNames[spotIndex]} (Petugas #${staffPositionIndex + 1}) | Petugas: ${staff.name}`;
-        document.getElementById('buddy-modal').classList.remove('hidden');
-
-        secondsElapsed = 0;
-        document.getElementById('timer-display').innerText = "00:00";
-        if (timerInterval) clearInterval(timerInterval);
-        timerInterval = setInterval(() => {
-            secondsElapsed++;
-            const mins = String(Math.floor(secondsElapsed / 60)).padStart(2, '0');
-            const secs = String(secondsElapsed % 60).padStart(2, '0');
-            const tEl = document.getElementById('timer-display');
-            if (tEl) tEl.innerText = `${mins}:${secs}`;
-        }, 1000);
-
-        initBuddyMapWithLayout();
+        activeSessions.push(newSession);
+        localStorage.setItem('greeter_active_sessions', JSON.stringify(activeSessions));
 
         currentSpots[spotIndex][staffPositionIndex] = null;
-        spotStandbyEndTimes[spotIndex][staffPositionIndex] = null;
         spotShiftOrigin[spotIndex][staffPositionIndex] = null;
 
         advanceRotationAndFill();
 
         pushStateToFirebase();
         updateDisplay();
-    }
-
-    function initBuddyMapWithLayout() {
-        setTimeout(() => {
-            if (!currentMap) {
-                const bounds = [[0, 0], [1000, 1414]];
-                currentMap = L.map('buddy-map', {
-                    crs: L.CRS.Simple,
-                    minZoom: -2,
-                    maxZoom: 3
-                });
-                L.imageOverlay('layout-informa.jpg', bounds).addTo(currentMap);
-                currentMap.fitBounds(bounds);
-
-                currentMarker = L.marker([500, 707]).addTo(currentMap).bindPopup("Lokasi Standby SMT").openPopup();
-            } else {
-                currentMap.invalidateSize();
-            }
-
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        staffLatitude = position.coords.latitude;
-                        staffLongitude = position.coords.longitude;
-                        const cText = document.getElementById('coord-text');
-                        if (cText) cText.innerText = `Denah Aktif: Informa LW Kotwis | GPS: ${staffLatitude.toFixed(5)}, ${staffLongitude.toFixed(5)}`;
-                    },
-                    (error) => {
-                        const cText = document.getElementById('coord-text');
-                        if (cText) cText.innerText = "Denah Aktif: Informa LW Kotwis (Area Toko Utama)";
-                    },
-                    { enableHighAccuracy: true }
-                );
-            }
-        }, 300);
-    }
-
-    function openCancelReasonModal() {
-        document.getElementById('cancel-reason-modal').classList.remove('hidden');
-    }
-
-    function closeCancelReasonModal() {
-        document.getElementById('cancel-reason-modal').classList.add('hidden');
-    }
-
-    function confirmCancelBuddySession() {
-        if (timerInterval) clearInterval(timerInterval);
-
-        localStorage.removeItem('greeter_active_session');
-        localActiveSession = null;
-
-        closeCancelReasonModal();
-
-        const selectedCancelOption = document.querySelector('input[name="cancel-option"]:checked').value;
-
-        if (previousStaffPositionBackup) {
-            currentSpots = previousStaffPositionBackup.currentSpotsSnapshot;
-            activeQueue = previousStaffPositionBackup.activeQueueSnapshot;
-            spotStandbyEndTimes = previousStaffPositionBackup.spotStandbyEndTimesSnapshot;
-
-            const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
-            const staff = previousStaffPositionBackup.staff;
-            const timeNow = getWibTimeString();
-
-            const logData = {
-                date: getWibDateString(),
-                time: timeNow,
-                staffName: staff.name,
-                spot: spotNames[previousStaffPositionBackup.spotIndex],
-                shift: "CANCEL",
-                duration: "00:00 (CANCEL)",
-                reason: `CANCEL SESI: ${selectedCancelOption}`,
-                photo: "Tanpa Foto",
-                gps: "-"
-            };
-
-            activityLogs.unshift(logData);
-            syncLogToSpreadsheet(logData);
-        }
-
-        pushStateToFirebase();
-        updateDisplay();
-        renderLogs();
-        document.getElementById('buddy-modal').classList.add('hidden');
-        showCustomAlert('Sesi Dibatalkan', `Sesi dibatalkan (${selectedCancelOption}). Petugas asal kembali ke titik.`);
-    }
-
-    function toggleReasonInput() {
-        const cat = document.getElementById('reason-category').value;
-        const cont = document.getElementById('reason-value-container');
-        if (cont) {
-            if (cat === 'Transaksi' || cat === 'Pending') {
-                cont.innerHTML = `<input type="text" id="reason-value-input" onkeyup="formatRupiahInput(this)" placeholder="Masukkan nilai (Value)..." class="border border-slate-300 rounded-xl px-3.5 py-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">`;
-                if (cat === 'Pending') {
-                    cont.innerHTML += `<input type="text" id="reason-detail-input" placeholder="Masukkan alasan pending..." class="border border-slate-300 rounded-xl px-3.5 py-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium mt-2">`;
-                }
-            } else {
-                cont.innerHTML = `<input type="text" id="reason-detail-input" placeholder="Masukkan keterangan..." class="border border-slate-300 rounded-xl px-3.5 py-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">`;
-            }
-        }
-    }
-
-    function finishBuddySession() {
-        if (timerInterval) clearInterval(timerInterval);
-
-        localStorage.removeItem('greeter_active_session');
-        localActiveSession = null;
-
-        const staff = activeSessionStaff;
-        if (!staff) return;
-
-        const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
-        const tEl = document.getElementById('timer-display');
-        const duration = tEl ? tEl.innerText : "00:00";
-        const category = document.getElementById('reason-category').value;
-
-        let detailVal = document.getElementById('reason-value-input') ? document.getElementById('reason-value-input').value : '0';
-        let detailText = document.getElementById('reason-detail-input') ? document.getElementById('reason-detail-input').value : '';
-
-        let fullReason = `${category}: Value=${detailVal}`;
-        if (category === 'Pending' && detailText) {
-            fullReason += ` | Alasan=${detailText}`;
-        } else if (category === 'Lain' && detailText) {
-            fullReason = `Lain-lain: ${detailText}`;
-        }
-
-        const photoInput = document.getElementById('buddy-photo');
-        const hasPhoto = photoInput && photoInput.files.length > 0 ? "Ada Foto" : "Tanpa Foto";
-        const gpsStr = staffLatitude ? `${staffLatitude.toFixed(5)}, ${staffLongitude.toFixed(5)}` : "Layout Kotwis";
-        const timeNow = getWibTimeString();
-
-        const logData = {
-            date: getWibDateString(),
-            time: timeNow,
-            staffName: staff.name,
-            spot: spotNames[activeSpotIndex],
-            shift: "AKTIF",
-            duration: duration,
-            reason: fullReason,
-            photo: hasPhoto,
-            gps: gpsStr
-        };
-
-        activityLogs.unshift(logData);
-        syncLogToSpreadsheet(logData);
-
-        activeQueue.push(staff);
-        advanceRotationAndFill();
-
-        renderLogs();
-        updateDisplay();
-        document.getElementById('buddy-modal').classList.add('hidden');
-        showCustomAlert('Laporan Selesai', `Sesi buddy ${staff.name} selesai, tercatat ke sistem, dan petugas masuk ke antrean paling bawah.`);
+        showCustomAlert('Sesi Dimulai', `Sesi buddy untuk ${staff.name} telah dimulai.`);
     }
 
     function openSkipModalDirect(spotIndex, staffPositionIndex) {
@@ -1821,7 +1631,6 @@
         closeSkipModal();
 
         currentSpots[skipSpotIndex][skipStaffIndexInSpot] = null;
-        spotStandbyEndTimes[skipSpotIndex][skipStaffIndexInSpot] = null;
         spotShiftOrigin[skipSpotIndex][skipStaffIndexInSpot] = null;
 
         advanceRotationAndFill();
