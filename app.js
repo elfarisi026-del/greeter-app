@@ -144,6 +144,8 @@
         let result = [[null, null, null], [null, null], [null, null]];
         if (!raw) return result;
         let rows = Array.isArray(raw) ? raw : Object.values(raw);
+        let now = Date.now();
+        
         for (let s = 0; s < 3; s++) {
             let row = rows[s];
             if (row) {
@@ -151,7 +153,13 @@
                 let maxP = s === 0 ? 3 : 2;
                 for (let p = 0; p < maxP; p++) {
                     let val = cols[p];
-                    result[s][p] = (typeof val === 'number' && !isNaN(val)) ? val : null;
+                    // HANYA terima jika berupa angka dan waktunya masih di masa depan (val > now).
+                    // Jika data lama/sudah expired, paksa jadi null agar tidak memicu timer latar belakang.
+                    if (typeof val === 'number' && !isNaN(val) && val > now) {
+                        result[s][p] = val;
+                    } else {
+                        result[s][p] = null;
+                    }
                 }
             }
         }
@@ -646,7 +654,7 @@
                     shiftAfternoonQueue = [];
                     spotShiftOrigin = [[null, null, null], [null, null], [null, null]];
                     spotStandbyEndTimes = [[null, null, null], [null, null], [null, null]];
-                    activityLogs = []; // <-- DITAMBAHKAN AGAR LOG HARIAN BERSIH SAAT GANTI HARI
+                    activityLogs = [];
                     
                     pushStateToFirebase();
                     updateDisplay();
@@ -712,7 +720,8 @@
 
             for (let s = 0; s < 3; s++) {
                 let maxP = s === 0 ? getMaxTitik1Slots() : 2;
-                for (let p = 0; p < maxP; p++) {
+                let p = 0;
+                while (p < maxP) {
                     let staff = currentSpots[s][p];
                     if (staff && (morningNiks.has(staff.nik) || spotShiftOrigin[s][p] === 'pagi')) {
                         currentSpots[s][p] = null;
@@ -720,6 +729,7 @@
                         spotShiftOrigin[s][p] = null;
                         stateChanged = true;
                     }
+                    p++;
                 }
             }
 
@@ -1860,7 +1870,6 @@
         const tbody = document.getElementById('log-table-body');
         if (!tbody) return;
         
-        // FILTER AGAR TABEL WEB HANYA MENAMPILKAN AKTIVITAS HARI INI (WIB)
         const todayStr = getWibDateString();
         const todayLogs = activityLogs.filter(l => l.date === todayStr);
 
@@ -1885,9 +1894,6 @@
         });
     }
 
-    // ==========================================================
-    // FUNGSI FETCH REKAP LANGSUNG DARI GOOGLE SPREADSHEET (GET)
-    // ==========================================================
     async function fetchSpreadsheetLogs() {
         if (!SCRIPT_URL) return [];
         try {
