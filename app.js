@@ -1017,9 +1017,15 @@
             document.getElementById('pin-section').classList.remove('hidden');
             document.getElementById('smt-selection-section').classList.add('hidden');
             
-            const mode = document.querySelector('input[name="shift-mode"]:checked').value;
-            if(mode === 'pagi') selectedStaffQueue = [...shiftMorningQueue];
-            else selectedStaffQueue = [...shiftAfternoonQueue];
+            // Pertahankan/baca sesuai radio button yang sedang aktif, sehingga tidak otomatis mereset
+            const activeRadio = document.querySelector('input[name="shift-mode"]:checked');
+            const mode = activeRadio ? activeRadio.value : 'pagi';
+            
+            if(mode === 'pagi') {
+                selectedStaffQueue = [...shiftMorningQueue];
+            } else {
+                selectedStaffQueue = [...shiftAfternoonQueue];
+            }
             
             updateSelectedPreview();
         }
@@ -1151,6 +1157,11 @@
             }
             shiftMorningQueue = [...selectedStaffQueue];
         } else {
+            // PENGAMAN: Mencegah Shift Siang tertimpa kosong jika belum sempat dipilih atau terjadi kesalahan klik
+            if (selectedStaffQueue.length === 0 && shiftAfternoonQueue.length > 0) {
+                showCustomAlert("Perhatian", "Daftar Shift Siang terpilih kosong. Data lama dipertahankan untuk mencegah kehilangan data.");
+                return;
+            }
             shiftAfternoonQueue = [...selectedStaffQueue];
         }
         
