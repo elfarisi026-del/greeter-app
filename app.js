@@ -106,6 +106,7 @@
 
     let liveStoreMap = null;
     let liveMarkers = [];
+    let pendingStaffAction = null;
 
     function getWibHour() {
         const now = new Date();
@@ -207,6 +208,20 @@
             </div>
         </div>
 
+        <!-- Staff PIN Verification Modal for Mulai / Skip -->
+        <div id="staff-pin-modal" class="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
+            <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-100">
+                <h3 class="text-lg font-bold text-slate-900 mb-1">🔐 Verifikasi PIN Petugas</h3>
+                <p id="staff-pin-info" class="text-xs text-slate-500 mb-4">Masukkan NIK petugas yang bersangkutan untuk konfirmasi.</p>
+                <input type="password" id="staff-pin-input" placeholder="Masukkan NIK petugas..." class="border border-slate-300 rounded-xl px-4 py-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium mb-2">
+                <p id="staff-pin-error" class="text-rose-500 text-xs font-medium hidden mb-3">NIK petugas salah!</p>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button onclick="closeStaffPinModal()" class="border border-slate-300 text-slate-700 px-4 py-2 rounded-xl text-xs font-semibold hover:bg-slate-50 transition">Batal</button>
+                    <button onclick="verifyStaffPin()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-sm transition">Konfirmasi</button>
+                </div>
+            </div>
+        </div>
+
         <div id="notification-modal" class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50" onclick="handleModalBackdropClick(event)">
             <div id="notification-box" class="bg-amber-50 rounded-2xl max-w-md w-full p-6 shadow-2xl border-2 border-amber-400 text-center animate-bounce transition-transform duration-200">
                 <div class="text-4xl mb-2">🔔</div>
@@ -284,6 +299,12 @@
                     <button onclick="openSmtModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2">
                         <span>⚙️ Menu Input SMT & Shift</span>
                     </button>
+                    <button onclick="openBuddyModalActiveView()" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2">
+                        <span>⏳ Sesi Buddy Aktif</span>
+                    </button>
+                    <button onclick="openHistoryModal()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2">
+                        <span>📜 Riwayat Sesi Buddy</span>
+                    </button>
                     <button onclick="openReportModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2">
                         <span>📊 Rekap & WhatsApp (.xlsx)</span>
                     </button>
@@ -318,7 +339,7 @@
                 </div>
                 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
-                    <!-- TITIK 1 -->
+                    <!-- TITIK 1 (Main Entrance) -->
                     <div class="bg-slate-50/70 p-4 rounded-xl border border-slate-200/70 flex flex-col justify-between hover:border-slate-300 transition">
                         <div>
                             <div class="flex justify-between items-center mb-2">
@@ -326,18 +347,13 @@
                                 <span class="text-xs text-slate-400 font-medium">Main Entrance</span>
                             </div>
                             <h3 class="font-bold text-slate-900 text-base mb-1">Main Entrance</h3>
-                            <div class="space-y-2 mt-2" id="spot-0">
+                            <div class="space-y-3 mt-3" id="spot-0">
                                 <p class="text-sm text-slate-400 italic">Belum ada petugas</p>
                             </div>
                         </div>
-                        <div class="space-y-2 mt-4 pt-3 border-t border-slate-200/60">
-                            <div class="grid grid-cols-3 gap-1" id="spot-0-standby-buttons"></div>
-                            <div class="grid grid-cols-3 gap-1" id="spot-0-buttons"></div>
-                            <div class="grid grid-cols-3 gap-1" id="spot-0-skip-buttons"></div>
-                        </div>
                     </div>
 
-                    <!-- TITIK 2 -->
+                    <!-- TITIK 2 (CarPark / CP) -->
                     <div class="bg-slate-50/70 p-4 rounded-xl border border-slate-200/70 flex flex-col justify-between hover:border-slate-300 transition">
                         <div>
                             <div class="flex justify-between items-center mb-2">
@@ -345,18 +361,13 @@
                                 <span class="text-xs text-slate-400 font-medium">CarPark / CP</span>
                             </div>
                             <h3 class="font-bold text-slate-900 text-base mb-1">CarPark / CP</h3>
-                            <div class="space-y-2 mt-2" id="spot-1">
+                            <div class="space-y-3 mt-3" id="spot-1">
                                 <p class="text-sm text-slate-400 italic">Belum ada petugas</p>
                             </div>
                         </div>
-                        <div class="space-y-2 mt-4 pt-3 border-t border-slate-200/60">
-                            <div class="grid grid-cols-2 gap-1" id="spot-1-buttons-standby"></div>
-                            <div class="grid grid-cols-2 gap-1" id="spot-1-buttons-mulai"></div>
-                            <div class="grid grid-cols-2 gap-1" id="spot-1-buttons-skip"></div>
-                        </div>
                     </div>
 
-                    <!-- TITIK 3 -->
+                    <!-- TITIK 3 (HomeGallery / HG) -->
                     <div class="bg-slate-50/70 p-4 rounded-xl border border-slate-200/70 flex flex-col justify-between hover:border-slate-300 transition">
                         <div>
                             <div class="flex justify-between items-center mb-2">
@@ -364,14 +375,9 @@
                                 <span class="text-xs text-slate-400 font-medium">HomeGallery / HG</span>
                             </div>
                             <h3 class="font-bold text-slate-900 text-base mb-1">HomeGallery / HG</h3>
-                            <div class="space-y-2 mt-2" id="spot-2">
+                            <div class="space-y-3 mt-3" id="spot-2">
                                 <p class="text-sm text-slate-400 italic">Belum ada petugas</p>
                             </div>
-                        </div>
-                        <div class="space-y-2 mt-4 pt-3 border-t border-slate-200/60">
-                            <div class="grid grid-cols-2 gap-1" id="spot-2-buttons-standby"></div>
-                            <div class="grid grid-cols-2 gap-1" id="spot-2-buttons-mulai"></div>
-                            <div class="grid grid-cols-2 gap-1" id="spot-2-buttons-skip"></div>
                         </div>
                     </div>
                 </div>
@@ -388,9 +394,15 @@
                     </div>
                 </div>
             </section>
+        </div>
 
-            <section class="bg-white border border-slate-200/80 rounded-2xl p-5 md:p-6 shadow-xs">
-                <h2 class="text-lg font-bold text-slate-900 mb-4">📋 Riwayat Sesi Buddy Hari Ini</h2>
+        <!-- MODAL RIWAYAT SESI BUDDY -->
+        <div id="history-modal" class="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
+            <div class="bg-white rounded-2xl max-w-4xl w-full p-6 md:p-8 shadow-2xl max-h-[90vh] overflow-y-auto border border-slate-100">
+                <div class="flex justify-between items-center mb-5 border-b border-slate-100 pb-4">
+                    <h3 class="text-xl font-bold text-slate-900">📜 Riwayat Sesi Buddy Hari Ini</h3>
+                    <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-slate-600 text-2xl font-bold">&times;</button>
+                </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-sm text-slate-600">
                         <thead class="bg-slate-100 text-slate-700 uppercase text-[11px] font-bold tracking-wider">
@@ -409,7 +421,10 @@
                         </tbody>
                     </table>
                 </div>
-            </section>
+                <div class="flex justify-end mt-5">
+                    <button onclick="closeHistoryModal()" class="bg-slate-800 hover:bg-slate-900 text-white px-5 py-2.5 rounded-xl text-xs font-semibold shadow-sm">Tutup</button>
+                </div>
+            </div>
         </div>
 
         <div id="smt-modal" class="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
@@ -504,6 +519,7 @@
             </div>
         </div>
 
+        <!-- MODAL SESI BUDDY & CUSTOMER -->
         <div id="buddy-modal" class="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
             <div class="bg-white rounded-2xl max-w-lg w-full p-6 md:p-8 shadow-2xl max-h-[90vh] overflow-y-auto border border-slate-100">
                 <h3 class="text-xl font-bold text-slate-900 mb-1">Sesi Buddy & Customer</h3>
@@ -540,12 +556,15 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-3">
-                    <button onclick="openCancelReasonModal()" class="bg-rose-100 hover:bg-rose-200 text-rose-700 py-3 rounded-xl font-bold text-sm transition shadow-2xs">
-                        ❌ Batal / Cancel
+                <div class="grid grid-cols-3 gap-2">
+                    <button onclick="closeBuddyModalViewOnly()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 py-3 rounded-xl font-bold text-xs md:text-sm transition shadow-2xs">
+                        OK (Tutup)
                     </button>
-                    <button onclick="finishBuddySession()" class="bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold text-sm transition shadow-sm">
-                        Simpan & Selesai ✓
+                    <button onclick="openCancelReasonModal()" class="bg-rose-100 hover:bg-rose-200 text-rose-700 py-3 rounded-xl font-bold text-xs md:text-sm transition shadow-2xs">
+                        ❌ Cancel
+                    </button>
+                    <button onclick="finishBuddySession()" class="bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold text-xs md:text-sm transition shadow-sm">
+                        Selesai ✓
                     </button>
                 </div>
             </div>
@@ -619,7 +638,6 @@
             
             const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
             document.getElementById('buddy-info-text').innerText = `Titik: ${spotNames[activeSpotIndex]} (Petugas #${activeStaffIndexInSpot + 1}) | Petugas: ${activeSessionStaff.name}`;
-            document.getElementById('buddy-modal').classList.remove('hidden');
             
             secondsElapsed = Math.floor((Date.now() - localActiveSession.startTime) / 1000);
             if (secondsElapsed < 0) secondsElapsed = 0;
@@ -629,10 +647,9 @@
                 secondsElapsed++;
                 const mins = String(Math.floor(secondsElapsed / 60)).padStart(2, '0');
                 const secs = String(secondsElapsed % 60).padStart(2, '0');
-                document.getElementById('timer-display').innerText = `${mins}:${secs}`;
+                const tEl = document.getElementById('timer-display');
+                if (tEl) tEl.innerText = `${mins}:${secs}`;
             }, 1000);
-
-            initBuddyMapWithLayout();
         }
 
         db.ref('appState').on('value', (snapshot) => {
@@ -689,6 +706,51 @@
         });
     }
 
+    function getOrderedFlowSlots() {
+        let slots = [];
+        const limitSpot1 = getMaxTitik1Slots();
+        
+        for(let p = 0; p < 2; p++) {
+            slots.push({ s: 2, p: p });
+        }
+        for(let p = 0; p < 2; p++) {
+            slots.push({ s: 1, p: p });
+        }
+        for(let p = 0; p < limitSpot1; p++) {
+            slots.push({ s: 0, p: p });
+        }
+        return slots;
+    }
+
+    function advanceRotationAndFill() {
+        const slots = getOrderedFlowSlots();
+        
+        for (let i = 0; i < slots.length - 1; i++) {
+            let curr = slots[i];
+            let next = slots[i+1];
+            if (!currentSpots[curr.s][curr.p] && currentSpots[next.s][next.p]) {
+                currentSpots[curr.s][curr.p] = currentSpots[next.s][next.p];
+                spotShiftOrigin[curr.s][curr.p] = spotShiftOrigin[next.s][next.p];
+                spotStandbyEndTimes[curr.s][curr.p] = spotStandbyEndTimes[next.s][next.p];
+                
+                currentSpots[next.s][next.p] = null;
+                spotShiftOrigin[next.s][next.p] = null;
+                spotStandbyEndTimes[next.s][next.p] = null;
+            }
+        }
+
+        for (let i = 0; i < slots.length; i++) {
+            let slot = slots[i];
+            if (!currentSpots[slot.s][slot.p] && activeQueue.length > 0) {
+                let nextStaff = activeQueue.shift();
+                currentSpots[slot.s][slot.p] = nextStaff;
+                const isMorningStaff = shiftMorningQueue.some(emp => emp.nik === nextStaff.nik);
+                spotShiftOrigin[slot.s][slot.p] = isMorningStaff ? 'pagi' : 'siang';
+                spotStandbyEndTimes[slot.s][slot.p] = null;
+            }
+        }
+    }
+
     setInterval(() => {
         if (isMorningCutOffTime() && shiftMorningQueue.length > 0) {
             let stateChanged = false;
@@ -727,6 +789,7 @@
             }
 
             if (stateChanged) {
+                advanceRotationAndFill();
                 pushStateToFirebase();
                 updateDisplay();
                 updateAttendanceStats();
@@ -774,6 +837,7 @@
 
             if (stateChanged) {
                 pausedQueue = updatedPausedQueue;
+                advanceRotationAndFill();
                 pushStateToFirebase();
                 updateDisplay();
             }
@@ -843,18 +907,12 @@
         activityLogs.unshift(logData);
         syncLogToSpreadsheet(logData);
 
-        if (activeQueue.length > 0) {
-            const nextInQueue = activeQueue.shift();
-            currentSpots[spotIndex][staffPositionIndex] = nextInQueue;
-            const isMorningStaff = shiftMorningQueue.some(emp => emp.nik === nextInQueue.nik);
-            spotShiftOrigin[spotIndex][staffPositionIndex] = isMorningStaff ? 'pagi' : 'siang';
-            triggerNextGreeterNotification(nextInQueue.name, spotNames[spotIndex]);
-            spotStandbyEndTimes[spotIndex][staffPositionIndex] = null;
-        } else {
-            currentSpots[spotIndex][staffPositionIndex] = null;
-            spotStandbyEndTimes[spotIndex][staffPositionIndex] = null;
-        }
+        currentSpots[spotIndex][staffPositionIndex] = null;
+        spotStandbyEndTimes[spotIndex][staffPositionIndex] = null;
+        spotShiftOrigin[spotIndex][staffPositionIndex] = null;
+
         activeQueue.push(staff);
+        advanceRotationAndFill();
 
         pushStateToFirebase();
         updateDisplay();
@@ -944,6 +1002,42 @@
         if (modal) modal.classList.add('hidden');
     }
 
+    function requestStaffPin(action, spotIndex, staffPositionIndex) {
+        if (isAfternoonCutOffTime()) {
+            showCustomAlert('Waktu Cut-Off', 'Pukul 22.00 WIB telah tercapai.');
+            return;
+        }
+        const staff = currentSpots[spotIndex][staffPositionIndex];
+        if (!staff) return;
+
+        pendingStaffAction = { action, spotIndex, staffPositionIndex, staff };
+        document.getElementById('staff-pin-input').value = '';
+        document.getElementById('staff-pin-error').classList.add('hidden');
+        document.getElementById('staff-pin-info').innerText = `Masukkan NIK petugas ${staff.name} untuk konfirmasi (${action === 'mulai' ? 'Mulai Sesi' : 'Skip Giliran'}):`;
+        document.getElementById('staff-pin-modal').classList.remove('hidden');
+    }
+
+    function closeStaffPinModal() {
+        document.getElementById('staff-pin-modal').classList.add('hidden');
+        pendingStaffAction = null;
+    }
+
+    function verifyStaffPin() {
+        if (!pendingStaffAction) return;
+        const enteredNik = document.getElementById('staff-pin-input').value.trim();
+        if (enteredNik === pendingStaffAction.staff.nik) {
+            const { action, spotIndex, staffPositionIndex } = pendingStaffAction;
+            closeStaffPinModal();
+            if (action === 'mulai') {
+                startBuddySession(spotIndex, staffPositionIndex);
+            } else if (action === 'skip') {
+                openSkipModalDirect(spotIndex, staffPositionIndex);
+            }
+        } else {
+            document.getElementById('staff-pin-error').classList.remove('hidden');
+        }
+    }
+
     function openLiveMapPinModal() {
         document.getElementById('live-map-pin-input').value = '';
         document.getElementById('live-map-pin-error').classList.add('hidden');
@@ -1017,7 +1111,6 @@
             document.getElementById('pin-section').classList.remove('hidden');
             document.getElementById('smt-selection-section').classList.add('hidden');
             
-            // Pertahankan/baca sesuai radio button yang sedang aktif, sehingga tidak otomatis mereset
             const activeRadio = document.querySelector('input[name="shift-mode"]:checked');
             const mode = activeRadio ? activeRadio.value : 'pagi';
             
@@ -1086,8 +1179,36 @@
             document.getElementById('report-pin-section').classList.add('hidden');
             document.getElementById('report-content-section').classList.remove('hidden');
         } else {
-            document.getElementById('report-pin-error').classList.remove('hidden');
+            document.getElementById('report-pin-error').classList.add('hidden');
         }
+    }
+
+    function openHistoryModal() {
+        const modal = document.getElementById('history-modal');
+        if (modal) modal.classList.remove('hidden');
+        renderLogs();
+    }
+
+    function closeHistoryModal() {
+        const modal = document.getElementById('history-modal');
+        if (modal) modal.classList.add('hidden');
+    }
+
+    function openBuddyModalActiveView() {
+        if (!localActiveSession) {
+            showCustomAlert('Informasi', 'Tidak ada sesi buddy yang sedang berjalan saat ini.');
+            return;
+        }
+        const modal = document.getElementById('buddy-modal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            initBuddyMapWithLayout();
+        }
+    }
+
+    function closeBuddyModalViewOnly() {
+        const modal = document.getElementById('buddy-modal');
+        if (modal) modal.classList.add('hidden');
     }
 
     function renderEmployeeList(list) {
@@ -1095,12 +1216,7 @@
         if (!container) return;
         container.innerHTML = '';
 
-        const mode = document.querySelector('input[name="shift-mode"]:checked').value;
-
         list.forEach(emp => {
-            const isAlreadyInOtherShift = (mode === 'pagi' ? shiftAfternoonQueue : shiftMorningQueue).some(s => s.nik === emp.nik);
-            if (isAlreadyInOtherShift) return;
-
             const idx = selectedStaffQueue.findIndex(s => s.nik === emp.nik);
             const isSelected = idx > -1;
             
@@ -1157,11 +1273,6 @@
             }
             shiftMorningQueue = [...selectedStaffQueue];
         } else {
-            // PENGAMAN: Mencegah Shift Siang tertimpa kosong jika belum sempat dipilih atau terjadi kesalahan klik
-            if (selectedStaffQueue.length === 0 && shiftAfternoonQueue.length > 0) {
-                showCustomAlert("Perhatian", "Daftar Shift Siang terpilih kosong. Data lama dipertahankan untuk mencegah kehilangan data.");
-                return;
-            }
             shiftAfternoonQueue = [...selectedStaffQueue];
         }
         
@@ -1184,31 +1295,7 @@
 
         activeQueue = Array.from(combinedQueueMap.values());
 
-        const limitSpot1 = getMaxTitik1Slots();
-        let needsPopulation = false;
-        for(let s=0; s<3; s++) {
-            const maxP = s === 0 ? limitSpot1 : 2;
-            for(let p=0; p<maxP; p++) {
-                if(!currentSpots[s][p]) needsPopulation = true;
-            }
-        }
-
-        if (needsPopulation) {
-            let qIndex = 0;
-            for(let s=0; s<3; s++) {
-                const maxP = s === 0 ? limitSpot1 : 2;
-                for(let p=0; p<maxP; p++) {
-                    if(!currentSpots[s][p] && activeQueue[qIndex]) {
-                        currentSpots[s][p] = activeQueue[qIndex];
-                        const isMorningStaff = shiftMorningQueue.some(emp => emp.nik === activeQueue[qIndex].nik);
-                        spotShiftOrigin[s][p] = isMorningStaff ? 'pagi' : 'siang';
-                        spotStandbyEndTimes[s][p] = null;
-                        qIndex++;
-                    }
-                }
-            }
-            activeQueue.splice(0, qIndex);
-        }
+        advanceRotationAndFill();
         
         pushStateToFirebase();
         updateDisplay();
@@ -1267,21 +1354,10 @@
         const limitSpot1 = getMaxTitik1Slots();
         const currentTime = Date.now();
         
+        // Render Titik 1
         const el0 = document.getElementById('spot-0');
-        const btnContainer0 = document.getElementById('spot-0-buttons');
-        const standbyContainer0 = document.getElementById('spot-0-standby-buttons');
-        const skipContainer0 = document.getElementById('spot-0-skip-buttons');
-        
         if (el0) {
             let html0 = '';
-            let btnHtml0 = '';
-            let skipHtml0 = '';
-            
-            if (standbyContainer0) {
-                standbyContainer0.innerHTML = '';
-                standbyContainer0.className = `grid grid-cols-${limitSpot1} gap-1`;
-            }
-            
             for(let i=0; i<limitSpot1; i++) {
                 let staff = currentSpots[0][i];
                 if(staff) {
@@ -1298,147 +1374,73 @@
                         timerClass = "text-[11px] font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-md";
                     }
 
-                    html0 += `<div class="bg-white p-2 rounded-xl border border-slate-200 shadow-2xs flex justify-between items-center"><div><strong class="text-slate-900 text-xs block">${i+1}. ${staff.name}</strong><span class="text-[10px] font-mono text-slate-400">NIK: ${staff.nik}</span></div><span id="greeter-timer-0-${i}" class="${timerClass}">${timerText}</span></div>`;
-                    btnHtml0 += `<button onclick="startBuddySession(0, ${i})" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] py-1.5 px-0.5 rounded-lg font-semibold transition shadow-xs cursor-pointer">Mulai (${i+1})</button>`;
-                    
-                    if (standbyContainer0) {
-                        const sbBtn = document.createElement('button');
-                        sbBtn.className = "bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] py-1 px-0.5 rounded-lg font-semibold transition shadow-xs cursor-pointer";
-                        sbBtn.textContent = `⏱️ Standby (${i+1})`;
-                        sbBtn.onclick = () => startStandbyTimer(0, i);
-                        standbyContainer0.appendChild(sbBtn);
-                    }
-
-                    skipHtml0 += `<button onclick="openSkipModal(0, ${i})" class="bg-amber-600 hover:bg-amber-700 text-white text-[10px] py-1 px-0.5 rounded-lg font-semibold transition shadow-xs cursor-pointer">⏭️ Skip (${i+1})</button>`;
-                } else {
-                    btnHtml0 += `<span></span>`;
-                    if (standbyContainer0) {
-                        standbyContainer0.appendChild(document.createElement('span'));
-                    }
-                    skipHtml0 += `<span></span>`;
+                    html0 += `
+                        <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-2">
+                            <div class="flex justify-between items-center">
+                                <strong class="text-slate-900 text-xs">${i+1}. ${staff.name}</strong>
+                                <span id="greeter-timer-0-${i}" class="${timerClass}">${timerText}</span>
+                            </div>
+                            <div class="grid grid-cols-3 gap-1 pt-1 border-t border-slate-100">
+                                <button onclick="startStandbyTimer(0, ${i})" class="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] py-1.5 px-1 rounded-lg font-semibold transition cursor-pointer">⏱️ Standby</button>
+                                <button onclick="requestStaffPin('mulai', 0, ${i})" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] py-1.5 px-1 rounded-lg font-semibold transition cursor-pointer">🟢 Mulai</button>
+                                <button onclick="requestStaffPin('skip', 0, ${i})" class="bg-amber-600 hover:bg-amber-700 text-white text-[10px] py-1.5 px-1 rounded-lg font-semibold transition cursor-pointer">⏭️ Skip</button>
+                            </div>
+                        </div>
+                    `;
                 }
             }
             if(!currentSpots[0].some(s => s !== null)) {
                 html0 = `<p class="text-sm text-slate-400 italic">${isAfternoonCutOffTime() ? 'Selesai (Cut-off Jam 22:00 WIB)' : 'Belum ada petugas'}</p>`;
             }
             el0.innerHTML = html0;
-            if (btnContainer0) {
-                btnContainer0.innerHTML = btnHtml0;
-                btnContainer0.className = `grid grid-cols-${limitSpot1} gap-1`;
-            }
-            if (skipContainer0) {
-                skipContainer0.innerHTML = skipHtml0;
-                skipContainer0.className = `grid grid-cols-${limitSpot1} gap-1`;
-            }
         }
 
+        // Render Titik 2 & Titik 3
         for (let i = 1; i < 3; i++) {
             const el = document.getElementById(`spot-${i}`);
-            const btnContainer = document.getElementById(`spot-${i}-buttons-mulai`);
-            const standbyContainer = document.getElementById(`spot-${i}-buttons-standby`);
-            const skipContainer = document.getElementById(`spot-${i}-buttons-skip`);
-            
-            let staff1 = currentSpots[i][0];
-            let staff2 = currentSpots[i][1];
-            
             let htmlStr = '';
-            let btnHtml = '';
-            let skipHtml = '';
+            let maxP = 2;
 
-            if (staff1) {
-                let endTime1 = (spotStandbyEndTimes[i] && spotStandbyEndTimes[i][0]) ? spotStandbyEndTimes[i][0] : null;
-                let text1 = "⏳ Standby Nonaktif";
-                let class1 = "text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md";
-                if (endTime1) {
-                    let diffMs = endTime1 - currentTime;
-                    if (diffMs < 0) diffMs = 0;
-                    const totalSec = Math.floor(diffMs / 1000);
-                    const mins = String(Math.floor(totalSec / 60)).padStart(2, '0');
-                    const secs = String(totalSec % 60).padStart(2, '0');
-                    text1 = `⏳ ${mins}:${secs}`;
-                    class1 = "text-[11px] font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-md";
+            for (let p = 0; p < maxP; p++) {
+                let staff = currentSpots[i][p];
+                if (staff) {
+                    let endTime = (spotStandbyEndTimes[i] && spotStandbyEndTimes[i][p]) ? spotStandbyEndTimes[i][p] : null;
+                    let text = "⏳ Standby Nonaktif";
+                    let classTxt = "text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md";
+                    if (endTime) {
+                        let diffMs = endTime - currentTime;
+                        if (diffMs < 0) diffMs = 0;
+                        const totalSec = Math.floor(diffMs / 1000);
+                        const mins = String(Math.floor(totalSec / 60)).padStart(2, '0');
+                        const secs = String(totalSec % 60).padStart(2, '0');
+                        text = `⏳ ${mins}:${secs}`;
+                        classTxt = "text-[11px] font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-md";
+                    }
+
+                    htmlStr += `
+                        <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-2 mb-2">
+                            <div class="flex justify-between items-center">
+                                <strong class="text-slate-900 text-xs">${p+1}. ${staff.name}</strong>
+                                <span id="greeter-timer-${i}-${p}" class="${classTxt}">${text}</span>
+                            </div>
+                            <div class="grid grid-cols-3 gap-1 pt-1 border-t border-slate-100">
+                                <button onclick="startStandbyTimer(${i}, ${p})" class="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] py-1.5 px-1 rounded-lg font-semibold transition cursor-pointer">⏱️ Standby</button>
+                                <button onclick="requestStaffPin('mulai', ${i}, ${p})" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] py-1.5 px-1 rounded-lg font-semibold transition cursor-pointer">🟢 Mulai</button>
+                                <button onclick="requestStaffPin('skip', ${i}, ${p})" class="bg-amber-600 hover:bg-amber-700 text-white text-[10px] py-1.5 px-1 rounded-lg font-semibold transition cursor-pointer">⏭️ Skip</button>
+                            </div>
+                        </div>
+                    `;
                 }
-                htmlStr += `<div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs flex justify-between items-center"><div><strong class="text-slate-900 text-xs block">1. ${staff1.name}</strong><span class="text-[11px] font-mono text-slate-400">NIK: ${staff1.nik}</span></div><span id="greeter-timer-${i}-0" class="${class1}">${text1}</span></div>`;
-            }
-            if (staff2) {
-                let endTime2 = (spotStandbyEndTimes[i] && spotStandbyEndTimes[i][1]) ? spotStandbyEndTimes[i][1] : null;
-                let text2 = "⏳ Standby Nonaktif";
-                let class2 = "text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md";
-                if (endTime2) {
-                    let diffMs = endTime2 - currentTime;
-                    if (diffMs < 0) diffMs = 0;
-                    const totalSec = Math.floor(diffMs / 1000);
-                    const mins = String(Math.floor(totalSec / 60)).padStart(2, '0');
-                    const secs = String(totalSec % 60).padStart(2, '0');
-                    text2 = `⏳ ${mins}:${secs}`;
-                    class2 = "text-[11px] font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-md";
-                }
-                htmlStr += `<div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs mt-1.5 flex justify-between items-center"><div><strong class="text-slate-900 text-xs block">2. ${staff2.name}</strong><span class="text-[11px] font-mono text-slate-400">NIK: ${staff2.nik}</span></div><span id="greeter-timer-${i}-1" class="${class2}">${text2}</span></div>`;
             }
 
-            if (staff1) {
-                btnHtml += `<button onclick="startBuddySession(${i}, 0)" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition shadow-xs cursor-pointer">Mulai (1)</button>`;
-            } else {
-                btnHtml += `<span></span>`;
-            }
-            if (staff2) {
-                btnHtml += `<button onclick="startBuddySession(${i}, 1)" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition shadow-xs cursor-pointer">Mulai (2)</button>`;
-            } else {
-                btnHtml += `<span></span>`;
-            }
-
-            if (staff1) {
-                skipHtml += `<button onclick="openSkipModal(${i}, 0)" class="bg-amber-600 hover:bg-amber-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition shadow-xs cursor-pointer">⏭️ Skip (1)</button>`;
-            } else {
-                skipHtml += `<span></span>`;
-            }
-            if (staff2) {
-                skipHtml += `<button onclick="openSkipModal(${i}, 1)" class="bg-amber-600 hover:bg-amber-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition shadow-xs cursor-pointer">⏭️ Skip (2)</button>`;
-            } else {
-                skipHtml += `<span></span>`;
-            }
-            
-            if(!staff1 && !staff2) {
+            if(!currentSpots[i].some(s => s !== null)) {
                 htmlStr = `<p class="text-sm text-slate-400 italic">${isAfternoonCutOffTime() ? 'Selesai (Cut-off Jam 22:00 WIB)' : 'Belum ada petugas'}</p>`;
             }
             
             if (el) el.innerHTML = htmlStr;
-            if (btnContainer) {
-                btnContainer.innerHTML = btnHtml;
-                btnContainer.className = "grid grid-cols-2 gap-1";
-            }
-            
-            if (standbyContainer) {
-                standbyContainer.innerHTML = '';
-                standbyContainer.className = "grid grid-cols-2 gap-1";
-                
-                if (staff1) {
-                    const sb1 = document.createElement('button');
-                    sb1.className = "bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition shadow-xs cursor-pointer";
-                    sb1.textContent = "⏱️ Standby (1)";
-                    sb1.onclick = () => startStandbyTimer(i, 0);
-                    standbyContainer.appendChild(sb1);
-                } else {
-                    standbyContainer.appendChild(document.createElement('span'));
-                }
-
-                if (staff2) {
-                    const sb2 = document.createElement('button');
-                    sb2.className = "bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-1.5 px-1 rounded-lg font-semibold transition shadow-xs cursor-pointer";
-                    sb2.textContent = "⏱️ Standby (2)";
-                    sb2.onclick = () => startStandbyTimer(i, 1);
-                    standbyContainer.appendChild(sb2);
-                } else {
-                    standbyContainer.appendChild(document.createElement('span'));
-                }
-            }
-
-            if (skipContainer) {
-                skipContainer.innerHTML = skipHtml;
-                skipContainer.className = "grid grid-cols-2 gap-1";
-            }
         }
         
+        // Render Antrean Cadangan
         const qContainer = document.getElementById('queue-display');
         if (qContainer) {
             qContainer.innerHTML = '';
@@ -1463,10 +1465,6 @@
             return;
         }
 
-        if (!currentSpots[0][0]) {
-            showCustomAlert('Perhatian', 'Silakan input SMT terlebih dahulu.');
-            return;
-        }
         document.getElementById('rotasi-pin-input').value = '';
         document.getElementById('rotasi-pin-error').classList.add('hidden');
         document.getElementById('rotasi-step-pin').classList.remove('hidden');
@@ -1512,36 +1510,26 @@
             return;
         }
 
-        const limitSpot1 = getMaxTitik1Slots();
-        let allCurrentActive = [];
-        for(let s=0; s<3; s++) {
-            const maxP = s === 0 ? limitSpot1 : 2;
-            for(let p=0; p<maxP; p++) {
-                allCurrentActive.push({ spot: s, pos: p, staff: currentSpots[s][p], origin: spotShiftOrigin[s][p], standbyEnd: spotStandbyEndTimes[s][p] });
-            }
-        }
-        
-        let firstStaff = allCurrentActive[0].staff;
-
-        for(let i=0; i<allCurrentActive.length - 1; i++) {
-            currentSpots[allCurrentActive[i].spot][allCurrentActive[i].pos] = allCurrentActive[i+1].staff;
-            spotShiftOrigin[allCurrentActive[i].spot][allCurrentActive[i].pos] = allCurrentActive[i+1].origin;
-            spotStandbyEndTimes[allCurrentActive[i].spot][allCurrentActive[i].pos] = allCurrentActive[i+1].standbyEnd;
-        }
-        
-        let lastItem = allCurrentActive[allCurrentActive.length - 1];
         const chosenStaff = activeQueue.splice(chosenQueueIndex, 1)[0];
         
-        currentSpots[lastItem.spot][lastItem.pos] = chosenStaff;
+        const slots = getOrderedFlowSlots();
+        let firstSlot = slots[0];
+
+        let displacedStaff = currentSpots[firstSlot.s][firstSlot.p];
+        currentSpots[firstSlot.s][firstSlot.p] = chosenStaff;
         const isMorningStaff = shiftMorningQueue.some(emp => emp.nik === chosenStaff.nik);
-        spotShiftOrigin[lastItem.spot][lastItem.pos] = isMorningStaff ? 'pagi' : 'siang';
-        spotStandbyEndTimes[lastItem.spot][lastItem.pos] = null;
-        
-        if (chosenStaff) {
-            triggerNextGreeterNotification(chosenStaff.name, ["Main Entrance", "CarPark / CP", "HomeGallery / HG"][lastItem.spot]);
+        spotShiftOrigin[firstSlot.s][firstSlot.p] = isMorningStaff ? 'pagi' : 'siang';
+        spotStandbyEndTimes[firstSlot.s][firstSlot.p] = null;
+
+        if (displacedStaff) {
+            activeQueue.push(displacedStaff);
         }
-        
-        activeQueue.push(firstStaff);
+
+        advanceRotationAndFill();
+
+        if (chosenStaff) {
+            triggerNextGreeterNotification(chosenStaff.name, "HomeGallery / HG");
+        }
 
         pushStateToFirebase();
         updateDisplay();
@@ -1585,22 +1573,18 @@
             secondsElapsed++;
             const mins = String(Math.floor(secondsElapsed / 60)).padStart(2, '0');
             const secs = String(secondsElapsed % 60).padStart(2, '0');
-            document.getElementById('timer-display').innerText = `${mins}:${secs}`;
+            const tEl = document.getElementById('timer-display');
+            if (tEl) tEl.innerText = `${mins}:${secs}`;
         }, 1000);
 
         initBuddyMapWithLayout();
 
-        if (activeQueue.length > 0) {
-            const nextInQueue = activeQueue.shift();
-            currentSpots[spotIndex][staffPositionIndex] = nextInQueue;
-            const isMorningStaff = shiftMorningQueue.some(emp => emp.nik === nextInQueue.nik);
-            spotShiftOrigin[spotIndex][staffPositionIndex] = isMorningStaff ? 'pagi' : 'siang';
-            spotStandbyEndTimes[spotIndex][staffPositionIndex] = null;
-            triggerNextGreeterNotification(nextInQueue.name, spotNames[spotIndex]);
-        } else {
-            currentSpots[spotIndex][staffPositionIndex] = null;
-            spotStandbyEndTimes[spotIndex][staffPositionIndex] = null;
-        }
+        currentSpots[spotIndex][staffPositionIndex] = null;
+        spotStandbyEndTimes[spotIndex][staffPositionIndex] = null;
+        spotShiftOrigin[spotIndex][staffPositionIndex] = null;
+
+        // Petugas dibebaskan dari antrean sementara saat klik Mulai, langsung ditarik pengganti titik berikutnya
+        advanceRotationAndFill();
 
         pushStateToFirebase();
         updateDisplay();
@@ -1628,10 +1612,12 @@
                     (position) => {
                         staffLatitude = position.coords.latitude;
                         staffLongitude = position.coords.longitude;
-                        document.getElementById('coord-text').innerText = `Denah Aktif: Informa LW Kotwis | GPS: ${staffLatitude.toFixed(5)}, ${staffLongitude.toFixed(5)}`;
+                        const cText = document.getElementById('coord-text');
+                        if (cText) cText.innerText = `Denah Aktif: Informa LW Kotwis | GPS: ${staffLatitude.toFixed(5)}, ${staffLongitude.toFixed(5)}`;
                     },
                     (error) => {
-                        document.getElementById('coord-text').innerText = "Denah Aktif: Informa LW Kotwis (Area Toko Utama)";
+                        const cText = document.getElementById('coord-text');
+                        if (cText) cText.innerText = "Denah Aktif: Informa LW Kotwis (Area Toko Utama)";
                     },
                     { enableHighAccuracy: true }
                 );
@@ -1648,7 +1634,7 @@
     }
 
     function confirmCancelBuddySession() {
-        clearInterval(timerInterval);
+        if (timerInterval) clearInterval(timerInterval);
 
         localStorage.removeItem('greeter_active_session');
         localActiveSession = null;
@@ -1658,16 +1644,9 @@
         const selectedCancelOption = document.querySelector('input[name="cancel-option"]:checked').value;
 
         if (previousStaffPositionBackup) {
-            const currentSpotStaff = currentSpots[previousStaffPositionBackup.spotIndex][previousStaffPositionBackup.staffPositionIndex];
-            
             currentSpots = previousStaffPositionBackup.currentSpotsSnapshot;
             activeQueue = previousStaffPositionBackup.activeQueueSnapshot;
             spotStandbyEndTimes = previousStaffPositionBackup.spotStandbyEndTimesSnapshot;
-
-            if (currentSpotStaff && currentSpotStaff.nik !== previousStaffPositionBackup.staff.nik) {
-                activeQueue = activeQueue.filter(s => s.nik !== currentSpotStaff.nik);
-                activeQueue.unshift(currentSpotStaff);
-            }
 
             const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
             const staff = previousStaffPositionBackup.staff;
@@ -1699,25 +1678,30 @@
     function toggleReasonInput() {
         const cat = document.getElementById('reason-category').value;
         const cont = document.getElementById('reason-value-container');
-        if (cat === 'Transaksi' || cat === 'Pending') {
-            cont.innerHTML = `<input type="text" id="reason-value-input" onkeyup="formatRupiahInput(this)" placeholder="Masukkan nilai (Value)..." class="border border-slate-300 rounded-xl px-3.5 py-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">`;
-            if (cat === 'Pending') {
-                cont.innerHTML += `<input type="text" id="reason-detail-input" placeholder="Masukkan alasan pending..." class="border border-slate-300 rounded-xl px-3.5 py-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium mt-2">`;
+        if (cont) {
+            if (cat === 'Transaksi' || cat === 'Pending') {
+                cont.innerHTML = `<input type="text" id="reason-value-input" onkeyup="formatRupiahInput(this)" placeholder="Masukkan nilai (Value)..." class="border border-slate-300 rounded-xl px-3.5 py-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">`;
+                if (cat === 'Pending') {
+                    cont.innerHTML += `<input type="text" id="reason-detail-input" placeholder="Masukkan alasan pending..." class="border border-slate-300 rounded-xl px-3.5 py-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium mt-2">`;
+                }
+            } else {
+                cont.innerHTML = `<input type="text" id="reason-detail-input" placeholder="Masukkan keterangan..." class="border border-slate-300 rounded-xl px-3.5 py-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">`;
             }
-        } else {
-            cont.innerHTML = `<input type="text" id="reason-detail-input" placeholder="Masukkan keterangan..." class="border border-slate-300 rounded-xl px-3.5 py-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">`;
         }
     }
 
     function finishBuddySession() {
-        clearInterval(timerInterval);
+        if (timerInterval) clearInterval(timerInterval);
 
         localStorage.removeItem('greeter_active_session');
         localActiveSession = null;
 
         const staff = activeSessionStaff;
+        if (!staff) return;
+
         const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
-        const duration = document.getElementById('timer-display').innerText;
+        const tEl = document.getElementById('timer-display');
+        const duration = tEl ? tEl.innerText : "00:00";
         const category = document.getElementById('reason-category').value;
         
         let detailVal = document.getElementById('reason-value-input') ? document.getElementById('reason-value-input').value : '0';
@@ -1730,7 +1714,8 @@
             fullReason = `Lain-lain: ${detailText}`;
         }
 
-        const hasPhoto = document.getElementById('buddy-photo').files.length > 0 ? "Ada Foto" : "Tanpa Foto";
+        const photoInput = document.getElementById('buddy-photo');
+        const hasPhoto = photoInput && photoInput.files.length > 0 ? "Ada Foto" : "Tanpa Foto";
         const gpsStr = staffLatitude ? `${staffLatitude.toFixed(5)}, ${staffLongitude.toFixed(5)}` : "Layout Kotwis";
         const timeNow = getWibTimeString();
 
@@ -1749,22 +1734,17 @@
         activityLogs.unshift(logData);
         syncLogToSpreadsheet(logData);
 
+        // Petugas baru dimasukkan ke urutan paling bawah antrean SETELAH sesi selesai diklik Selesai ✓
         activeQueue.push(staff);
-
-        pushStateToFirebase();
+        advanceRotationAndFill();
 
         renderLogs();
         updateDisplay();
         document.getElementById('buddy-modal').classList.add('hidden');
-        showCustomAlert('Laporan Tersimpan', `Laporan sesi buddy ${staff.name} berhasil disimpan.`);
+        showCustomAlert('Laporan Selesai', `Sesi buddy ${staff.name} selesai, tercatat ke sistem, dan petugas masuk ke antrean paling bawah.`);
     }
 
-    function openSkipModal(spotIndex, staffPositionIndex) {
-        if (isAfternoonCutOffTime()) {
-            showCustomAlert('Waktu Cut-Off', 'Pukul 22.00 WIB telah tercapai. Fitur skip dinonaktifkan.');
-            return;
-        }
-
+    function openSkipModalDirect(spotIndex, staffPositionIndex) {
         skipSpotIndex = spotIndex;
         skipStaffIndexInSpot = staffPositionIndex;
         const staff = currentSpots[spotIndex][staffPositionIndex];
@@ -1780,7 +1760,9 @@
 
     function toggleSkipReasonInput() {
         const cont = document.getElementById('skip-reason-detail-container');
-        cont.innerHTML = `<input type="text" id="skip-reason-detail" placeholder="Keterangan tambahan..." class="border border-slate-300 rounded-xl px-3.5 py-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium">`;
+        if (cont) {
+            cont.innerHTML = `<input type="text" id="skip-reason-detail" placeholder="Keterangan tambahan..." class="border border-slate-300 rounded-xl px-3.5 py-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium">`;
+        }
     }
 
     function confirmSkipAction() {
@@ -1789,7 +1771,8 @@
         const staff = currentSpots[skipSpotIndex][skipStaffIndexInSpot];
         const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
         const category = document.getElementById('skip-reason-category').value;
-        const detail = document.getElementById('skip-reason-detail').value || '-';
+        const detailInput = document.getElementById('skip-reason-detail');
+        const detail = detailInput ? detailInput.value : '-';
         const timeNow = getWibTimeString();
 
         let hoursToAdd = 0;
@@ -1834,19 +1817,11 @@
         renderLogs();
         closeSkipModal();
 
+        currentSpots[skipSpotIndex][skipStaffIndexInSpot] = null;
         spotStandbyEndTimes[skipSpotIndex][skipStaffIndexInSpot] = null;
+        spotShiftOrigin[skipSpotIndex][skipStaffIndexInSpot] = null;
 
-        if (activeQueue.length > 0) {
-            const nextInQueue = activeQueue.shift();
-            currentSpots[skipSpotIndex][skipStaffIndexInSpot] = nextInQueue;
-            const isMorningStaff = shiftMorningQueue.some(emp => emp.nik === nextInQueue.nik);
-            spotShiftOrigin[skipSpotIndex][skipStaffIndexInSpot] = isMorningStaff ? 'pagi' : 'siang';
-            spotStandbyEndTimes[skipSpotIndex][skipStaffIndexInSpot] = null;
-            triggerNextGreeterNotification(nextInQueue.name, spotNames[skipSpotIndex]);
-        } else {
-            currentSpots[skipSpotIndex][skipStaffIndexInSpot] = null;
-            spotStandbyEndTimes[skipSpotIndex][skipStaffIndexInSpot] = null;
-        }
+        advanceRotationAndFill();
 
         pushStateToFirebase();
         updateDisplay();
