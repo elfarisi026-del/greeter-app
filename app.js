@@ -667,7 +667,9 @@
                     spotStandbyEndTimes = [[null, null, null], [null, null], [null, null]];
                     activityLogs = [];
                     
-                    pushStateToFirebase();
+                    // PERINTAH pushStateToFirebase() DIHAPUS/DIKOMENTARI AGAR TIDAK MENIMPA DATABASE FIREBASE
+                    // pushStateToFirebase();
+                    
                     updateDisplay();
                     updateAttendanceStats();
                     renderLogs();
@@ -1583,7 +1585,6 @@
         spotStandbyEndTimes[spotIndex][staffPositionIndex] = null;
         spotShiftOrigin[spotIndex][staffPositionIndex] = null;
 
-        // Petugas dibebaskan dari antrean sementara saat klik Mulai, langsung ditarik pengganti titik berikutnya
         advanceRotationAndFill();
 
         pushStateToFirebase();
@@ -1734,7 +1735,6 @@
         activityLogs.unshift(logData);
         syncLogToSpreadsheet(logData);
 
-        // Petugas baru dimasukkan ke urutan paling bawah antrean SETELAH sesi selesai diklik Selesai ✓
         activeQueue.push(staff);
         advanceRotationAndFill();
 
@@ -1866,7 +1866,7 @@
                 <td class="p-3.5"><span class="bg-blue-50 text-blue-700 text-xs px-2.5 py-1 rounded-lg font-bold">${log.shift}</span></td>
                 <td class="p-3.5 font-mono font-medium">${log.duration}</td>
                 <td class="p-3.5">${log.reason}</td>
-                <td class="p-3.5"><span class="bg-slate-100 text-slate-700 text-xs px-2.5 py-1 rounded-lg font-medium">${log.photo} | 📍 ${log.gps}</span></td>
+                <td class="p-3.5"><span class="bg-slate-100 text-slate-700 text-xs px-2.5 py-1 rounded-medium font-medium">${log.photo} | 📍 ${log.gps}</span></td>
             `;
             tbody.appendChild(tr);
         });
