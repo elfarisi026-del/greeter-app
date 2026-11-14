@@ -30,7 +30,6 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
     <script>
-    // SCRIPT_URL Google Apps Script Deployment Terbaru Anda
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxV7gT9nBt9c7GoKEc8Xa-QqcG5k8sLNHe5JdgTuwP0R_CfF4TZ8rLY77iz5Qwnxa0p/exec";
 
     const firebaseConfig = {
@@ -108,9 +107,6 @@
     let liveStoreMap = null;
     let liveMarkers = [];
 
-    // ==========================================
-    // HELPER WAKTU MUTLAK WIB (ASIA/JAKARTA)
-    // ==========================================
     function getWibHour() {
         const now = new Date();
         return parseInt(now.toLocaleString("id-ID", { 
@@ -153,8 +149,6 @@
                 let maxP = s === 0 ? 3 : 2;
                 for (let p = 0; p < maxP; p++) {
                     let val = cols[p];
-                    // HANYA terima jika berupa angka dan waktunya masih di masa depan (val > now).
-                    // Jika data lama/sudah expired, paksa jadi null agar tidak memicu timer latar belakang.
                     if (typeof val === 'number' && !isNaN(val) && val > now) {
                         result[s][p] = val;
                     } else {
@@ -205,7 +199,7 @@
         if (!container) return;
 
         container.innerHTML = `
-        <div id="custom-alert-modal" class="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
+        <div id="custom-alert-modal" class="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
             <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 text-center">
                 <h3 id="custom-alert-title" class="text-lg font-bold text-slate-900 mb-2">Informasi</h3>
                 <p id="custom-alert-message" class="text-sm text-slate-600 mb-5">Pesan...</p>
@@ -225,7 +219,7 @@
             </div>
         </div>
 
-        <div id="live-map-pin-modal" class="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
+        <div id="live-map-pin-modal" class="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
             <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-100">
                 <h3 class="text-lg font-bold text-slate-900 mb-1">🔐 Cek Posisi SMT Buddy</h3>
                 <p class="text-xs text-slate-500 mb-4">Masukkan PIN sekuriti untuk membuka pemantauan denah toko.</p>
@@ -238,7 +232,7 @@
             </div>
         </div>
 
-        <div id="live-map-modal" class="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
+        <div id="live-map-modal" class="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
             <div class="bg-white rounded-2xl max-w-4xl w-full p-6 md:p-8 shadow-2xl max-h-[90vh] overflow-y-auto border border-slate-100">
                 <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
                     <h3 class="text-xl font-bold text-slate-900">🗺️ Cek Posisi SMT Buddy (Real-Time)</h3>
@@ -252,7 +246,7 @@
             </div>
         </div>
 
-        <div id="rotasi-pin-modal" class="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
+        <div id="rotasi-pin-modal" class="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
             <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
                 <h3 class="text-lg font-bold text-slate-900 mb-1">🔄 Rotasi Manual Titik</h3>
                 <p class="text-xs text-slate-500 mb-4">Masukkan PIN sekuriti dan pilih SMT yang akan dinaikkan ke urutan teratas.</p>
@@ -328,7 +322,7 @@
                     <div class="bg-slate-50/70 p-4 rounded-xl border border-slate-200/70 flex flex-col justify-between hover:border-slate-300 transition">
                         <div>
                             <div class="flex justify-between items-center mb-2">
-                                <span class="text-[11px] font-extrabold uppercase tracking-wider text-blue-700 bg-blue-100/80 px-2.5 py-1 rounded-md" id="titik1-label">Titik 1</span>
+                                <span class="text-[11px] font-extrabold uppercase tracking-wider text-blue-700 bg-blue-100/80 px-2.5 py-1 rounded-md">Titik 1</span>
                                 <span class="text-xs text-slate-400 font-medium">Main Entrance</span>
                             </div>
                             <h3 class="font-bold text-slate-900 text-base mb-1">Main Entrance</h3>
@@ -418,7 +412,7 @@
             </section>
         </div>
 
-        <div id="smt-modal" class="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
+        <div id="smt-modal" class="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
             <div class="bg-white rounded-2xl max-w-2xl w-full p-6 md:p-8 shadow-2xl max-h-[90vh] overflow-y-auto border border-slate-100">
                 <div class="flex justify-between items-center mb-5 border-b border-slate-100 pb-4">
                     <h3 class="text-xl font-bold text-slate-900">Menu Input SMT & Shift</h3>
@@ -472,7 +466,7 @@
             </div>
         </div>
 
-        <div id="report-modal" class="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
+        <div id="report-modal" class="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
             <div class="bg-white rounded-2xl max-w-md w-full p-6 md:p-8 shadow-2xl border border-slate-100">
                 <div class="flex justify-between items-center mb-5 border-b border-slate-100 pb-4">
                     <h3 class="text-xl font-bold text-slate-900">Rekap & WhatsApp (.xlsx)</h3>
@@ -510,7 +504,7 @@
             </div>
         </div>
 
-        <div id="buddy-modal" class="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
+        <div id="buddy-modal" class="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
             <div class="bg-white rounded-2xl max-w-lg w-full p-6 md:p-8 shadow-2xl max-h-[90vh] overflow-y-auto border border-slate-100">
                 <h3 class="text-xl font-bold text-slate-900 mb-1">Sesi Buddy & Customer</h3>
                 <p class="text-xs text-slate-500 mb-4 font-medium" id="buddy-info-text">Titik: - | Petugas: -</p>
@@ -557,7 +551,7 @@
             </div>
         </div>
 
-        <div id="cancel-reason-modal" class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 hidden z-[60]">
+        <div id="cancel-reason-modal" class="fixed inset-0 bg-black/65 backdrop-blur-xs flex items-center justify-center p-4 hidden z-[60]">
             <div class="bg-white rounded-2xl max-w-md w-full p-6 md:p-8 shadow-2xl border border-slate-100">
                 <h3 class="text-xl font-bold text-slate-900 mb-1">❌ Alasan Cancel</h3>
                 <p class="text-xs text-slate-500 mb-4 font-medium">Pilih salah satu alasan pembatalan sesi:</p>
@@ -580,7 +574,7 @@
             </div>
         </div>
 
-        <div id="skip-modal" class="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
+        <div id="skip-modal" class="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
             <div class="bg-white rounded-2xl max-w-md w-full p-6 md:p-8 shadow-2xl border border-slate-100">
                 <h3 class="text-xl font-bold text-slate-900 mb-1">⏭️ Skip Giliran Greeter</h3>
                 <p class="text-xs text-slate-500 mb-4 font-medium" id="skip-info-text">Titik: - | Petugas: -</p>
@@ -695,7 +689,6 @@
         });
     }
 
-    // Interval pengecekan cut-off & timer standby setiap detik
     setInterval(() => {
         if (isMorningCutOffTime() && shiftMorningQueue.length > 0) {
             let stateChanged = false;
@@ -1263,7 +1256,6 @@
         const limitSpot1 = getMaxTitik1Slots();
         const currentTime = Date.now();
         
-        // RENDER TITIK 1
         const el0 = document.getElementById('spot-0');
         const btnContainer0 = document.getElementById('spot-0-buttons');
         const standbyContainer0 = document.getElementById('spot-0-standby-buttons');
@@ -1329,7 +1321,6 @@
             }
         }
 
-        // RENDER TITIK 2 DAN TITIK 3
         for (let i = 1; i < 3; i++) {
             const el = document.getElementById(`spot-${i}`);
             const btnContainer = document.getElementById(`spot-${i}-buttons-mulai`);
@@ -1437,7 +1428,6 @@
             }
         }
         
-        // RENDER ANTREAN CADANGAN
         const qContainer = document.getElementById('queue-display');
         if (qContainer) {
             qContainer.innerHTML = '';
@@ -1589,6 +1579,7 @@
 
         initBuddyMapWithLayout();
 
+        // SAAT KLIK MULAI: Titik langsung digantikan antrean berikutnya, SMT yang mulai keluar dari titik (di luar)
         if (activeQueue.length > 0) {
             const nextInQueue = activeQueue.shift();
             currentSpots[spotIndex][staffPositionIndex] = nextInQueue;
@@ -1600,8 +1591,6 @@
             currentSpots[spotIndex][staffPositionIndex] = null;
             spotStandbyEndTimes[spotIndex][staffPositionIndex] = null;
         }
-        
-        activeQueue.push(staff);
 
         pushStateToFirebase();
         updateDisplay();
@@ -1749,9 +1738,14 @@
 
         activityLogs.unshift(logData);
         syncLogToSpreadsheet(logData);
+
+        // SAAT KLIK SELESAI: SMT yang baru selesai dimasukkan ke antrean paling bawah
+        activeQueue.push(staff);
+
         pushStateToFirebase();
 
         renderLogs();
+        updateDisplay();
         document.getElementById('buddy-modal').classList.add('hidden');
         showCustomAlert('Laporan Tersimpan', `Laporan sesi buddy ${staff.name} berhasil disimpan.`);
     }
