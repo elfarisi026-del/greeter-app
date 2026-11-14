@@ -618,14 +618,18 @@
                     return;
                 }
 
-                if (val.currentSpots) currentSpots = val.currentSpots;
-                if (val.activeQueue) activeQueue = val.activeQueue;
-                if (val.pausedQueue) pausedQueue = val.pausedQueue;
-                if (val.shiftMorningQueue) shiftMorningQueue = val.shiftMorningQueue;
-                if (val.shiftAfternoonQueue) shiftAfternoonQueue = val.shiftAfternoonQueue;
-                if (val.spotShiftOrigin) spotShiftOrigin = val.spotShiftOrigin;
-                if (val.activeSessions) activeSessions = val.activeSessions;
-                if (val.activityLogs) activityLogs = val.activityLogs;
+                if (val.currentSpots) {
+                    currentSpots = Array.isArray(val.currentSpots) ? val.currentSpots.map(g => Array.isArray(g) ? g : Object.values(g)) : Object.values(val.currentSpots).map(g => Array.isArray(g) ? g : Object.values(g));
+                }
+                if (val.activeQueue) activeQueue = Array.isArray(val.activeQueue) ? val.activeQueue : Object.values(val.activeQueue);
+                if (val.pausedQueue) pausedQueue = Array.isArray(val.pausedQueue) ? val.pausedQueue : Object.values(val.pausedQueue);
+                if (val.shiftMorningQueue) shiftMorningQueue = Array.isArray(val.shiftMorningQueue) ? val.shiftMorningQueue : Object.values(val.shiftMorningQueue);
+                if (val.shiftAfternoonQueue) shiftAfternoonQueue = Array.isArray(val.shiftAfternoonQueue) ? val.shiftAfternoonQueue : Object.values(val.shiftAfternoonQueue);
+                if (val.spotShiftOrigin) {
+                    spotShiftOrigin = Array.isArray(val.spotShiftOrigin) ? val.spotShiftOrigin.map(g => Array.isArray(g) ? g : Object.values(g)) : Object.values(val.spotShiftOrigin).map(g => Array.isArray(g) ? g : Object.values(g));
+                }
+                if (val.activeSessions) activeSessions = Array.isArray(val.activeSessions) ? val.activeSessions : Object.values(val.activeSessions);
+                if (val.activityLogs) activityLogs = Array.isArray(val.activityLogs) ? val.activityLogs : Object.values(val.activityLogs);
 
                 updateDisplay();
                 updateAttendanceStats();
@@ -889,7 +893,7 @@
             document.getElementById('live-map-modal').classList.remove('hidden');
             initLiveStoreMap();
         } else {
-            document.getElementById('live-map-pin-error').classList.add('hidden');
+            document.getElementById('live-map-pin-error').classList.remove('hidden');
         }
     }
 
@@ -1096,13 +1100,12 @@
         const targetSpotIndex = sess.spotIndex;
         const targetSpotPos = sess.spotPositionIndex;
 
-        // Kembalikan ke titik asalnya jika kosong, jika terisi masukkan ke depan/antrean dengan aman
+        // Kembalikan ke titik asalnya jika kosong, jika terisi geser/masukkan antrean
         if (!currentSpots[targetSpotIndex][targetSpotPos]) {
             currentSpots[targetSpotIndex][targetSpotPos] = staff;
             const isMorningStaff = shiftMorningQueue.some(emp => emp.nik === staff.nik);
             spotShiftOrigin[targetSpotIndex][targetSpotPos] = isMorningStaff ? 'pagi' : 'siang';
         } else {
-            // Jika slot asalnya sudah terisi petugas lain, sisipkan ke antrean paling atas (shift ke depan)
             activeQueue.unshift(staff);
             advanceRotationAndFill();
         }
@@ -1350,9 +1353,11 @@
         });
 
         currentSpots.forEach(spotGroup => {
-            spotGroup.forEach(staff => {
-                if (staff && staff.nik) combinedQueueMap.delete(staff.nik);
-            });
+            if (spotGroup) {
+                spotGroup.forEach(staff => {
+                    if (staff && staff.nik) combinedQueueMap.delete(staff.nik);
+                });
+            }
         });
 
         if (pausedQueue && pausedQueue.length > 0) {
@@ -1384,27 +1389,34 @@
         function collectNiks(source) {
             if (!source) return;
             if (Array.isArray(source)) {
-                source.forEach(s => { if (s && s.nik) uniqueNik.add(s.nik); });
+                source.forEach(s => { 
+                    if (s) {
+                        if (s.nik) uniqueNik.add(s.nik);
+                        else if (s.staff && s.nik) uniqueNik.add(s.staff.nik);
+                        else if (typeof s === 'object') {
+                            Object.values(s).forEach(sub => { if (sub && sub.nik) uniqueNik.add(sub.nik); });
+                        }
+                    }
+                });
             } else if (typeof source === 'object') {
-                Object.values(source).forEach(s => { if (s && s.nik) uniqueNik.add(s.nik); });
+                Object.values(source).forEach(s => { 
+                    if (s) {
+                        if (s.nik) uniqueNik.add(s.nik);
+                        else if (s.staff && s.nik) uniqueNik.add(s.staff.nik);
+                        else if (typeof s === 'object') {
+                            Object.values(s).forEach(sub => { if (sub && sub.nik) uniqueNik.add(sub.nik); });
+                        }
+                    }
+                });
             }
         }
 
         collectNiks(shiftMorningQueue);
         collectNiks(shiftAfternoonQueue);
         collectNiks(activeQueue);
-        if (pausedQueue) pausedQueue.forEach(item => { if(item && item.staff && item.staff.nik) uniqueNik.add(item.staff.nik); });
-        if (activeSessions) activeSessions.forEach(sess => { if(sess && sess.staff && sess.staff.nik) uniqueNik.add(sess.staff.nik); });
-
-        if (Array.isArray(currentSpots)) {
-            currentSpots.forEach(spotGroup => {
-                collectNiks(spotGroup);
-            });
-        } else if (typeof currentSpots === 'object' && currentSpots !== null) {
-            Object.values(currentSpots).forEach(spotGroup => {
-                collectNiks(spotGroup);
-            });
-        }
+        collectNiks(pausedQueue);
+        collectNiks(activeSessions);
+        collectNiks(currentSpots);
 
         const present = uniqueNik.size;
         const off = employees.length - present;
@@ -1417,8 +1429,10 @@
     function updateDisplay() {
         if (isAfternoonCutOffTime()) {
             for(let s=0; s<3; s++) {
-                for(let p=0; p<currentSpots[s].length; p++) {
-                    currentSpots[s][p] = null;
+                if (currentSpots[s]) {
+                    for(let p=0; p<currentSpots[s].length; p++) {
+                        currentSpots[s][p] = null;
+                    }
                 }
             }
         }
@@ -1430,7 +1444,7 @@
         if (el0) {
             let html0 = '';
             for(let i=0; i<limitSpot1; i++) {
-                let staff = currentSpots[0][i];
+                let staff = currentSpots[0] && currentSpots[0][i] ? currentSpots[0][i] : null;
                 if(staff) {
                     html0 += `
                         <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-2">
@@ -1446,7 +1460,8 @@
                     `;
                 }
             }
-            if(!currentSpots[0].some(s => s !== null)) {
+            const hasStaff0 = currentSpots[0] && currentSpots[0].some(s => s !== null);
+            if(!hasStaff0) {
                 html0 = `<p class="text-sm text-slate-400 italic">${isAfternoonCutOffTime() ? 'Selesai (Cut-off Jam 22:00 WIB)' : 'Belum ada petugas'}</p>`;
             }
             el0.innerHTML = html0;
@@ -1459,7 +1474,7 @@
             let maxP = 2;
 
             for (let p = 0; p < maxP; p++) {
-                let staff = currentSpots[i][p];
+                let staff = currentSpots[i] && currentSpots[i][p] ? currentSpots[i][p] : null;
                 if (staff) {
                     htmlStr += `
                         <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-2 mb-2">
@@ -1476,7 +1491,8 @@
                 }
             }
 
-            if(!currentSpots[i].some(s => s !== null)) {
+            const hasStaffI = currentSpots[i] && currentSpots[i].some(s => s !== null);
+            if(!hasStaffI) {
                 htmlStr = `<p class="text-sm text-slate-400 italic">${isAfternoonCutOffTime() ? 'Selesai (Cut-off Jam 22:00 WIB)' : 'Belum ada petugas'}</p>`;
             }
 
@@ -1537,7 +1553,7 @@
                 });
             }
         } else {
-            document.getElementById('rotasi-pin-error').classList.add('hidden');
+            document.getElementById('rotasi-pin-error').classList.remove('hidden');
         }
     }
 
