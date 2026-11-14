@@ -85,7 +85,6 @@
     let shiftAfternoonQueue = [];
     let selectedStaffQueue = [];
 
-    // Multiple Active Sessions Array
     let activeSessions = JSON.parse(localStorage.getItem('greeter_active_sessions')) || [];
     let targetFinishingSessionId = null;
 
@@ -707,7 +706,7 @@
 
             if (pausedQueue && pausedQueue.length > 0) {
                 const filteredPausedQueue = pausedQueue.filter(item => !morningNiks.has(item.staff.nik));
-                if (filteredPausedQueue.length !== pausedPausedQueueLength => filteredPausedQueue.length !== pausedQueue.length) {
+                if (filteredPausedQueue.length !== pausedQueue.length) {
                     pausedQueue = filteredPausedQueue;
                     stateChanged = true;
                 }
@@ -1072,12 +1071,64 @@
                     <h4 class="font-bold text-slate-900 text-base mt-1">${sess.staff.name}</h4>
                     <p class="text-xs font-mono font-bold text-indigo-700 mt-0.5" id="active-item-timer-${sess.id}">⏳ Durasi: ${mins}:${secs}</p>
                 </div>
-                <button onclick="openFinishSessionModal('${sess.id}')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-sm transition">
-                    Selesai ✓
-                </button>
+                <div class="flex items-center gap-2 w-full sm:w-auto">
+                    <button onclick="cancelActiveBuddySession('${sess.id}')" class="flex-1 sm:flex-initial bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-2 rounded-xl font-bold text-xs shadow-sm transition">
+                        ❌ Cancel (Janjian)
+                    </button>
+                    <button onclick="openFinishSessionModal('${sess.id}')" class="flex-1 sm:flex-initial bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-sm transition">
+                        Selesai ✓
+                    </button>
+                </div>
             `;
             container.appendChild(div);
         });
+    }
+
+    function cancelActiveBuddySession(sessionId) {
+        const sessIdx = activeSessions.findIndex(s => s.id === sessionId);
+        if (sessIdx === -1) return;
+
+        const sess = activeSessions.splice(sessIdx, 1)[0];
+        localStorage.setItem('greeter_active_sessions', JSON.stringify(activeSessions));
+
+        const staff = sess.staff;
+        const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
+        const targetSpotIndex = sess.spotIndex;
+        const targetSpotPos = sess.spotPositionIndex;
+
+        // Kembalikan ke titik asalnya jika kosong, jika terisi masukkan ke depan/antrean dengan aman
+        if (!currentSpots[targetSpotIndex][targetSpotPos]) {
+            currentSpots[targetSpotIndex][targetSpotPos] = staff;
+            const isMorningStaff = shiftMorningQueue.some(emp => emp.nik === staff.nik);
+            spotShiftOrigin[targetSpotIndex][targetSpotPos] = isMorningStaff ? 'pagi' : 'siang';
+        } else {
+            // Jika slot asalnya sudah terisi petugas lain, sisipkan ke antrean paling atas (shift ke depan)
+            activeQueue.unshift(staff);
+            advanceRotationAndFill();
+        }
+
+        const timeNow = getWibTimeString();
+        const logData = {
+            date: getWibDateString(),
+            time: timeNow,
+            staffName: staff.name,
+            spot: spotNames[targetSpotIndex],
+            shift: "CANCEL",
+            duration: "00:00",
+            reason: "BATAL [Customer Sudah Janjian] -> Kembali ke Titik Awal",
+            photo: "Tanpa Foto",
+            gps: "-"
+        };
+
+        activityLogs.unshift(logData);
+        syncLogToSpreadsheet(logData);
+
+        renderActiveSessionsList();
+        renderLogs();
+        updateDisplay();
+        pushStateToFirebase();
+
+        showCustomAlert('Sesi Dibatalkan', `Sesi ${staff.name} dibatalkan (customer sudah janjian) dan petugas dikembalikan ke titik asalnya.`);
     }
 
     function updateActiveSessionsTimersUI() {
