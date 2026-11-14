@@ -624,7 +624,10 @@
                 if (val.activeQueue) activeQueue = Array.isArray(val.activeQueue) ? val.activeQueue : Object.values(val.activeQueue);
                 if (val.pausedQueue) pausedQueue = Array.isArray(val.pausedQueue) ? val.pausedQueue : Object.values(val.pausedQueue);
                 if (val.shiftMorningQueue) shiftMorningQueue = Array.isArray(val.shiftMorningQueue) ? val.shiftMorningQueue : Object.values(val.shiftMorningQueue);
+                
+                // PERBAIKAN BUG TYPO DI SINI: Menggunakan val.shiftAfternoonQueue
                 if (val.shiftAfternoonQueue) shiftAfternoonQueue = Array.isArray(val.shiftAfternoonQueue) ? val.shiftAfternoonQueue : Object.values(val.shiftAfternoonQueue);
+                
                 if (val.spotShiftOrigin) {
                     spotShiftOrigin = Array.isArray(val.spotShiftOrigin) ? val.spotShiftOrigin.map(g => Array.isArray(g) ? g : Object.values(g)) : Object.values(val.spotShiftOrigin).map(g => Array.isArray(g) ? g : Object.values(g));
                 }
