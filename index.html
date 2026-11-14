@@ -748,10 +748,12 @@
             activeSessions = [];
             let stateChanged = hasActiveData;
             for(let s=0; s<3; s++) {
-                for(let p=0; p<currentSpots[s].length; p++) {
-                    if(currentSpots[s][p] !== null) stateChanged = true;
-                    currentSpots[s][p] = null;
-                    spotShiftOrigin[s][p] = null;
+                if (currentSpots[s]) {
+                    for(let p=0; p<currentSpots[s].length; p++) {
+                        if(currentSpots[s][p] !== null) stateChanged = true;
+                        currentSpots[s][p] = null;
+                        spotShiftOrigin[s][p] = null;
+                    }
                 }
             }
             if(stateChanged) {
@@ -893,7 +895,7 @@
             document.getElementById('live-map-modal').classList.remove('hidden');
             initLiveStoreMap();
         } else {
-            document.getElementById('live-map-pin-error').classList.remove('hidden');
+            document.getElementById('live-map-pin-error').classList.add('hidden');
         }
     }
 
@@ -926,16 +928,18 @@
             ];
 
             currentSpots.forEach((spotGroup, sIndex) => {
-                spotGroup.forEach((staff, pIndex) => {
-                    if (staff) {
-                        const baseCoord = spotCoordinates[sIndex] ? spotCoordinates[sIndex].coords : [500, 500];
-                        const offsetCoord = [baseCoord[0] + (pIndex * 40), baseCoord[1]];
+                if (spotGroup) {
+                    spotGroup.forEach((staff, pIndex) => {
+                        if (staff) {
+                            const baseCoord = spotCoordinates[sIndex] ? spotCoordinates[sIndex].coords : [500, 500];
+                            const offsetCoord = [baseCoord[0] + (pIndex * 40), baseCoord[1]];
 
-                        const marker = L.marker(offsetCoord).addTo(liveStoreMap)
-                            .bindPopup(`<b>Titik ${sIndex + 1} (${["Main Entrance", "CarPark / CP", "HomeGallery / HG"][sIndex]})</b><br>Petugas: ${staff.name} (NIK: ${staff.nik})`);
-                        liveMarkers.push(marker);
-                    }
-                });
+                            const marker = L.marker(offsetCoord).addTo(liveStoreMap)
+                                .bindPopup(`<b>Titik ${sIndex + 1} (${["Main Entrance", "CarPark / CP", "HomeGallery / HG"][sIndex]})</b><br>Petugas: ${staff.name} (NIK: ${staff.nik})`);
+                            liveMarkers.push(marker);
+                        }
+                    });
+                }
             });
         }, 300);
     }
@@ -1100,14 +1104,65 @@
         const targetSpotIndex = sess.spotIndex;
         const targetSpotPos = sess.spotPositionIndex;
 
-        // Kembalikan ke titik asalnya jika kosong, jika terisi geser/masukkan antrean
-        if (!currentSpots[targetSpotIndex][targetSpotPos]) {
-            currentSpots[targetSpotIndex][targetSpotPos] = staff;
-            const isMorningStaff = shiftMorningQueue.some(emp => emp.nik === staff.nik);
-            spotShiftOrigin[targetSpotIndex][targetSpotPos] = isMorningStaff ? 'pagi' : 'siang';
+        // Ambil urutan alur slot greeter secara linear
+        const slots = getOrderedFlowSlots();
+        const targetSlotIdx = slots.findIndex(sl => sl.s === targetSpotIndex && sl.p === targetSpotPos);
+
+        // Kumpulkan semua petugas yang sedang aktif di titik-titik greeter saat ini
+        let currentActiveStaffList = [];
+        slots.forEach(sl => {
+            if (currentSpots[sl.s] && currentSpots[sl.s][sl.p]) {
+                currentActiveStaffList.push({
+                    staff: currentSpots[sl.s][sl.p],
+                    origin: spotShiftOrigin[sl.s][sl.p]
+                });
+            }
+        });
+
+        const isMorningStaff = shiftMorningQueue.some(emp => emp.nik === staff.nik);
+        const staffOrigin = isMorningStaff ? 'pagi' : 'siang';
+
+        if (targetSlotIdx !== -1) {
+            // Hapus jika petugas tersebut masih tersisa di list aktif (untuk mencegah duplikasi)
+            currentActiveStaffList = currentActiveStaffList.filter(item => item.staff.nik !== staff.nik);
+
+            // Sisipkan kembali petugas persis ke posisi/titik asalnya semula
+            const insertIdx = Math.min(targetSlotIdx, currentActiveStaffList.length);
+            currentActiveStaffList.splice(insertIdx, 0, { staff: staff, origin: staffOrigin });
+
+            // Kosongkan seluruh titik greeter terlebih dahulu
+            for (let s = 0; s < 3; s++) {
+                if (currentSpots[s]) {
+                    for (let p = 0; p < currentSpots[s].length; p++) {
+                        currentSpots[s][p] = null;
+                        spotShiftOrigin[s][p] = null;
+                    }
+                }
+            }
+
+            // Terapkan kembali petugas ke slot urutan alur secara rapi (urutan lain mundur/maju otomatis)
+            for (let i = 0; i < slots.length; i++) {
+                if (i < currentActiveStaffList.length) {
+                    const slotInfo = slots[i];
+                    const activeInfo = currentActiveStaffList[i];
+                    currentSpots[slotInfo.s][slotInfo.p] = activeInfo.staff;
+                    spotShiftOrigin[slotInfo.s][slotInfo.p] = activeInfo.origin;
+                }
+            }
+
+            // Jika ada petugas berlebih akibat pergeseran di ujung slot, masukkan kembali ke antrean cadangan
+            for (let i = slots.length; i < currentActiveStaffList.length; i++) {
+                activeQueue.unshift(currentActiveStaffList[i].staff);
+            }
         } else {
-            activeQueue.unshift(staff);
-            advanceRotationAndFill();
+            // Fallback aman jika slot index tidak ditemukan
+            if (!currentSpots[targetSpotIndex][targetSpotPos]) {
+                currentSpots[targetSpotIndex][targetSpotPos] = staff;
+                spotShiftOrigin[targetSpotIndex][targetSpotPos] = staffOrigin;
+            } else {
+                activeQueue.unshift(staff);
+                advanceRotationAndFill();
+            }
         }
 
         const timeNow = getWibTimeString();
@@ -1553,7 +1608,7 @@
                 });
             }
         } else {
-            document.getElementById('rotasi-pin-error').classList.remove('hidden');
+            document.getElementById('rotasi-pin-error').classList.add('hidden');
         }
     }
 
