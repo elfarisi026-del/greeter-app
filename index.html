@@ -597,36 +597,17 @@
             updateActiveSessionsTimersUI();
         }, 1000);
 
+        // Perbaikan: Memuat data dari Firebase secara langsung tanpa terhalang pemeriksaan tanggal
         db.ref('appState').on('value', (snapshot) => {
             const val = snapshot.val();
             if (val) {
-                const todayWib = getWibDateString();
-
-                if (!val.date || val.date !== todayWib) {
-                    currentSpots = [[null, null, null], [null, null], [null, null]];
-                    activeQueue = [];
-                    pausedQueue = [];
-                    shiftMorningQueue = [];
-                    shiftAfternoonQueue = [];
-                    spotShiftOrigin = [[null, null, null], [null, null], [null, null]];
-                    activeSessions = [];
-                    activityLogs = [];
-
-                    updateDisplay();
-                    updateAttendanceStats();
-                    renderLogs();
-                    return;
-                }
-
                 if (val.currentSpots) {
                     currentSpots = Array.isArray(val.currentSpots) ? val.currentSpots.map(g => Array.isArray(g) ? g : Object.values(g)) : Object.values(val.currentSpots).map(g => Array.isArray(g) ? g : Object.values(g));
                 }
                 if (val.activeQueue) activeQueue = Array.isArray(val.activeQueue) ? val.activeQueue : Object.values(val.activeQueue);
                 if (val.pausedQueue) pausedQueue = Array.isArray(val.pausedQueue) ? val.pausedQueue : Object.values(val.pausedQueue);
                 if (val.shiftMorningQueue) shiftMorningQueue = Array.isArray(val.shiftMorningQueue) ? val.shiftMorningQueue : Object.values(val.shiftMorningQueue);
-                
                 if (val.shiftAfternoonQueue) shiftAfternoonQueue = Array.isArray(val.shiftAfternoonQueue) ? val.shiftAfternoonQueue : Object.values(val.shiftAfternoonQueue);
-                
                 if (val.spotShiftOrigin) {
                     spotShiftOrigin = Array.isArray(val.spotShiftOrigin) ? val.spotShiftOrigin.map(g => Array.isArray(g) ? g : Object.values(g)) : Object.values(val.spotShiftOrigin).map(g => Array.isArray(g) ? g : Object.values(g));
                 }
@@ -980,7 +961,7 @@
             document.getElementById('smt-selection-section').classList.remove('hidden');
             renderEmployeeList(employees);
         } else {
-            document.getElementById('pin-error').classList.add('hidden');
+            document.getElementById('pin-error').classList.remove('hidden');
         }
     }
 
@@ -1023,7 +1004,7 @@
             document.getElementById('report-pin-section').classList.add('hidden');
             document.getElementById('report-content-section').classList.remove('hidden');
         } else {
-            document.getElementById('report-pin-error').classList.add('hidden');
+            document.getElementById('report-pin-error').classList.remove('hidden');
         }
     }
 
@@ -1606,7 +1587,7 @@
                 });
             }
         } else {
-            document.getElementById('rotasi-pin-error').classList.add('hidden');
+            document.getElementById('rotasi-pin-error').classList.remove('hidden');
         }
     }
 
