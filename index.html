@@ -178,7 +178,6 @@
             </div>
         </div>
 
-        <!-- Staff PIN Verification Modal for Buddy / Skip -->
         <div id="staff-pin-modal" class="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
             <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-100">
                 <h3 class="text-lg font-bold text-slate-900 mb-1">🔐 Verifikasi PIN Petugas</h3>
@@ -309,7 +308,7 @@
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
-                    <!-- TITIK 1 (Main Entrance) -->
+                    <!-- TITIK 1 -->
                     <div class="bg-slate-50/70 p-4 rounded-xl border border-slate-200/70 flex flex-col justify-between hover:border-slate-300 transition">
                         <div>
                             <div class="flex justify-between items-center mb-2">
@@ -323,7 +322,7 @@
                         </div>
                     </div>
 
-                    <!-- TITIK 2 (CarPark / CP) -->
+                    <!-- TITIK 2 -->
                     <div class="bg-slate-50/70 p-4 rounded-xl border border-slate-200/70 flex flex-col justify-between hover:border-slate-300 transition">
                         <div>
                             <div class="flex justify-between items-center mb-2">
@@ -337,7 +336,7 @@
                         </div>
                     </div>
 
-                    <!-- TITIK 3 (HomeGallery / HG) -->
+                    <!-- TITIK 3 -->
                     <div class="bg-slate-50/70 p-4 rounded-xl border border-slate-200/70 flex flex-col justify-between hover:border-slate-300 transition">
                         <div>
                             <div class="flex justify-between items-center mb-2">
@@ -366,14 +365,13 @@
             </section>
         </div>
 
-        <!-- MODAL LIST SESI BUDDY AKTIF -->
+        <!-- MODAL SESI AKTIF -->
         <div id="active-sessions-modal" class="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
             <div class="bg-white rounded-2xl max-w-2xl w-full p-6 md:p-8 shadow-2xl max-h-[90vh] overflow-y-auto border border-slate-100">
                 <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
                     <h3 class="text-xl font-bold text-slate-900">⏳ Daftar Sesi Buddy Aktif</h3>
                     <button onclick="closeActiveSessionsModal()" class="text-slate-400 hover:text-slate-600 text-2xl font-bold">&times;</button>
                 </div>
-                <p class="text-xs text-slate-500 mb-4 font-medium">Berikut adalah daftar petugas yang sedang aktif menjalani sesi buddy/customer saat ini:</p>
                 <div id="active-sessions-list-container" class="space-y-3 mb-6">
                     <p class="text-sm text-slate-400 italic text-center py-4">Tidak ada sesi buddy yang sedang aktif saat ini.</p>
                 </div>
@@ -383,7 +381,7 @@
             </div>
         </div>
 
-        <!-- MODAL PENYELESAIAN SESI BUDDY (DETAIL & TRANSAKSI) -->
+        <!-- MODAL SELESAI SESI -->
         <div id="buddy-modal" class="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
             <div class="bg-white rounded-2xl max-w-lg w-full p-6 md:p-8 shadow-2xl max-h-[90vh] overflow-y-auto border border-slate-100">
                 <h3 class="text-xl font-bold text-slate-900 mb-1">Selesaikan Sesi Buddy & Customer</h3>
@@ -392,7 +390,6 @@
                 <div class="bg-blue-50/80 border border-blue-200/80 rounded-2xl p-4 text-center mb-4">
                     <span class="text-xs text-blue-700 font-bold uppercase tracking-wider">Durasi Sesi Buddy Terakhir</span>
                     <div id="timer-display" class="text-4xl font-mono font-black text-blue-950 mt-1">00:00</div>
-                    <p class="text-[11px] text-blue-600 mt-1 font-medium">✨ Selesaikan sesi dengan mengisi data transaksi/alasan di bawah.</p>
                 </div>
 
                 <div class="space-y-4 mb-5">
@@ -421,17 +418,13 @@
                 </div>
 
                 <div class="grid grid-cols-2 gap-3">
-                    <button onclick="closeBuddyModalViewOnly()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 py-3 rounded-xl font-bold text-xs md:text-sm transition shadow-2xs">
-                        Batal
-                    </button>
-                    <button onclick="finishBuddySessionConfirmed()" class="bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold text-xs md:text-sm transition shadow-sm">
-                        Selesai Sesi ✓
-                    </button>
+                    <button onclick="closeBuddyModalViewOnly()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 py-3 rounded-xl font-bold text-xs md:text-sm transition shadow-2xs">Batal</button>
+                    <button onclick="finishBuddySessionConfirmed()" class="bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold text-xs md:text-sm transition shadow-sm">Selesai Sesi ✓</button>
                 </div>
             </div>
         </div>
 
-        <!-- MODAL RIWAYAT SESI BUDDY -->
+        <!-- MODAL RIWAYAT -->
         <div id="history-modal" class="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
             <div class="bg-white rounded-2xl max-w-4xl w-full p-6 md:p-8 shadow-2xl max-h-[90vh] overflow-y-auto border border-slate-100">
                 <div class="flex justify-between items-center mb-5 border-b border-slate-100 pb-4">
@@ -462,6 +455,7 @@
             </div>
         </div>
 
+        <!-- MODAL INPUT SMT -->
         <div id="smt-modal" class="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
             <div class="bg-white rounded-2xl max-w-2xl w-full p-6 md:p-8 shadow-2xl max-h-[90vh] overflow-y-auto border border-slate-100">
                 <div class="flex justify-between items-center mb-5 border-b border-slate-100 pb-4">
@@ -516,6 +510,7 @@
             </div>
         </div>
 
+        <!-- MODAL LAPORAN -->
         <div id="report-modal" class="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
             <div class="bg-white rounded-2xl max-w-md w-full p-6 md:p-8 shadow-2xl border border-slate-100">
                 <div class="flex justify-between items-center mb-5 border-b border-slate-100 pb-4">
@@ -554,6 +549,7 @@
             </div>
         </div>
 
+        <!-- MODAL SKIP -->
         <div id="skip-modal" class="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
             <div class="bg-white rounded-2xl max-w-md w-full p-6 md:p-8 shadow-2xl border border-slate-100">
                 <h3 class="text-xl font-bold text-slate-900 mb-1">⏭️ Skip Giliran Greeter</h3>
@@ -597,7 +593,6 @@
             updateActiveSessionsTimersUI();
         }, 1000);
 
-        // Perbaikan: Memuat data dari Firebase secara langsung tanpa terhalang pemeriksaan tanggal
         db.ref('appState').on('value', (snapshot) => {
             const val = snapshot.val();
             if (val) {
@@ -678,76 +673,6 @@
     }
 
     setInterval(() => {
-        if (isMorningCutOffTime() && shiftMorningQueue.length > 0) {
-            let stateChanged = false;
-            const morningNiks = new Set(shiftMorningQueue.map(emp => emp.nik));
-
-            shiftMorningQueue = [];
-            stateChanged = true;
-
-            const filteredActiveQueue = activeQueue.filter(staff => !morningNiks.has(staff.nik));
-            if (filteredActiveQueue.length !== activeQueue.length) {
-                activeQueue = filteredActiveQueue;
-                stateChanged = true;
-            }
-
-            if (pausedQueue && pausedQueue.length > 0) {
-                const filteredPausedQueue = pausedQueue.filter(item => !morningNiks.has(item.staff.nik));
-                if (filteredPausedQueue.length !== pausedQueue.length) {
-                    pausedQueue = filteredPausedQueue;
-                    stateChanged = true;
-                }
-            }
-
-            for (let s = 0; s < 3; s++) {
-                let maxP = s === 0 ? getMaxTitik1Slots() : 2;
-                let p = 0;
-                while (p < maxP) {
-                    let staff = currentSpots[s][p];
-                    if (staff && (morningNiks.has(staff.nik) || spotShiftOrigin[s][p] === 'pagi')) {
-                        currentSpots[s][p] = null;
-                        spotShiftOrigin[s][p] = null;
-                        stateChanged = true;
-                    }
-                    p++;
-                }
-            }
-
-            if (stateChanged) {
-                advanceRotationAndFill();
-                pushStateToFirebase();
-                updateDisplay();
-                updateAttendanceStats();
-                renderLogs();
-            }
-        }
-
-        if (isAfternoonCutOffTime()) {
-            let hasActiveData = shiftAfternoonQueue.length > 0 || shiftMorningQueue.length > 0 || activeQueue.length > 0 || pausedQueue.length > 0 || activeSessions.length > 0;
-            shiftAfternoonQueue = [];
-            shiftMorningQueue = [];
-            activeQueue = [];
-            pausedQueue = [];
-            activeSessions = [];
-            let stateChanged = hasActiveData;
-            for(let s=0; s<3; s++) {
-                if (currentSpots[s]) {
-                    for(let p=0; p<currentSpots[s].length; p++) {
-                        if(currentSpots[s][p] !== null) stateChanged = true;
-                        currentSpots[s][p] = null;
-                        spotShiftOrigin[s][p] = null;
-                    }
-                }
-            }
-            if(stateChanged) {
-                pushStateToFirebase();
-                updateDisplay();
-                updateAttendanceStats();
-                renderLogs();
-            }
-            return;
-        }
-
         if (pausedQueue && pausedQueue.length > 0) {
             const currentTime = Date.now();
             let updatedPausedQueue = [];
@@ -1062,12 +987,8 @@
                     <p class="text-xs font-mono font-bold text-indigo-700 mt-0.5" id="active-item-timer-${sess.id}">⏳ Durasi: ${mins}:${secs}</p>
                 </div>
                 <div class="flex items-center gap-2 w-full sm:w-auto">
-                    <button onclick="cancelActiveBuddySession('${sess.id}')" class="flex-1 sm:flex-initial bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-2 rounded-xl font-bold text-xs shadow-sm transition">
-                        ❌ Cancel (Janjian)
-                    </button>
-                    <button onclick="openFinishSessionModal('${sess.id}')" class="flex-1 sm:flex-initial bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-sm transition">
-                        Selesai ✓
-                    </button>
+                    <button onclick="cancelActiveBuddySession('${sess.id}')" class="flex-1 sm:flex-initial bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-2 rounded-xl font-bold text-xs shadow-sm transition">❌ Cancel (Janjian)</button>
+                    <button onclick="openFinishSessionModal('${sess.id}')" class="flex-1 sm:flex-initial bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-sm transition">Selesai ✓</button>
                 </div>
             `;
             container.appendChild(div);
@@ -1130,18 +1051,8 @@
                 activeQueue.unshift(currentActiveStaffList[i].staff);
             }
         } else {
-            if (!isNaN(targetSpotIndex) && !isNaN(targetSpotPos) && currentSpots[targetSpotIndex]) {
-                if (!currentSpots[targetSpotIndex][targetSpotPos]) {
-                    currentSpots[targetSpotIndex][targetSpotPos] = staff;
-                    spotShiftOrigin[targetSpotIndex][targetSpotPos] = staffOrigin;
-                } else {
-                    activeQueue.unshift(staff);
-                    advanceRotationAndFill();
-                }
-            } else {
-                activeQueue.unshift(staff);
-                advanceRotationAndFill();
-            }
+            activeQueue.unshift(staff);
+            advanceRotationAndFill();
         }
 
         const timeNow = getWibTimeString();
@@ -1165,7 +1076,7 @@
         updateDisplay();
         pushStateToFirebase();
 
-        showCustomAlert('Sesi Dibatalkan', `Sesi ${staff.name} dibatalkan (customer sudah janjian) dan petugas dikembalikan ke titik asalnya.`);
+        showCustomAlert('Sesi Dibatalkan', `Sesi ${staff.name} dibatalkan dan petugas dikembalikan ke titik asalnya.`);
     }
 
     function updateActiveSessionsTimersUI() {
@@ -1217,7 +1128,6 @@
                 });
                 L.imageOverlay('layout-informa.jpg', bounds).addTo(currentMap);
                 currentMap.fitBounds(bounds);
-
                 currentMarker = L.marker([500, 707]).addTo(currentMap).bindPopup("Lokasi Standby SMT").openPopup();
             } else {
                 currentMap.invalidateSize();
@@ -1313,7 +1223,7 @@
         targetFinishingSessionId = null;
 
         pushStateToFirebase();
-        showCustomAlert('Laporan Selesai', `Sesi buddy ${staff.name} selesai, tercatat ke sistem, dan petugas masuk ke antrean paling bawah.`);
+        showCustomAlert('Laporan Selesai', `Sesi buddy ${staff.name} selesai.`);
     }
 
     function renderEmployeeList(list) {
@@ -1364,18 +1274,8 @@
     }
 
     function saveSmtList() {
-        if (isAfternoonCutOffTime()) {
-            closeSmtModal();
-            showCustomAlert("Waktu Cut-Off Tercapai", "Pukul 22.00 WIB telah tercapai. Penambahan SMT dan rotasi dihentikan.");
-            return;
-        }
-
         const mode = document.querySelector('input[name="shift-mode"]:checked').value;
         if(mode === 'pagi') {
-            if (isMorningCutOffTime()) {
-                showCustomAlert("Waktu Cut-Off Shift Pagi", "Pukul 20.00 WIB telah tercapai. Shift Pagi tidak dapat diinput kembali.");
-                return;
-            }
             shiftMorningQueue = [...selectedStaffQueue];
         } else {
             shiftAfternoonQueue = [...selectedStaffQueue];
@@ -1407,19 +1307,17 @@
         }
 
         activeQueue = Array.from(combinedQueueMap.values());
-
         advanceRotationAndFill();
 
         pushStateToFirebase();
         updateDisplay();
         updateAttendanceStats();
         closeSmtModal();
-        showCustomAlert("Berhasil", `Data SMT Shift ${mode.toUpperCase()} berhasil disimpan dan disinkronkan ke dalam antrean.`);
+        showCustomAlert("Berhasil", `Data SMT Shift ${mode.toUpperCase()} berhasil disimpan.`);
     }
 
     function updateAttendanceStats() {
         const uniqueNik = new Set();
-
         function collectNiks(source) {
             if (!source) return;
             if (Array.isArray(source)) {
@@ -1461,16 +1359,6 @@
     }
 
     function updateDisplay() {
-        if (isAfternoonCutOffTime()) {
-            for(let s=0; s<3; s++) {
-                if (currentSpots[s]) {
-                    for(let p=0; p<currentSpots[s].length; p++) {
-                        currentSpots[s][p] = null;
-                    }
-                }
-            }
-        }
-
         const limitSpot1 = getMaxTitik1Slots();
 
         // Render Titik 1
@@ -1496,7 +1384,7 @@
             }
             const hasStaff0 = currentSpots[0] && currentSpots[0].some(s => s !== null);
             if(!hasStaff0) {
-                html0 = `<p class="text-sm text-slate-400 italic">${isAfternoonCutOffTime() ? 'Selesai (Cut-off Jam 22:00 WIB)' : 'Belum ada petugas'}</p>`;
+                html0 = `<p class="text-sm text-slate-400 italic">Belum ada petugas</p>`;
             }
             el0.innerHTML = html0;
         }
@@ -1527,7 +1415,7 @@
 
             const hasStaffI = currentSpots[i] && currentSpots[i].some(s => s !== null);
             if(!hasStaffI) {
-                htmlStr = `<p class="text-sm text-slate-400 italic">${isAfternoonCutOffTime() ? 'Selesai (Cut-off Jam 22:00 WIB)' : 'Belum ada petugas'}</p>`;
+                htmlStr = `<p class="text-sm text-slate-400 italic">Belum ada petugas</p>`;
             }
 
             if (el) el.innerHTML = htmlStr;
@@ -1545,18 +1433,13 @@
                     qContainer.appendChild(row);
                 });
             } else {
-                qContainer.innerHTML = `<div class="bg-white p-3 rounded-xl border border-slate-200 text-center"><span class="text-slate-400 italic text-xs">${isAfternoonCutOffTime() ? 'Selesai (Cut-off Jam 22:00 WIB)' : 'Tidak ada antrean cadangan'}</span></div>`;
+                qContainer.innerHTML = `<div class="bg-white p-3 rounded-xl border border-slate-200 text-center"><span class="text-slate-400 italic text-xs">Tidak ada antrean cadangan</span></div>`;
             }
         }
         updateAttendanceStats();
     }
 
     function requestRotateVolleyball() {
-        if (isAfternoonCutOffTime()) {
-            showCustomAlert('Waktu Cut-Off', 'Pukul 22.00 WIB telah tercapai. Rotasi dihentikan.');
-            return;
-        }
-
         document.getElementById('rotasi-pin-input').value = '';
         document.getElementById('rotasi-pin-error').classList.add('hidden');
         document.getElementById('rotasi-step-pin').classList.remove('hidden');
@@ -1592,8 +1475,6 @@
     }
 
     function executeManualRotation() {
-        if (isAfternoonCutOffTime()) return;
-
         const selectEl = document.getElementById('rotasi-target-select');
         const chosenQueueIndex = parseInt(selectEl.value);
 
@@ -1603,7 +1484,6 @@
         }
 
         const chosenStaff = activeQueue.splice(chosenQueueIndex, 1)[0];
-
         const slots = getOrderedFlowSlots();
         let firstSlot = slots[0];
 
@@ -1617,7 +1497,6 @@
         }
 
         advanceRotationAndFill();
-
         if (chosenStaff) {
             triggerNextGreeterNotification(chosenStaff.name, "Main Entrance");
         }
@@ -1629,11 +1508,6 @@
     }
 
     function startBuddySession(spotIndex, staffPositionIndex) {
-        if (isAfternoonCutOffTime()) {
-            showCustomAlert('Waktu Cut-Off', 'Pukul 22.00 WIB telah tercapai. Sesi baru tidak dapat dimulai.');
-            return;
-        }
-
         const staff = currentSpots[spotIndex][staffPositionIndex];
         if (!staff) return;
 
@@ -1652,7 +1526,6 @@
         spotShiftOrigin[spotIndex][staffPositionIndex] = null;
 
         advanceRotationAndFill();
-
         pushStateToFirebase();
         updateDisplay();
         showCustomAlert('Sesi Dimulai', `Sesi buddy untuk ${staff.name} telah dimulai.`);
@@ -1663,7 +1536,7 @@
         skipStaffIndexInSpot = staffPositionIndex;
         const staff = currentSpots[spotIndex][staffPositionIndex];
         const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
-        document.getElementById('skip-info-text').innerText = `Titik: ${spotNames[spotIndex]} (Petugas #${staffPositionIndex + 1}) | Petugas: ${staff.name}`;
+        document.getElementById('skip-info-text').innerText = `Titik: ${spotNames[spotIndex]} | Petugas: ${staff.name}`;
         document.getElementById('skip-modal').classList.remove('hidden');
         document.getElementById('skip-reason-detail').value = '';
     }
@@ -1680,8 +1553,6 @@
     }
 
     function confirmSkipAction() {
-        if (isAfternoonCutOffTime()) return;
-
         const staff = currentSpots[skipSpotIndex][skipStaffIndexInSpot];
         const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
         const category = document.getElementById('skip-reason-category').value;
@@ -1735,10 +1606,9 @@
         spotShiftOrigin[skipSpotIndex][skipStaffIndexInSpot] = null;
 
         advanceRotationAndFill();
-
         pushStateToFirebase();
         updateDisplay();
-        showCustomAlert('Berhasil Skip', `Petugas ${staff.name} berhasil di-skip ${hoursToAdd > 0 ? 'selama ' + hoursToAdd + ' jam (Keluar dari antrean sementara)' : 'dan ditaruh ke antrean paling bawah'}.`);
+        showCustomAlert('Berhasil Skip', `Petugas ${staff.name} berhasil di-skip.`);
     }
 
     function syncLogToSpreadsheet(log) {
@@ -1848,7 +1718,6 @@
         }
 
         const filtered = filterLogsByPeriod(allLogs, period);
-
         if (filtered.length === 0) {
             showCustomAlert('Perhatian', 'Tidak ada data rekap pada periode ini.');
             return;
@@ -1880,7 +1749,6 @@
         }
 
         const filtered = filterLogsByPeriod(allLogs, period);
-
         if (filtered.length === 0) {
             showCustomAlert('Perhatian', 'Tidak ada data rekap untuk periode ini.');
             return;
