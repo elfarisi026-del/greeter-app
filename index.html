@@ -597,17 +597,21 @@
             const val = snapshot.val();
             if (val) {
                 if (val.currentSpots) {
-                    currentSpots = Array.isArray(val.currentSpots) ? val.currentSpots.map(g => Array.isArray(g) ? g : Object.values(g)) : Object.values(val.currentSpots).map(g => Array.isArray(g) ? g : Object.values(g));
+                    currentSpots = Array.isArray(val.currentSpots) 
+                        ? val.currentSpots.map(g => g ? (Array.isArray(g) ? g : Object.values(g)) : [null,null,null]) 
+                        : Object.values(val.currentSpots).map(g => g ? (Array.isArray(g) ? g : Object.values(g)) : [null,null,null]);
                 }
-                if (val.activeQueue) activeQueue = Array.isArray(val.activeQueue) ? val.activeQueue : Object.values(val.activeQueue);
-                if (val.pausedQueue) pausedQueue = Array.isArray(val.pausedQueue) ? val.pausedQueue : Object.values(val.pausedQueue);
-                if (val.shiftMorningQueue) shiftMorningQueue = Array.isArray(val.shiftMorningQueue) ? val.shiftMorningQueue : Object.values(val.shiftMorningQueue);
-                if (val.shiftAfternoonQueue) shiftAfternoonQueue = Array.isArray(val.shiftAfternoonQueue) ? val.shiftAfternoonQueue : Object.values(val.shiftAfternoonQueue);
+                if (val.activeQueue) activeQueue = Array.isArray(val.activeQueue) ? val.activeQueue : Object.values(val.activeQueue).filter(Boolean);
+                if (val.pausedQueue) pausedQueue = Array.isArray(val.pausedQueue) ? val.pausedQueue : Object.values(val.pausedQueue).filter(Boolean);
+                if (val.shiftMorningQueue) shiftMorningQueue = Array.isArray(val.shiftMorningQueue) ? val.shiftMorningQueue : Object.values(val.shiftMorningQueue).filter(Boolean);
+                if (val.shiftAfternoonQueue) shiftAfternoonQueue = Array.isArray(val.shiftAfternoonQueue) ? val.shiftAfternoonQueue : Object.values(val.shiftAfternoonQueue).filter(Boolean);
                 if (val.spotShiftOrigin) {
-                    spotShiftOrigin = Array.isArray(val.spotShiftOrigin) ? val.spotShiftOrigin.map(g => Array.isArray(g) ? g : Object.values(g)) : Object.values(val.spotShiftOrigin).map(g => Array.isArray(g) ? g : Object.values(g));
+                    spotShiftOrigin = Array.isArray(val.spotShiftOrigin) 
+                        ? val.spotShiftOrigin.map(g => g ? (Array.isArray(g) ? g : Object.values(g)) : [null,null,null]) 
+                        : Object.values(val.spotShiftOrigin).map(g => g ? (Array.isArray(g) ? g : Object.values(g)) : [null,null,null]);
                 }
-                if (val.activeSessions) activeSessions = Array.isArray(val.activeSessions) ? val.activeSessions : Object.values(val.activeSessions);
-                if (val.activityLogs) activityLogs = Array.isArray(val.activityLogs) ? val.activityLogs : Object.values(val.activityLogs);
+                if (val.activeSessions) activeSessions = Array.isArray(val.activeSessions) ? val.activeSessions : Object.values(val.activeSessions).filter(Boolean);
+                if (val.activityLogs) activityLogs = Array.isArray(val.activityLogs) ? val.activityLogs : Object.values(val.activityLogs).filter(Boolean);
 
                 updateDisplay();
                 updateAttendanceStats();
@@ -1076,7 +1080,7 @@
         updateDisplay();
         pushStateToFirebase();
 
-        showCustomAlert('Sesi Dibatalkan', `Sesi ${staff.name} dibatalkan dan petugas dikembalikan ke titik asalnya.`);
+        showCustomAlert('Sesi Dibatalkan', `Sesi ${staff.name} dibatalkan.`);
     }
 
     function updateActiveSessionsTimersUI() {
@@ -1536,7 +1540,7 @@
         skipStaffIndexInSpot = staffPositionIndex;
         const staff = currentSpots[spotIndex][staffPositionIndex];
         const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
-        document.getElementById('skip-info-text').innerText = `Titik: ${spotNames[spotIndex]} | Petugas: ${staff.name}`;
+        document.getElementById('skip-info-text').innerText = `Titik: ${spotNames[skipSpotIndex]} | Petugas: ${staff.name}`;
         document.getElementById('skip-modal').classList.remove('hidden');
         document.getElementById('skip-reason-detail').value = '';
     }
@@ -1744,7 +1748,7 @@
         const allLogs = await fetchSpreadsheetLogs();
 
         if (allLogs.length === 0) {
-            showCustomAlert('Perhatian', 'Tidak ada data rekap untuk dikirim.');
+            showCustomAlert('Perhatian', 'Not ada data rekap untuk dikirim.');
             return;
         }
 
