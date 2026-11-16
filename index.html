@@ -1265,8 +1265,9 @@
         activityLogs.unshift(logData);
         syncLogToSpreadsheet(logData);
 
-        activeQueue.push(staff);
+        // Urutan disempurnakan: Rotasi dan isi slot kosong dulu dari antrean yang ada, baru masukkan staff ke antrean bawah
         advanceRotationAndFill();
+        activeQueue.push(staff);
 
         renderLogs();
         updateDisplay();
@@ -1327,7 +1328,6 @@
     function saveSmtList() {
         const mode = document.querySelector('input[name="shift-mode"]:checked').value;
         
-        // Akumulasi (Merge) gelombang ganda untuk Shift Pagi maupun Shift Siang tanpa menghapus data sebelumnya
         if(mode === 'pagi') {
             const existingNiks = new Set(shiftMorningQueue.map(e => e.nik));
             selectedStaffQueue.forEach(emp => {
@@ -1346,7 +1346,6 @@
 
         const combinedQueueMap = new Map();
         
-        // Urutan Dinamis: Shift yang baru diinput/diperbarui diprioritaskan di atas antrean cadangan
         const queueOrder = mode === 'siang' 
             ? [...shiftAfternoonQueue, ...shiftMorningQueue] 
             : [...shiftMorningQueue, ...shiftAfternoonQueue];
@@ -1521,7 +1520,6 @@
     }
 
     function verifyRotasiPin() {
-        // PIN admin yang diubah menjadi 11012023 tanpa ditampilkan secara publik
         if (document.getElementById('rotasi-pin-input').value === '11012023') {
             document.getElementById('rotasi-step-pin').classList.add('hidden');
             document.getElementById('rotasi-step-select').classList.remove('hidden');
