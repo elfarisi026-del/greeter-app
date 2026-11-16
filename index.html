@@ -705,7 +705,6 @@
     function pushStateToFirebase() {
         cleanupActiveQueue();
 
-        // Konversi ke plain object agar aman disimpan di Firebase Database
         const plainSpots = currentSpots.map(group => group ? group.map(staff => staff ? {...staff} : null) : []);
         const plainOrigin = spotShiftOrigin.map(group => group ? group.map(org => org ? org : null) : []);
 
@@ -1409,63 +1408,49 @@
         });
     }
 
+    // --- FUNGSI SAVE SMT LIST YANG DIPERBARUI ---
     function saveSmtList() {
         const mode = document.querySelector('input[name="shift-mode"]:checked').value;
         
-        if(mode === 'pagi') {
+        if (mode === 'pagi') {
             shiftMorningQueue = [...selectedStaffQueue];
         } else {
             shiftAfternoonQueue = [...selectedStaffQueue];
         }
 
-        const combinedOrder = [];
-        const seenNiks = new Set();
+        // Kumpulkan semua NIK yang sedang berjalan di titik, sesi aktif, paused, atau sudah ada di antrean
+        const existingNiks = new Set();
+        currentSpots.forEach(group => {
+            if (group) group.forEach(staff => { if (staff && staff.nik) existingNiks.add(staff.nik); });
+        });
+        activeSessions.forEach(sess => {
+            if (sess && sess.staff && sess.staff.nik) existingNiks.add(sess.staff.nik);
+        });
+        pausedQueue.forEach(item => {
+            if (item && item.staff && item.nik) existingNiks.add(item.staff.nik);
+        });
+        activeQueue.forEach(staff => {
+            if (staff && staff.nik) existingNiks.add(staff.nik);
+        });
 
-        const baseQueue = mode === 'siang' 
-            ? [...shiftAfternoonQueue, ...shiftMorningQueue] 
-            : [...shiftMorningQueue, ...shiftAfternoonQueue];
-
-        baseQueue.forEach(staff => {
-            if (staff && staff.nik && !seenNiks.has(staff.nik)) {
-                seenNiks.add(staff.nik);
-                combinedOrder.push(staff);
+        // Tambahkan petugas baru yang dipilih ke ANTRIAN PALING BAWAH (activeQueue) tanpa menimpa data berjalan
+        let addedCount = 0;
+        selectedStaffQueue.forEach(staff => {
+            if (staff && staff.nik && !existingNiks.has(staff.nik)) {
+                activeQueue.push(staff);
+                existingNiks.add(staff.nik);
+                addedCount++;
             }
         });
 
-        const limitSpot1 = getMaxTitik1Slots();
-        currentSpots = [
-            Array(limitSpot1).fill(null),
-            Array(2).fill(null),
-            Array(2).fill(null)
-        ];
-        spotShiftOrigin = [
-            Array(limitSpot1).fill(null),
-            Array(2).fill(null),
-            Array(2).fill(null)
-        ];
-
-        let queueIndex = 0;
-        const slots = getOrderedFlowSlots();
-
-        for (let i = 0; i < slots.length && queueIndex < combinedOrder.length; i++) {
-            let slot = slots[i];
-            let staff = combinedOrder[queueIndex++];
-            currentSpots[slot.s][slot.p] = staff;
-            const isMorningStaff = shiftMorningQueue.some(emp => emp.nik === staff.nik);
-            spotShiftOrigin[slot.s][slot.p] = isMorningStaff ? 'pagi' : 'siang';
-        }
-
-        activeQueue = [];
-        for (let i = queueIndex; i < combinedOrder.length; i++) {
-            activeQueue.push(combinedOrder[i]);
-        }
-
+        // Jika ada titik greeter yang kosong, otomatis isi dari antrean
+        advanceRotationAndFill();
         cleanupActiveQueue();
         pushStateToFirebase();
         updateDisplay();
         updateAttendanceStats();
         closeSmtModal();
-        showCustomAlert("Berhasil", `Data SMT Shift ${mode.toUpperCase()} berhasil disimpan (${selectedStaffQueue.length} orang). Urutan disesuaikan secara presisi.`);
+        showCustomAlert("Berhasil", `Data SMT Shift ${mode.toUpperCase()} berhasil disimpan. ${addedCount} petugas baru ditambahkan ke antrean paling bawah tanpa menimpa data yang sedang berjalan.`);
     }
 
     function updateAttendanceStats() {
