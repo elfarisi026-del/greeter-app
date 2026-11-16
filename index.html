@@ -1217,6 +1217,30 @@
         }
     }
 
+    function startBuddySession(spotIndex, staffPositionIndex) {
+        const staff = currentSpots[spotIndex][staffPositionIndex];
+        if (!staff) return;
+
+        const newSession = {
+            id: 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+            spotIndex: Number(spotIndex),
+            spotPositionIndex: Number(staffPositionIndex),
+            staff: staff,
+            startTime: Date.now()
+        };
+
+        activeSessions.push(newSession);
+        localStorage.setItem('greeter_active_sessions', JSON.stringify(activeSessions));
+
+        currentSpots[spotIndex][staffPositionIndex] = null;
+        spotShiftOrigin[spotIndex][staffPositionIndex] = null;
+
+        advanceRotationAndFill();
+        pushStateToFirebase();
+        updateDisplay();
+        showCustomAlert('Sesi Dimulai', `Sesi buddy untuk ${staff.name} telah dimulai.`);
+    }
+
     function finishBuddySessionConfirmed() {
         if (!targetFinishingSessionId) return;
 
@@ -1265,7 +1289,6 @@
         activityLogs.unshift(logData);
         syncLogToSpreadsheet(logData);
 
-        // Urutan disempurnakan: Rotasi dan isi slot kosong dulu dari antrean yang ada, baru masukkan staff ke antrean bawah
         advanceRotationAndFill();
         activeQueue.push(staff);
 
@@ -1640,30 +1663,6 @@
         pushStateToFirebase();
         updateDisplay();
         closeRotasiPinModal();
-    }
-
-    function startBuddySession(spotIndex, staffPositionIndex) {
-        const staff = currentSpots[spotIndex][staffPositionIndex];
-        if (!staff) return;
-
-        const newSession = {
-            id: 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
-            spotIndex: Number(spotIndex),
-            spotPositionIndex: Number(staffPositionIndex),
-            staff: staff,
-            startTime: Date.now()
-        };
-
-        activeSessions.push(newSession);
-        localStorage.setItem('greeter_active_sessions', JSON.stringify(activeSessions));
-
-        currentSpots[spotIndex][staffPositionIndex] = null;
-        spotShiftOrigin[spotIndex][staffPositionIndex] = null;
-
-        advanceRotationAndFill();
-        pushStateToFirebase();
-        updateDisplay();
-        showCustomAlert('Sesi Dimulai', `Sesi buddy untuk ${staff.name} telah dimulai.`);
     }
 
     function openSkipModalDirect(spotIndex, staffPositionIndex) {
