@@ -588,7 +588,7 @@
                     <div>
                         <label class="block text-sm font-semibold text-slate-700 mb-1.5">Pilih Kategori Skip</label>
                         <select id="skip-reason-category" onchange="toggleSkipReasonInput()" class="border border-slate-300 rounded-xl px-3.5 py-2.5 w-full text-sm mb-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium">
-                            <option value="Istirahat/Toilet">1. Istirahat / Toilet (Standar -> Turun ke Bawah Antrean)</option>
+                            <option value="Istirahat/Toilet">1. Istirahat / Toilet (Standار -> Turun ke Bawah Antrean)</option>
                             <option value="1_Jam">2. Izin 1 Jam (Keluar Sementara)</option>
                             <option value="2_Jam">3. Izin 2 Jam (Keluar Sementara)</option>
                             <option value="3_Jam">4. Izin 3 Jam (Keluar Sementara)</option>
@@ -625,16 +625,51 @@
         db.ref('appState').on('value', (snapshot) => {
             const val = snapshot.val();
             if (val) {
+                const limitSpot1 = getMaxTitik1Slots();
+                
+                // Perbaikan parsing currentSpots dengan fixed-size array untuk menjaga posisi null secara presisi
+                currentSpots = [
+                    Array(limitSpot1).fill(null),
+                    Array(2).fill(null),
+                    Array(2).fill(null)
+                ];
                 if (val.currentSpots) {
-                    currentSpots = Array.isArray(val.currentSpots) ? val.currentSpots.map(g => Array.isArray(g) ? g : Object.values(g)) : Object.values(val.currentSpots).map(g => Array.isArray(g) ? g : Object.values(g));
+                    for (let s = 0; s < val.currentSpots.length; s++) {
+                        if (val.currentSpots[s]) {
+                            const maxP = (s === 0) ? limitSpot1 : 2;
+                            for (let p = 0; p < maxP; p++) {
+                                if (val.currentSpots[s][p]) {
+                                    currentSpots[s][p] = val.currentSpots[s][p];
+                                }
+                            }
+                        }
+                    }
                 }
+
                 if (val.activeQueue) activeQueue = Array.isArray(val.activeQueue) ? val.activeQueue : Object.values(val.activeQueue);
                 if (val.pausedQueue) pausedQueue = Array.isArray(val.pausedQueue) ? val.pausedQueue : Object.values(val.pausedQueue);
                 if (val.shiftMorningQueue) shiftMorningQueue = Array.isArray(val.shiftMorningQueue) ? val.shiftMorningQueue : Object.values(val.shiftMorningQueue);
                 if (val.shiftAfternoonQueue) shiftAfternoonQueue = Array.isArray(val.shiftAfternoonQueue) ? val.shiftAfternoonQueue : Object.values(val.shiftAfternoonQueue);
+                
+                // Perbaikan parsing spotShiftOrigin dengan fixed-size array
+                spotShiftOrigin = [
+                    Array(limitSpot1).fill(null),
+                    Array(2).fill(null),
+                    Array(2).fill(null)
+                ];
                 if (val.spotShiftOrigin) {
-                    spotShiftOrigin = Array.isArray(val.spotShiftOrigin) ? val.spotShiftOrigin.map(g => Array.isArray(g) ? g : Object.values(g)) : Object.values(val.spotShiftOrigin).map(g => Array.isArray(g) ? g : Object.values(g));
+                    for (let s = 0; s < val.spotShiftOrigin.length; s++) {
+                        if (val.spotShiftOrigin[s]) {
+                            const maxP = (s === 0) ? limitSpot1 : 2;
+                            for (let p = 0; p < maxP; p++) {
+                                if (val.spotShiftOrigin[s][p]) {
+                                    spotShiftOrigin[s][p] = val.spotShiftOrigin[s][p];
+                                }
+                            }
+                        }
+                    }
                 }
+
                 if (val.activeSessions) activeSessions = Array.isArray(val.activeSessions) ? val.activeSessions : Object.values(val.activeSessions);
                 if (val.activityLogs) activityLogs = Array.isArray(val.activityLogs) ? val.activityLogs : Object.values(val.activityLogs);
 
