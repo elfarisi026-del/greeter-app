@@ -175,7 +175,7 @@
             if (sess && sess.staff && sess.staff.nik) activeNiks.add(sess.staff.nik);
         });
         pausedQueue.forEach(item => {
-            if (item && item.staff && item.staff.nik) activeNiks.add(item.staff.nik);
+            if (item && item.staff && item.nik) activeNiks.add(item.staff.nik);
         });
 
         activeQueue = activeQueue.filter(staff => staff && staff.nik && !activeNiks.has(staff.nik));
@@ -704,22 +704,19 @@
 
     function pushStateToFirebase() {
         cleanupActiveQueue();
-        const queueRef = db.ref('appState/activeQueue');
-        queueRef.transaction((currentQueue) => {
-            return activeQueue;
-        }, (error, committed, snapshot) => {
-            if (error) {
-                console.error("Gagal transaksi antrean:", error);
-            }
-        });
 
-        db.ref('appState').update({
+        // Konversi ke plain object agar aman disimpan di Firebase Database
+        const plainSpots = currentSpots.map(group => group ? group.map(staff => staff ? {...staff} : null) : []);
+        const plainOrigin = spotShiftOrigin.map(group => group ? group.map(org => org ? org : null) : []);
+
+        db.ref('appState').set({
             date: getWibDateString(),
-            currentSpots: currentSpots,
+            currentSpots: plainSpots,
+            activeQueue: activeQueue,
             pausedQueue: pausedQueue,
             shiftMorningQueue: shiftMorningQueue,
             shiftAfternoonQueue: shiftAfternoonQueue,
-            spotShiftOrigin: spotShiftOrigin,
+            spotShiftOrigin: plainOrigin,
             activeSessions: activeSessions,
             activityLogs: activityLogs
         });
@@ -1671,7 +1668,7 @@
                 });
             }
         } else {
-            document.getElementById('rotasi-pin-error').classList.remove('hidden');
+            document.getElementById('rotasi-pin-error').classList.add('hidden');
         }
     }
 
