@@ -166,6 +166,21 @@
         inputElement.value = rupiah;
     }
 
+    function cleanupActiveQueue() {
+        const activeNiks = new Set();
+        currentSpots.forEach(group => {
+            if (group) group.forEach(staff => { if (staff && staff.nik) activeNiks.add(staff.nik); });
+        });
+        activeSessions.forEach(sess => {
+            if (sess && sess.staff && sess.staff.nik) activeNiks.add(sess.staff.nik);
+        });
+        pausedQueue.forEach(item => {
+            if (item && item.staff && item.staff.nik) activeNiks.add(item.staff.nik);
+        });
+
+        activeQueue = activeQueue.filter(staff => staff && staff.nik && !activeNiks.has(staff.nik));
+    }
+
     function renderAppTemplate() {
         const container = document.getElementById('app-container');
         if (!container) return;
@@ -679,11 +694,7 @@
                 activeSessions = val.activeSessions ? (Array.isArray(val.activeSessions) ? val.activeSessions : Object.values(val.activeSessions)) : [];
                 activityLogs = val.activityLogs ? (Array.isArray(val.activityLogs) ? val.activityLogs : Object.values(val.activityLogs)) : [];
 
-                let hasStaffInSpots = currentSpots.some(group => group && group.some(staff => staff !== null));
-                if (!hasStaffInSpots && activeQueue.length > 0) {
-                    advanceRotationAndFill();
-                }
-
+                cleanupActiveQueue();
                 updateDisplay();
                 updateAttendanceStats();
                 renderLogs();
@@ -692,6 +703,7 @@
     });
 
     function pushStateToFirebase() {
+        cleanupActiveQueue();
         const queueRef = db.ref('appState/activeQueue');
         queueRef.transaction((currentQueue) => {
             return activeQueue;
@@ -747,12 +759,16 @@
         for (let i = 0; i < slots.length; i++) {
             let slot = slots[i];
             if (!currentSpots[slot.s][slot.p] && activeQueue.length > 0) {
-                let nextStaff = activeQueue.shift();
-                currentSpots[slot.s][slot.p] = nextStaff;
-                const isMorningStaff = shiftMorningQueue.some(emp => emp.nik === nextStaff.nik);
-                spotShiftOrigin[slot.s][slot.p] = isMorningStaff ? 'pagi' : 'siang';
+                cleanupActiveQueue();
+                if (activeQueue.length > 0) {
+                    let nextStaff = activeQueue.shift();
+                    currentSpots[slot.s][slot.p] = nextStaff;
+                    const isMorningStaff = shiftMorningQueue.some(emp => emp.nik === nextStaff.nik);
+                    spotShiftOrigin[slot.s][slot.p] = isMorningStaff ? 'pagi' : 'siang';
+                }
             }
         }
+        cleanupActiveQueue();
     }
 
     setInterval(() => {
@@ -969,7 +985,7 @@
             document.getElementById('smt-selection-section').classList.remove('hidden');
             renderEmployeeList(employees);
         } else {
-            document.getElementById('pin-error').classList.add('hidden');
+            document.getElementById('pin-error').classList.remove('hidden');
         }
     }
 
@@ -1168,6 +1184,7 @@
         activityLogs.unshift(logData);
         syncLogToSpreadsheet(logData);
 
+        cleanupActiveQueue();
         renderActiveSessionsList();
         renderLogs();
         updateDisplay();
@@ -1337,6 +1354,7 @@
 
         advanceRotationAndFill();
         activeQueue.push(staff);
+        cleanupActiveQueue();
 
         renderLogs();
         updateDisplay();
@@ -1403,11 +1421,20 @@
             shiftAfternoonQueue = [...selectedStaffQueue];
         }
 
-        const queueOrder = mode === 'siang' 
+        const combinedOrder = [];
+        const seenNiks = new Set();
+
+        const baseQueue = mode === 'siang' 
             ? [...shiftAfternoonQueue, ...shiftMorningQueue] 
             : [...shiftMorningQueue, ...shiftAfternoonQueue];
 
-        // Reset dan isi titik greeter berurutan dari input pertama (Titik 1 -> Titik 2 -> Titik 3)
+        baseQueue.forEach(staff => {
+            if (staff && staff.nik && !seenNiks.has(staff.nik)) {
+                seenNiks.add(staff.nik);
+                combinedOrder.push(staff);
+            }
+        });
+
         const limitSpot1 = getMaxTitik1Slots();
         currentSpots = [
             Array(limitSpot1).fill(null),
@@ -1423,25 +1450,25 @@
         let queueIndex = 0;
         const slots = getOrderedFlowSlots();
 
-        for (let i = 0; i < slots.length && queueIndex < queueOrder.length; i++) {
+        for (let i = 0; i < slots.length && queueIndex < combinedOrder.length; i++) {
             let slot = slots[i];
-            let staff = queueOrder[queueIndex++];
+            let staff = combinedOrder[queueIndex++];
             currentSpots[slot.s][slot.p] = staff;
             const isMorningStaff = shiftMorningQueue.some(emp => emp.nik === staff.nik);
             spotShiftOrigin[slot.s][slot.p] = isMorningStaff ? 'pagi' : 'siang';
         }
 
-        // Sisa petugas masuk ke antrean cadangan
         activeQueue = [];
-        for (let i = queueIndex; i < queueOrder.length; i++) {
-            activeQueue.push(queueOrder[i]);
+        for (let i = queueIndex; i < combinedOrder.length; i++) {
+            activeQueue.push(combinedOrder[i]);
         }
 
+        cleanupActiveQueue();
         pushStateToFirebase();
         updateDisplay();
         updateAttendanceStats();
         closeSmtModal();
-        showCustomAlert("Berhasil", `Data SMT Shift ${mode.toUpperCase()} berhasil disimpan (${selectedStaffQueue.length} orang). Titik greeter diisi berurutan.`);
+        showCustomAlert("Berhasil", `Data SMT Shift ${mode.toUpperCase()} berhasil disimpan (${selectedStaffQueue.length} orang). Urutan disesuaikan secara presisi.`);
     }
 
     function updateAttendanceStats() {
@@ -1487,6 +1514,7 @@
     }
 
     function updateDisplay() {
+        cleanupActiveQueue();
         const limitSpot1 = getMaxTitik1Slots();
 
         // Render Titik 1
@@ -1589,6 +1617,7 @@
 
             let allAvailableStaff = [];
             
+            cleanupActiveQueue();
             activeQueue.forEach((staff, idx) => {
                 allAvailableStaff.push({
                     name: staff.name,
@@ -1713,6 +1742,7 @@
         }
 
         advanceRotationAndFill();
+        cleanupActiveQueue();
         pushStateToFirebase();
         updateDisplay();
         closeRotasiPinModal();
@@ -1794,6 +1824,7 @@
         spotShiftOrigin[skipSpotIndex][skipStaffIndexInSpot] = null;
 
         advanceRotationAndFill();
+        cleanupActiveQueue();
         pushStateToFirebase();
         updateDisplay();
         showCustomAlert('Berhasil Skip', `Petugas ${staff.name} berhasil di-skip dan turun ke antrean bawah.`);
