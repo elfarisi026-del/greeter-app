@@ -87,6 +87,7 @@
 
     let activeSessions = JSON.parse(localStorage.getItem('greeter_active_sessions')) || [];
     let targetFinishingSessionId = null;
+    let pendingCancelSessionId = null;
 
     let pendingStaffAction = null;
     let skipSpotIndex = null;
@@ -178,6 +179,19 @@
             </div>
         </div>
 
+        <!-- MODAL KONFIRMASI CANCEL SESI -->
+        <div id="cancel-confirm-modal" class="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
+            <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 text-center">
+                <div class="text-3xl mb-2">⚠️</div>
+                <h3 class="text-lg font-bold text-slate-900 mb-2">Peringatan Urutan Rotasi</h3>
+                <p class="text-sm text-slate-600 mb-5">Membatalkan sesi ini dapat membuat urutan rotasi menjadi tidak dinamis. Apakah Anda ingin melanjutkan?</p>
+                <div class="flex gap-2">
+                    <button onclick="closeCancelConfirmModal()" class="flex-1 border border-slate-300 text-slate-700 py-2.5 rounded-xl font-bold text-sm hover:bg-slate-50 transition">Batalkan</button>
+                    <button onclick="executeCancelBuddySession()" class="flex-1 bg-rose-600 hover:bg-rose-700 text-white py-2.5 rounded-xl font-bold text-sm transition shadow-sm">Lanjut</button>
+                </div>
+            </div>
+        </div>
+
         <div id="staff-pin-modal" class="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
             <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-100">
                 <h3 class="text-lg font-bold text-slate-900 mb-1">🔐 Verifikasi PIN Petugas</h3>
@@ -230,10 +244,11 @@
             </div>
         </div>
 
+        <!-- MODAL ROTASI & PENGATUR ANTREAN MANUAL -->
         <div id="rotasi-pin-modal" class="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
             <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
-                <h3 class="text-lg font-bold text-slate-900 mb-1">🔄 Rotasi Manual Titik</h3>
-                <p class="text-xs text-slate-500 mb-4">Masukkan PIN sekuriti dan pilih SMT yang akan dinaikkan ke urutan teratas.</p>
+                <h3 class="text-lg font-bold text-slate-900 mb-1">🔄 Pengatur Rotasi & Antrean Manual</h3>
+                <p class="text-xs text-slate-500 mb-4">Kelola posisi petugas ke titik greeter atau atur posisi antrean cadangan secara akurat.</p>
 
                 <div id="rotasi-step-pin" class="space-y-3">
                     <input type="password" id="rotasi-pin-input" placeholder="Masukkan PIN..." class="border border-slate-300 rounded-xl px-4 py-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">
@@ -245,11 +260,25 @@
                 </div>
 
                 <div id="rotasi-step-select" class="space-y-3 hidden">
-                    <label class="block text-xs font-semibold text-slate-700">Pilih Petugas yang Naik ke Urutan Teratas:</label>
-                    <select id="rotasi-target-select" class="border border-slate-300 rounded-xl px-3.5 py-2.5 w-full text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"></select>
-                    <div class="flex justify-end gap-2 pt-2">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Pilih Petugas (dari Antrean / Titik Lain):</label>
+                        <select id="rotasi-target-select" class="border border-slate-300 rounded-xl px-3.5 py-2.5 w-full text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"></select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Pilih Tujuan Penempatan / Antrean:</label>
+                        <select id="rotasi-spot-select" class="border border-slate-300 rounded-xl px-3.5 py-2.5 w-full text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">
+                            <option value="spot_0">Titik 1 - Main Entrance</option>
+                            <option value="spot_1">Titik 2 - CarPark / CP</option>
+                            <option value="spot_2">Titik 3 - HomeGallery / HG</option>
+                            <option value="queue_top">Antrean Cadangan (Paling Atas)</option>
+                            <option value="queue_bottom">Antrean Cadangan (Paling Bawah)</option>
+                        </select>
+                    </div>
+
+                    <div class="flex justify-end gap-2 pt-3">
                         <button onclick="closeRotasiPinModal()" class="border border-slate-300 text-slate-700 px-4 py-2 rounded-xl text-xs font-semibold">Batal</button>
-                        <button onclick="executeManualRotation()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-sm">Eksekusi Rotasi</button>
+                        <button onclick="executeManualRotationCustom()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-sm">Terapkan Pengaturan</button>
                     </div>
                 </div>
             </div>
@@ -355,7 +384,7 @@
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-2">
                         <span class="font-bold text-slate-700 text-sm">Antrean SMT Cadangan / Berikutnya:</span>
                         <button onclick="requestRotateVolleyball()" class="bg-amber-600 hover:bg-amber-700 text-white text-xs px-3.5 py-2 rounded-xl font-bold transition shadow-xs flex items-center gap-1.5">
-                            <span>🔄 Rotasi Manual Titik</span>
+                            <span>🔄 Pengatur Rotasi & Antrean Manual</span>
                         </button>
                     </div>
                     <div id="queue-display" class="space-y-1.5 text-sm text-slate-600">
@@ -483,7 +512,7 @@
                                 <input type="radio" name="shift-mode" value="siang" onchange="toggleShiftMode()"> Shift Siang
                             </label>
                         </div>
-                        <p class="text-xs text-blue-800 mt-2.5 font-medium" id="shift-mode-desc">Input Shift Pagi: Petugas baru ditambahkan berurutan.</p>
+                        <p class="text-xs text-blue-800 mt-2.5 font-medium" id="shift-mode-desc">Input Shift Pagi: Mendukung akumulasi gelombang susulan.</p>
                     </div>
 
                     <div>
@@ -616,7 +645,6 @@
         });
     });
 
-    // PENGAMANAN UTAMA: Menggunakan Transaction pada activeQueue dan update parsial untuk mencegah reset ke nol
     function pushStateToFirebase() {
         const queueRef = db.ref('appState/activeQueue');
         queueRef.transaction((currentQueue) => {
@@ -906,11 +934,11 @@
 
         if(mode === 'pagi') {
             label.innerText = 'Shift Pagi';
-            desc.innerText = 'Input Shift Pagi: Petugas baru ditambahkan berurutan.';
+            desc.innerText = 'Input Shift Pagi: Mendukung akumulasi gelombang susulan.';
             selectedStaffQueue = [...shiftMorningQueue];
         } else {
             label.innerText = 'Shift Siang';
-            desc.innerText = 'Input Shift Siang: Ditambahkan menyambung di antrean berikutnya.';
+            desc.innerText = 'Input Shift Siang: Mendukung akumulasi gelombang susulan.';
             selectedStaffQueue = [...shiftAfternoonQueue];
         }
         renderEmployeeList(employees.filter(e => e.name.toLowerCase().includes(document.getElementById('search-employee').value.toLowerCase()) || e.nik.includes(document.getElementById('search-employee').value)));
@@ -938,7 +966,7 @@
             document.getElementById('report-pin-section').classList.add('hidden');
             document.getElementById('report-content-section').classList.remove('hidden');
         } else {
-            document.getElementById('report-pin-error').classList.remove('hidden');
+            document.getElementById('report-pin-error').classList.add('hidden');
         }
     }
 
@@ -1005,6 +1033,20 @@
     }
 
     function cancelActiveBuddySession(sessionId) {
+        pendingCancelSessionId = sessionId;
+        document.getElementById('cancel-confirm-modal').classList.remove('hidden');
+    }
+
+    function closeCancelConfirmModal() {
+        document.getElementById('cancel-confirm-modal').classList.add('hidden');
+        pendingCancelSessionId = null;
+    }
+
+    function executeCancelBuddySession() {
+        if (!pendingCancelSessionId) return;
+        const sessionId = pendingCancelSessionId;
+        closeCancelConfirmModal();
+
         const sessIdx = activeSessions.findIndex(s => s.id === sessionId);
         if (sessIdx === -1) return;
 
@@ -1284,14 +1326,32 @@
 
     function saveSmtList() {
         const mode = document.querySelector('input[name="shift-mode"]:checked').value;
+        
+        // Akumulasi (Merge) gelombang ganda untuk Shift Pagi maupun Shift Siang tanpa menghapus data sebelumnya
         if(mode === 'pagi') {
-            shiftMorningQueue = [...selectedStaffQueue];
+            const existingNiks = new Set(shiftMorningQueue.map(e => e.nik));
+            selectedStaffQueue.forEach(emp => {
+                if (!existingNiks.has(emp.nik)) {
+                    shiftMorningQueue.push(emp);
+                }
+            });
         } else {
-            shiftAfternoonQueue = [...selectedStaffQueue];
+            const existingNiks = new Set(shiftAfternoonQueue.map(e => e.nik));
+            selectedStaffQueue.forEach(emp => {
+                if (!existingNiks.has(emp.nik)) {
+                    shiftAfternoonQueue.push(emp);
+                }
+            });
         }
 
         const combinedQueueMap = new Map();
-        [...shiftMorningQueue, ...shiftAfternoonQueue].forEach(staff => {
+        
+        // Urutan Dinamis: Shift yang baru diinput/diperbarui diprioritaskan di atas antrean cadangan
+        const queueOrder = mode === 'siang' 
+            ? [...shiftAfternoonQueue, ...shiftMorningQueue] 
+            : [...shiftMorningQueue, ...shiftAfternoonQueue];
+
+        queueOrder.forEach(staff => {
             if (staff && staff.nik) combinedQueueMap.set(staff.nik, staff);
         });
 
@@ -1322,7 +1382,7 @@
         updateDisplay();
         updateAttendanceStats();
         closeSmtModal();
-        showCustomAlert("Berhasil", `Data SMT Shift ${mode.toUpperCase()} berhasil disimpan.`);
+        showCustomAlert("Berhasil", `Data SMT Shift ${mode.toUpperCase()} berhasil disimpan & diakumulasikan.`);
     }
 
     function updateAttendanceStats() {
@@ -1461,20 +1521,51 @@
     }
 
     function verifyRotasiPin() {
-        if (document.getElementById('rotasi-pin-input').value === '15032024') {
+        // PIN admin yang diubah menjadi 11012023 tanpa ditampilkan secara publik
+        if (document.getElementById('rotasi-pin-input').value === '11012023') {
             document.getElementById('rotasi-step-pin').classList.add('hidden');
             document.getElementById('rotasi-step-select').classList.remove('hidden');
 
             const selectEl = document.getElementById('rotasi-target-select');
             selectEl.innerHTML = '';
 
-            if (activeQueue.length === 0) {
-                selectEl.innerHTML = '<option value="">Tidak ada antrean cadangan</option>';
+            let allAvailableStaff = [];
+            
+            activeQueue.forEach((staff, idx) => {
+                allAvailableStaff.push({
+                    name: staff.name,
+                    nik: staff.nik,
+                    source: 'queue',
+                    index: idx,
+                    label: `[Cadangan] ${staff.name}`
+                });
+            });
+
+            currentSpots.forEach((spotGroup, sIdx) => {
+                const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
+                if (spotGroup) {
+                    spotGroup.forEach((staff, pIdx) => {
+                        if (staff) {
+                            allAvailableStaff.push({
+                                name: staff.name,
+                                nik: staff.nik,
+                                source: 'spot',
+                                sIdx: sIdx,
+                                pIdx: pIdx,
+                                label: `[Aktif di ${spotNames[sIdx]}] ${staff.name}`
+                            });
+                        }
+                    });
+                }
+            });
+
+            if (allAvailableStaff.length === 0) {
+                selectEl.innerHTML = '<option value="">Tidak ada petugas tersedia</option>';
             } else {
-                activeQueue.forEach((staff, idx) => {
+                allAvailableStaff.forEach((item) => {
                     const opt = document.createElement('option');
-                    opt.value = idx;
-                    opt.textContent = `${staff.name} (NIK: ${staff.nik})`;
+                    opt.value = JSON.stringify(item);
+                    opt.textContent = item.label;
                     selectEl.appendChild(opt);
                 });
             }
@@ -1483,37 +1574,74 @@
         }
     }
 
-    function executeManualRotation() {
+    function executeManualRotationCustom() {
         const selectEl = document.getElementById('rotasi-target-select');
-        const chosenQueueIndex = parseInt(selectEl.value);
-
-        if (isNaN(chosenQueueIndex) || activeQueue.length === 0) {
+        const spotSelectEl = document.getElementById('rotasi-spot-select');
+        
+        if (!selectEl.value) {
             closeRotasiPinModal();
             return;
         }
 
-        const chosenStaff = activeQueue.splice(chosenQueueIndex, 1)[0];
-        const slots = getOrderedFlowSlots();
-        let firstSlot = slots[0];
+        const chosenItem = JSON.parse(selectEl.value);
+        const destination = spotSelectEl.value;
+        const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
 
-        let displacedStaff = currentSpots[firstSlot.s][firstSlot.p];
-        currentSpots[firstSlot.s][firstSlot.p] = chosenStaff;
-        const isMorningStaff = shiftMorningQueue.some(emp => emp.nik === chosenStaff.nik);
-        spotShiftOrigin[firstSlot.s][firstSlot.p] = isMorningStaff ? 'pagi' : 'siang';
+        let staffObj = null;
 
-        if (displacedStaff) {
-            activeQueue.push(displacedStaff);
+        if (chosenItem.source === 'queue') {
+            staffObj = activeQueue.splice(chosenItem.index, 1)[0];
+        } else if (chosenItem.source === 'spot') {
+            staffObj = currentSpots[chosenItem.sIdx][chosenItem.pIdx];
+            currentSpots[chosenItem.sIdx][chosenItem.pIdx] = null;
+            spotShiftOrigin[chosenItem.sIdx][chosenItem.pIdx] = null;
+        }
+
+        if (!staffObj) {
+            closeRotasiPinModal();
+            return;
+        }
+
+        if (destination === 'queue_top') {
+            activeQueue.unshift(staffObj);
+            showCustomAlert('Berhasil', `Petugas ${staffObj.name} dipindahkan ke posisi Paling Atas antrean cadangan.`);
+        } else if (destination === 'queue_bottom') {
+            activeQueue.push(staffObj);
+            showCustomAlert('Berhasil', `Petugas ${staffObj.name} dipindahkan ke posisi Paling Bawah antrean cadangan.`);
+        } else {
+            const targetSpotIndex = parseInt(destination.replace('spot_', ''));
+            const limitSlots = targetSpotIndex === 0 ? getMaxTitik1Slots() : 2;
+            let placed = false;
+
+            for (let p = 0; p < limitSlots; p++) {
+                if (!currentSpots[targetSpotIndex][p]) {
+                    currentSpots[targetSpotIndex][p] = staffObj;
+                    const isMorningStaff = shiftMorningQueue.some(emp => emp.nik === staffObj.nik);
+                    spotShiftOrigin[targetSpotIndex][p] = isMorningStaff ? 'pagi' : 'siang';
+                    placed = true;
+                    break;
+                }
+            }
+
+            if (!placed) {
+                let displacedStaff = currentSpots[targetSpotIndex][0];
+                currentSpots[targetSpotIndex][0] = staffObj;
+                const isMorningStaff = shiftMorningQueue.some(emp => emp.nik === staffObj.nik);
+                spotShiftOrigin[targetSpotIndex][0] = isMorningStaff ? 'pagi' : 'siang';
+                
+                if (displacedStaff) {
+                    activeQueue.unshift(displacedStaff);
+                }
+            }
+
+            triggerNextGreeterNotification(staffObj.name, spotNames[targetSpotIndex]);
+            showCustomAlert('Berhasil', `Petugas ${staffObj.name} berhasil ditempatkan di ${spotNames[targetSpotIndex]}.`);
         }
 
         advanceRotationAndFill();
-        if (chosenStaff) {
-            triggerNextGreeterNotification(chosenStaff.name, "Main Entrance");
-        }
-
         pushStateToFirebase();
         updateDisplay();
         closeRotasiPinModal();
-        showCustomAlert('Berhasil', 'Rotasi manual berhasil dieksekusi.');
     }
 
     function startBuddySession(spotIndex, staffPositionIndex) {
