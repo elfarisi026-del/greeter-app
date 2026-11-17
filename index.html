@@ -65,7 +65,7 @@
         { nik: "166544", name: "ANA NADIRAH" }, { nik: "105095", name: "KIBAR MUHAMMAD" },
         { nik: "182429", name: "ADELIA FITRIANI" }, { nik: "167188", name: "NUR ROSWIDIANA" },
         { nik: "172234", name: "MUHAMMAD ALIF ALFAREZA" }, { nik: "194833", name: "MOHAMMAD ICHWAN" },
-        { nik: "181150", name: "DION KURNIAWAN" }, { nik: "182972", name: "RISKY ADITIYA PRATAMA" },
+        { nik: "181150", name: "DION KURNIAWAN" }, { nik: "182972", name: "RISKY ADITIya PRATAMA" },
         { nik: "139418", name: "DIKI WAHYUDI" }, { nik: "182586", name: "RANI WIDYA HIDAYAT" },
         { nik: "172906", name: "IQBAL MUZAKAROH" }, { nik: "163710", name: "ARZALIA RAHMADANI" },
         { nik: "166522", name: "MUHAMMAD VIKRI FAUZAN" }, { nik: "178670", name: "MISBAHHUDIN" },
@@ -726,29 +726,48 @@
             }
         }, 1000);
 
-        // Sinkronisasi Real-Time Firebase dengan Aman & Konversi Array Kuat
+        // Sinkronisasi Real-Time Firebase dengan Aman & Konversi Array Kuat + Smart Merge localStorage Fallback
         db.ref('appState').on('value', (snapshot) => {
             try {
                 const val = snapshot.val();
                 let dataToUse = val;
                 const todayStr = getWibDateString();
 
+                // Ambil cadangan lokal jika Firebase kosong atau berbeda hari
+                const localBackup = localStorage.getItem('greeter_full_state_backup');
+                let parsedLocal = null;
+                if (localBackup) {
+                    try {
+                        parsedLocal = JSON.parse(localBackup);
+                    } catch (err) {
+                        parsedLocal = null;
+                    }
+                }
+
                 if (!val || (val.date && val.date !== todayStr)) {
-                    const localBackup = localStorage.getItem('greeter_full_state_backup');
-                    if (localBackup) {
-                        try {
-                            const parsedBackup = JSON.parse(localBackup);
-                            if (parsedBackup && parsedBackup.date === todayStr) {
-                                dataToUse = parsedBackup;
-                            } else {
-                                dataToUse = null;
-                            }
-                        } catch (err) {
-                            dataToUse = null;
-                        }
+                    if (parsedLocal && parsedLocal.date === todayStr) {
+                        dataToUse = parsedLocal;
                     } else {
                         dataToUse = null;
                     }
+                } else {
+                    // Smart Merge Logika: Jika di Firebase Shift Siang kosong tetapi lokal ada isinya, pertahankan data lokal
+                    if (parsedLocal && parsedLocal.date === todayStr) {
+                        const fbAfternoonLen = val.shiftAfternoonQueue ? (Array.isArray(val.shiftAfternoonQueue) ? val.shiftAfternoonQueue.length : Object.keys(val.shiftAfternoonQueue).length) : 0;
+                        const localAfternoonLen = parsedLocal.shiftAfternoonQueue ? (Array.isArray(parsedLocal.shiftAfternoonQueue) ? parsedLocal.shiftAfternoonQueue.length : Object.keys(parsedLocal.shiftAfternoonQueue).length) : 0;
+                        
+                        if (fbAfternoonLen === 0 && localAfternoonLen > 0) {
+                            val.shiftAfternoonQueue = parsedLocal.shiftAfternoonQueue;
+                        }
+
+                        const fbMorningLen = val.shiftMorningQueue ? (Array.isArray(val.shiftMorningQueue) ? val.shiftMorningQueue.length : Object.keys(val.shiftMorningQueue).length) : 0;
+                        const localMorningLen = parsedLocal.shiftMorningQueue ? (Array.isArray(parsedLocal.shiftMorningQueue) ? parsedLocal.shiftMorningQueue.length : Object.keys(parsedLocal.shiftMorningQueue).length) : 0;
+                        
+                        if (fbMorningLen === 0 && localMorningLen > 0) {
+                            val.shiftMorningQueue = parsedLocal.shiftMorningQueue;
+                        }
+                    }
+                    dataToUse = val;
                 }
 
                 if (dataToUse) {
@@ -851,6 +870,7 @@
                 activityLogs: Array.isArray(activityLogs) ? activityLogs : Object.values(activityLogs)
             };
 
+            // Simpan otomatis ke localStorage perangkat admin secara permanen (Persistence Fallback)
             localStorage.setItem('greeter_full_state_backup', JSON.stringify(stateData));
 
             db.ref('appState').set(stateData).catch(err => {
