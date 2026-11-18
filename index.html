@@ -65,7 +65,7 @@
         { nik: "166544", name: "ANA NADIRAH" }, { nik: "105095", name: "KIBAR MUHAMMAD" },
         { nik: "182429", name: "ADELIA FITRIANI" }, { nik: "167188", name: "NUR ROSWIDIANA" },
         { nik: "172234", name: "MUHAMMAD ALIF ALFAREZA" }, { nik: "194833", name: "MOHAMMAD ICHWAN" },
-        { nik: "181150", name: "DION KURNIAWAN" }, { nik: "182972", name: "RISKY ADITIya PRATAMA" },
+        { nik: "181150", name: "DION KURNIAWAN" }, { nik: "182972", name: "RISKY ADITIYA PRATAMA" },
         { nik: "139418", name: "DIKI WAHYUDI" }, { nik: "182586", name: "RANI WIDYA HIDAYAT" },
         { nik: "172906", name: "IQBAL MUZAKAROH" }, { nik: "163710", name: "ARZALIA RAHMADANI" },
         { nik: "166522", name: "MUHAMMAD VIKRI FAUZAN" }, { nik: "178670", name: "MISBAHHUDIN" },
@@ -83,7 +83,9 @@
     let spotShiftOrigin = [[null, null, null], [null, null], [null, null]]; 
     let shiftMorningQueue = [];
     let shiftAfternoonQueue = [];
+    let lastFirebaseDate = null;
     let selectedStaffQueue = [];
+    let smtBaseNiks = new Set();
 
     let activeSessions = JSON.parse(localStorage.getItem('greeter_active_sessions')) || [];
     let targetFinishingSessionId = null;
@@ -726,48 +728,30 @@
             }
         }, 1000);
 
-        // Sinkronisasi Real-Time Firebase dengan Aman & Konversi Array Kuat + Smart Merge localStorage Fallback
+        // Sinkronisasi Real-Time Firebase dengan Aman & Konversi Array Kuat
         db.ref('appState').on('value', (snapshot) => {
             try {
                 const val = snapshot.val();
+                lastFirebaseDate = val && val.date ? val.date : null;
                 let dataToUse = val;
                 const todayStr = getWibDateString();
 
-                // Ambil cadangan lokal jika Firebase kosong atau berbeda hari
-                const localBackup = localStorage.getItem('greeter_full_state_backup');
-                let parsedLocal = null;
-                if (localBackup) {
-                    try {
-                        parsedLocal = JSON.parse(localBackup);
-                    } catch (err) {
-                        parsedLocal = null;
-                    }
-                }
-
                 if (!val || (val.date && val.date !== todayStr)) {
-                    if (parsedLocal && parsedLocal.date === todayStr) {
-                        dataToUse = parsedLocal;
+                    const localBackup = localStorage.getItem('greeter_full_state_backup');
+                    if (localBackup) {
+                        try {
+                            const parsedBackup = JSON.parse(localBackup);
+                            if (parsedBackup && parsedBackup.date === todayStr) {
+                                dataToUse = parsedBackup;
+                            } else {
+                                dataToUse = null;
+                            }
+                        } catch (err) {
+                            dataToUse = null;
+                        }
                     } else {
                         dataToUse = null;
                     }
-                } else {
-                    // Smart Merge Logika: Jika di Firebase Shift Siang kosong tetapi lokal ada isinya, pertahankan data lokal
-                    if (parsedLocal && parsedLocal.date === todayStr) {
-                        const fbAfternoonLen = val.shiftAfternoonQueue ? (Array.isArray(val.shiftAfternoonQueue) ? val.shiftAfternoonQueue.length : Object.keys(val.shiftAfternoonQueue).length) : 0;
-                        const localAfternoonLen = parsedLocal.shiftAfternoonQueue ? (Array.isArray(parsedLocal.shiftAfternoonQueue) ? parsedLocal.shiftAfternoonQueue.length : Object.keys(parsedLocal.shiftAfternoonQueue).length) : 0;
-                        
-                        if (fbAfternoonLen === 0 && localAfternoonLen > 0) {
-                            val.shiftAfternoonQueue = parsedLocal.shiftAfternoonQueue;
-                        }
-
-                        const fbMorningLen = val.shiftMorningQueue ? (Array.isArray(val.shiftMorningQueue) ? val.shiftMorningQueue.length : Object.keys(val.shiftMorningQueue).length) : 0;
-                        const localMorningLen = parsedLocal.shiftMorningQueue ? (Array.isArray(parsedLocal.shiftMorningQueue) ? parsedLocal.shiftMorningQueue.length : Object.keys(parsedLocal.shiftMorningQueue).length) : 0;
-                        
-                        if (fbMorningLen === 0 && localMorningLen > 0) {
-                            val.shiftMorningQueue = parsedLocal.shiftMorningQueue;
-                        }
-                    }
-                    dataToUse = val;
                 }
 
                 if (dataToUse) {
@@ -850,7 +834,7 @@
         });
     });
 
-    function pushStateToFirebase() {
+    function pushStateToFirebase(includeShift = false) {
         try {
             sanitizeStateForTime();
             cleanupActiveQueue();
@@ -870,10 +854,24 @@
                 activityLogs: Array.isArray(activityLogs) ? activityLogs : Object.values(activityLogs)
             };
 
-            // Simpan otomatis ke localStorage perangkat admin secara permanen (Persistence Fallback)
             localStorage.setItem('greeter_full_state_backup', JSON.stringify(stateData));
 
-            db.ref('appState').set(stateData).catch(err => {
+            // PERBAIKAN: antrean shift hanya ditulis saat admin menyimpan SMT (includeShift) atau saat ganti hari.
+            // Push otomatis (timer/rotasi) dari perangkat mana pun tidak lagi bisa menimpa/menghapus shift.
+            const isNewDay = lastFirebaseDate !== stateData.date;
+            let ref = db.ref('appState');
+            let op;
+            if (isNewDay) {
+                op = ref.set(stateData);
+            } else if (includeShift) {
+                op = ref.update(stateData);
+            } else {
+                const partial = Object.assign({}, stateData);
+                delete partial.shiftMorningQueue;
+                delete partial.shiftAfternoonQueue;
+                op = ref.update(partial);
+            }
+            op.catch(err => {
                 console.error("Gagal simpan ke Firebase:", err);
             });
         } catch (e) {
@@ -1143,8 +1141,10 @@
 
             if(mode === 'pagi') {
                 selectedStaffQueue = [...morningArr];
+                smtBaseNiks = new Set(morningArr.filter(x => x && x.nik).map(x => x.nik));
             } else {
                 selectedStaffQueue = [...afternoonArr];
+                smtBaseNiks = new Set(afternoonArr.filter(x => x && x.nik).map(x => x.nik));
             }
 
             updateSelectedPreview();
@@ -1179,10 +1179,12 @@
             label.innerText = 'Shift Pagi';
             desc.innerText = 'Input Shift Pagi: Mendukung akumulasi gelombang susulan.';
             selectedStaffQueue = [...morningArr];
+                smtBaseNiks = new Set(morningArr.filter(x => x && x.nik).map(x => x.nik));
         } else {
             label.innerText = 'Shift Siang';
             desc.innerText = 'Input Shift Siang: Mendukung akumulasi gelombang susulan.';
             selectedStaffQueue = [...afternoonArr];
+                smtBaseNiks = new Set(afternoonArr.filter(x => x && x.nik).map(x => x.nik));
         }
         renderEmployeeList(employees.filter(e => e.name.toLowerCase().includes(document.getElementById('search-employee').value.toLowerCase()) || e.nik.includes(document.getElementById('search-employee').value)));
         updateSelectedPreview();
@@ -1628,6 +1630,18 @@
 
             const mode = document.querySelector('input[name="shift-mode"]:checked').value;
             
+            // PERBAIKAN: gabungkan dengan daftar terbaru dari Firebase agar input admin lain tidak tertimpa.
+            // Hasil = daftar terbaru - nama yang dihapus admin ini + nama baru yang ditambah admin ini.
+            const latestRaw = (mode === 'pagi') ? shiftMorningQueue : shiftAfternoonQueue;
+            const latestArr = latestRaw ? (Array.isArray(latestRaw) ? latestRaw : Object.values(latestRaw)) : [];
+            const mineNiks = new Set(selectedStaffQueue.filter(x => x && x.nik).map(x => x.nik));
+            const mergedQueue = latestArr.filter(x => x && x.nik && !(smtBaseNiks.has(x.nik) && !mineNiks.has(x.nik)));
+            const mergedNiks = new Set(mergedQueue.map(x => x.nik));
+            selectedStaffQueue.forEach(x => {
+                if (x && x.nik && !mergedNiks.has(x.nik)) { mergedQueue.push(x); mergedNiks.add(x.nik); }
+            });
+            selectedStaffQueue = mergedQueue;
+            smtBaseNiks = new Set(mergedQueue.map(x => x.nik));
             if (mode === 'pagi') {
                 shiftMorningQueue = [...selectedStaffQueue];
             } else {
@@ -1660,7 +1674,7 @@
             sanitizeStateForTime();
             advanceRotationAndFill();
             cleanupActiveQueue();
-            pushStateToFirebase();
+            pushStateToFirebase(true);
             updateDisplay();
             updateAttendanceStats();
             closeSmtModal();
