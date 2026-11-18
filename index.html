@@ -30,6 +30,25 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
     <script>
+    // --- FITUR PENGAMAN IDLE / AUTO-REFRESH OTOMATIS ---
+    let idleMinutes = 0;
+    // Cek setiap 1 menit apakah tab ditinggal idle terlalu lama
+    setInterval(() => {
+        idleMinutes++;
+        // Jika tab ditinggal tanpa aktivitas selama lebih dari 30 menit
+        if (idleMinutes >= 30) {
+            location.reload(); // Otomatis refresh halaman untuk menarik data paling fresh dari Firebase
+        }
+    }, 60000);
+
+    // Reset hitungan idle setiap kali ada interaksi (klik, sentuh, ketik, mouse)
+    ['mousemove', 'keypress', 'click', 'touchstart'].forEach(eventName => {
+        window.addEventListener(eventName, () => {
+            idleMinutes = 0;
+        });
+    });
+    // ---------------------------------------------------
+
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxV7gT9nBt9c7GoKEc8Xa-QqcG5k8sLNHe5JdgTuwP0R_CfF4TZ8rLY77iz5Qwnxa0p/exec";
 
     const firebaseConfig = {
@@ -207,7 +226,6 @@
         activeQueue = Array.isArray(activeQueue) ? activeQueue.filter(staff => staff && staff.nik && !activeNiks.has(staff.nik)) : [];
     }
 
-    // Sanitasi waktu WIB (Cut-off 20.00 WIB untuk shift pagi kecuali dalam status Buddy, Cut-off total 22.00 WIB)
     function sanitizeStateForTime() {
         let changed = false;
         const wibHour = getWibHour();
@@ -341,7 +359,6 @@
                 <p class="text-xs text-slate-500 mb-4">Kelola posisi petugas ke titik greeter atau atur posisi antrean cadangan secara akurat.</p>
 
                 <div id="rotasi-step-pin" class="space-y-3">
-                    <!-- Placeholder PIN disembunyikan agar bersih tanpa menampilkan kode PIN -->
                     <input type="password" id="rotasi-pin-input" placeholder="Masukkan PIN Admin..." class="border border-slate-300 rounded-xl px-4 py-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">
                     <p id="rotasi-pin-error" class="text-rose-500 text-xs font-medium hidden">PIN salah!</p>
                     <div class="flex justify-end gap-2 pt-2">
