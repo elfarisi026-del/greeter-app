@@ -42,7 +42,7 @@
         
         if (idleDuration > 60000) {
             sessionStorage.setItem('tab_loaded_time', Date.now());
-            alert("Tunggu refresh halaman dulu...");
+            alert("Tunggu yaa.. Halaman lagi refresh ni...");
             location.reload(); 
             return false;
         }
@@ -438,7 +438,69 @@
                         <p class="text-xs text-purple-800">Ubah parameter operasional, kelola database karyawan SMT, atau lakukan reset langsung dari sini.</p>
                     </div>
 
-                    <!-- KONTROL 1: CONFIG SCRIPT URL -->
+                    <!-- KONTROL BARU: PENGHAPUSAN NODE FIREBASE APPSTATE -->
+                    <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-3">
+                        <h5 class="font-bold text-slate-900 text-sm">🔥 Pengelolaan & Hapus Node Firebase (appState)</h5>
+                        <p class="text-xs text-slate-500">Hapus keseluruhan node appState atau pilih sub-node tertentu secara spesifik di database Firebase.</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <select id="firebase-node-target" class="border border-slate-300 rounded-xl px-3.5 py-2 text-xs bg-white font-medium">
+                                <option value="ALL">🗑️ Hapus Keseluruhan Node (appState)</option>
+                                <option value="currentSpots">Titik Aktif (currentSpots)</option>
+                                <option value="activeQueue">Antrean Cadangan (activeQueue)</option>
+                                <option value="pausedQueue">Antrean Paused/Skip (pausedQueue)</option>
+                                <option value="activityLogs">Riwayat Log (activityLogs)</option>
+                                <option value="activeSessions">Sesi Aktif (activeSessions)</option>
+                            </select>
+                            <button onclick="deleteFirebaseNodeAction()" class="bg-rose-600 hover:bg-rose-700 text-white p-2.5 rounded-xl text-xs font-bold transition shadow-xs flex items-center justify-center gap-1.5">
+                                <span>Hapus Node Terpilih</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- KONTROL BARU 1: GITHUB COMMIT & CLOUDFLARE DEPLOY -->
+                    <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-3">
+                        <h5 class="font-bold text-slate-900 text-sm">🚀 Integrasi GitHub Commit & Cloudflare Deploy</h5>
+                        <p class="text-xs text-slate-500">Kirim kode versi terbaru ke GitHub atau buka panel otomatisasi Cloudflare.</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <button onclick="triggerGitHubCommitAction()" class="bg-slate-900 hover:bg-black text-white p-3 rounded-xl text-xs font-bold transition shadow-xs flex items-center justify-center gap-2">
+                                <span>🐙 Commit Kode & Trigger Deploy</span>
+                            </button>
+                            <button onclick="window.open('https://dash.cloudflare.com/', '_blank')" class="bg-orange-600 hover:bg-orange-700 text-white p-3 rounded-xl text-xs font-bold transition shadow-xs flex items-center justify-center gap-2">
+                                <span>⚡ Buka Cloudflare Dashboard</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- KONTROL BARU 2: ACAK ROTASI OTOMATIS -->
+                    <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-3">
+                        <h5 class="font-bold text-slate-900 text-sm">🔀 Pengatur Acak Rotasi Otomatis</h5>
+                        <p class="text-xs text-slate-500">Susun ulang antrean berdasarkan urutan prioritas (Selesai Buddy, Skip Sementara Non-Jam, Shift Pagi, Shift Siang).</p>
+                        <button onclick="triggerAutoRandomizeRotation()" class="bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-xl text-xs font-bold transition shadow-xs flex items-center justify-center gap-2 w-full">
+                            <span>🎲 Jalankan Acak Rotasi Otomatis</span>
+                        </button>
+                    </div>
+
+                    <!-- KONTROL 1: BROADCAST REFRESH & EXPORT/IMPORT JSON -->
+                    <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-3">
+                        <h5 class="font-bold text-slate-900 text-sm">🌐 Kontrol Live & Backup Data JSON</h5>
+                        <p class="text-xs text-slate-500">Segarkan semua perangkat sekaligus atau unduh/unggah database sistem.</p>
+                        
+                        <button onclick="broadcastRefreshAllDevices()" class="bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-xl text-xs font-bold transition w-full shadow-xs flex items-center justify-center gap-2">
+                            <span>🔄 Refresh Semua Perangkat Terhubung (Live Broadcast)</span>
+                        </button>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                            <button onclick="exportStateJson()" class="bg-teal-600 hover:bg-teal-700 text-white p-2.5 rounded-xl text-xs font-bold transition shadow-xs flex items-center justify-center gap-1.5">
+                                <span>📥 Export Data JSON</span>
+                            </button>
+                            <label class="bg-amber-600 hover:bg-amber-700 text-white p-2.5 rounded-xl text-xs font-bold transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer">
+                                <span>📤 Import Data JSON</span>
+                                <input type="file" id="import-json-file" accept=".json" onchange="importStateJson(event)" class="hidden">
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- KONTROL 2: CONFIG SCRIPT URL -->
                     <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-2">
                         <h5 class="font-bold text-slate-900 text-sm">🔗 Ganti Endpoint Google Apps Script URL</h5>
                         <p class="text-xs text-slate-500">Ubah URL backend Spreadsheet tanpa mengubah kode source.</p>
@@ -448,7 +510,7 @@
                         </div>
                     </div>
 
-                    <!-- KONTROL 2: TAMBAH KARYAWAN SMT BARU -->
+                    <!-- KONTROL 3: TAMBAH KARYAWAN SMT BARU -->
                     <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-2">
                         <h5 class="font-bold text-slate-900 text-sm">➕ Tambah / Daftarkan SMT Baru ke Sistem</h5>
                         <p class="text-xs text-slate-500">Tambahkan personel baru secara instan.</p>
@@ -459,7 +521,7 @@
                         <button onclick="adminAddNewEmployee()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition w-full">Tambah Karyawan</button>
                     </div>
 
-                    <!-- KONTROL 3: CUSTOM CSS / LAYOUT OVERRIDE -->
+                    <!-- KONTROL 4: CUSTOM CSS / LAYOUT OVERRIDE -->
                     <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-2">
                         <h5 class="font-bold text-slate-900 text-sm">🎨 Custom CSS / Tampilan Live Styling</h5>
                         <p class="text-xs text-slate-500">Sisipkan CSS tambahan untuk merubah warna/tampilan secara instan.</p>
@@ -467,13 +529,13 @@
                         <button onclick="applyCustomCss()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition w-full">Terapkan Styling</button>
                     </div>
 
-                    <!-- KONTROL 4: AKSI DARURAT & RESET -->
+                    <!-- KONTROL 5: AKSI DARURAT & RESET -->
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                         <button onclick="masterResetQueueAndSpots()" class="bg-rose-600 hover:bg-rose-700 text-white p-3 rounded-xl text-xs font-bold transition shadow-xs">🗑️ Reset Seluruh Antrean & Titik</button>
                         <button onclick="masterClearActiveSessions()" class="bg-rose-600 hover:bg-rose-700 text-white p-3 rounded-xl text-xs font-bold transition shadow-xs">⏳ Hapus Sesi Buddy Gantung</button>
                         <button onclick="localStorage.removeItem('custom_employees_list'); location.reload();" class="bg-amber-600 hover:bg-amber-700 text-white p-3 rounded-xl text-xs font-bold transition shadow-xs">🔄 Reset Daftar SMT ke Default</button>
                         <button onclick="masterClearAllCacheAndStorage()" class="bg-red-700 hover:bg-red-800 text-white p-3 rounded-xl text-xs font-bold transition shadow-xs col-span-full">🧹 Hapus Seluruh Cache & Data Basi (Reset Total)</button>
-                        <button onclick="location.reload()" class="bg-slate-800 hover:bg-slate-900 text-white p-3 rounded-xl text-xs font-bold transition shadow-xs col-span-full">⚡ Paksa Reload Aplikasi</button>
+                        <button onclick="location.reload()" class="bg-slate-800 hover:bg-slate-900 text-white p-3 rounded-xl text-xs font-bold transition shadow-xs col-span-full">⚡ Paksa Reload Perangkat Ini</button>
                     </div>
 
                     <div class="flex justify-end pt-3 border-t border-slate-100">
@@ -650,7 +712,7 @@
 
                 <div class="grid grid-cols-2 gap-3">
                     <button onclick="closeBuddyModalViewOnly()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 py-3 rounded-xl font-bold text-xs md:text-sm transition shadow-2xs">Batal</button>
-                    <button id="btn-finish-session" onclick="if(!ensureFreshTabBeforeAction()) return; finishBuddySessionConfirmed()" class="bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold text-xs md:text-sm transition shadow-sm">Selesai Sesi ✓</button>
+                    <button id="btn-finish-session" onclick="if(!ensureFreshTabBeforeAction()) return; finishBuddySessionConfirmed()" class="bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold text-xs md:text-sm transition shadow-sm">Selesai ✓</button>
                 </div>
             </div>
         </div>
@@ -824,6 +886,18 @@
             document.getElementById('dynamic-custom-styles').innerHTML = savedCss;
         }
 
+        // LISTENER LIVE BROADCAST REFRESH (Mendengarkan perintah reload dari admin)
+        db.ref('systemCommand/reloadSignal').on('value', (snapshot) => {
+            const reloadTimestamp = snapshot.val();
+            if (reloadTimestamp) {
+                const lastReloadHandled = sessionStorage.getItem('last_handled_reload') || '0';
+                if (String(reloadTimestamp) !== String(lastReloadHandled)) {
+                    sessionStorage.setItem('last_handled_reload', reloadTimestamp);
+                    location.reload(true);
+                }
+            }
+        });
+
         if (globalTimerInterval) clearInterval(globalTimerInterval);
         globalTimerInterval = setInterval(() => {
             try {
@@ -844,7 +918,6 @@
                 let dataToUse = val;
                 const todayStr = getWibDateString();
 
-                // PENGAMAN BERLAPIS: Validasi tanggal & timestamp untuk mencegah data mundur
                 if (!val || (val.date && val.date !== todayStr)) {
                     const localBackup = localStorage.getItem('greeter_full_state_backup');
                     if (localBackup) {
@@ -867,7 +940,6 @@
                         try {
                             const parsedBackup = JSON.parse(localBackup);
                             if (parsedBackup && parsedBackup.timestamp && parsedBackup.date === todayStr) {
-                                // Jika data lokal jauh lebih baru dibanding server (mencegah overwrite server yang basi/delayed)
                                 if (parsedBackup.timestamp > val.timestamp + 5000) {
                                     dataToUse = parsedBackup;
                                 }
@@ -1126,7 +1198,7 @@
             }
             const staff = currentSpots[spotIndex] && currentSpots[spotIndex][staffPositionIndex];
             if (!staff) {
-                showCustomAlert('Informasi', 'Data petugas pada titik ini sudah diperbarui. Silakan muat ulang tampilan.');
+                showCustomAlert('Informasi', 'Data petugas pada titik ini sudah diperbarui. Silakan muat ulang.');
                 updateDisplay();
                 return;
             }
@@ -1234,7 +1306,7 @@
         }, 300);
     }
 
-    // --- FUNGSI MASTER CONTROL PENUH (PENGATURAN MUTLAK) ---
+    // --- FUNGSI MASTER CONTROL PENUH (PENGATURAN MUTLAK & LIVE BROADCAST & JSON EXPORT/IMPORT) ---
     function openMasterControlModal() {
         document.getElementById('master-pin-input').value = '';
         document.getElementById('master-pin-error').classList.add('hidden');
@@ -1257,6 +1329,192 @@
         } else {
             document.getElementById('master-pin-error').classList.remove('hidden');
         }
+    }
+
+    // --- FITUR BARU: HAPUS KESELURUHAN ATAU SUB-NODE FIREBASE APPSTATE ---
+    function deleteFirebaseNodeAction() {
+        const targetNode = document.getElementById('firebase-node-target').value;
+        const confirmMsg = targetNode === 'ALL' 
+            ? "⚠️ Yakin ingin menghapus KESELURUHAN node appState di Firebase secara permanen?" 
+            : `⚠️ Yakin ingin menghapus sub-node '${targetNode}' dari appState di Firebase?`;
+
+        if (confirm(confirmMsg)) {
+            if (targetNode === 'ALL') {
+                db.ref('appState').remove().then(() => {
+                    localStorage.removeItem('greeter_full_state_backup');
+                    showCustomAlert("Berhasil", "Keseluruhan node appState berhasil dihapus dari Firebase.");
+                    broadcastRefreshAllDevices();
+                }).catch(err => {
+                    showCustomAlert("Gagal", "Gagal menghapus node: " + err.message);
+                });
+            } else {
+                db.ref(`appState/${targetNode}`).remove().then(() => {
+                    showCustomAlert("Berhasil", `Sub-node '${targetNode}' berhasil dihapus dari Firebase.`);
+                    broadcastRefreshAllDevices();
+                }).catch(err => {
+                    showCustomAlert("Gagal", "Gagal menghapus sub-node: " + err.message);
+                });
+            }
+        }
+    }
+
+    // --- FITUR BARU 1: GITHUB COMMIT & DEPLOY CLOUDFLARE ---
+    function triggerGitHubCommitAction() {
+        if (confirm("Simpan kode saat ini dan buka halaman repositori GitHub / Cloudflare Pages untuk proses deploy?")) {
+            exportStateJson();
+            window.open('https://github.com/', '_blank');
+        }
+    }
+
+    // --- FITUR BARU 2: ACAK ROTASI OTOMATIS BERDASARKAN ATURAN REVISI ---
+    function triggerAutoRandomizeRotation() {
+        if (confirm("Jalankan algoritma acak rotasi otomatis berdasarkan urutan selesai buddy, skip sementara non-jam, shift pagi, dan shift siang?")) {
+            try {
+                const todayStr = getWibDateString();
+                const logsArr = Array.isArray(activityLogs) ? activityLogs : Object.values(activityLogs);
+                
+                let finishedBuddyNiks = [];
+                let skipSementaraNiks = [];
+
+                logsArr.forEach(l => {
+                    if (l && normalizeDateString(l.date) === todayStr) {
+                        const matchingEmp = employees.find(e => e.name === l.staffName);
+                        if (matchingEmp) {
+                            if (l.shift === "BUDDY SELESAI" && !finishedBuddyNiks.includes(matchingEmp.nik)) {
+                                finishedBuddyNiks.push(matchingEmp.nik);
+                            } else if (l.shift === "SKIP" && !skipSementaraNiks.includes(matchingEmp.nik)) {
+                                skipSementaraNiks.push(matchingEmp.nik);
+                            }
+                        }
+                    }
+                });
+
+                const morningArr = Array.isArray(shiftMorningQueue) ? shiftMorningQueue : Object.values(shiftMorningQueue);
+                const afternoonArr = Array.isArray(shiftAfternoonQueue) ? shiftAfternoonQueue : Object.values(shiftAfternoonQueue);
+                
+                let baseMasterList = [...morningArr, ...afternoonArr];
+                if (baseMasterList.length === 0) {
+                    baseMasterList = [...employees];
+                }
+
+                let newQueue = [];
+                let addedNiks = new Set();
+
+                finishedBuddyNiks.forEach(nik => {
+                    const emp = baseMasterList.find(e => e.nik === nik);
+                    if (emp && !addedNiks.has(emp.nik)) {
+                        newQueue.push(emp);
+                        addedNiks.add(emp.nik);
+                    }
+                });
+
+                skipSementaraNiks.forEach(nik => {
+                    const emp = baseMasterList.find(e => e.nik === nik);
+                    if (emp && !addedNiks.has(emp.nik)) {
+                        newQueue.push(emp);
+                        addedNiks.add(emp.nik);
+                    }
+                });
+
+                baseMasterList.forEach(emp => {
+                    if (emp && emp.nik && !addedNiks.has(emp.nik)) {
+                        newQueue.push(emp);
+                        addedNiks.add(emp.nik);
+                    }
+                });
+
+                activeQueue = newQueue;
+                advanceRotationAndFill();
+                pushStateToFirebase();
+                updateDisplay();
+                
+                showCustomAlert("Berhasil", "Rotasi antrean berhasil diacak otomatis sesuai urutan prioritas terbaru!");
+            } catch (e) {
+                showCustomAlert("Gagal", "Terjadi kesalahan saat mengacak rotasi: " + e.message);
+            }
+        }
+    }
+
+    // --- FITUR: BROADCAST LIVE REFRESH KE SEMUA PERANGKAT DENGAN NOTIFIKASI ---
+    function broadcastRefreshAllDevices() {
+        if (confirm("Kirim perintah refresh ke seluruh perangkat/tab yang terhubung di toko secara live?")) {
+            showCustomAlert("Pemberitahuan Sistem", "Jangan pencet apapun yaa.. admin lagi refresh halaman semua perangkat terhubung...");
+            
+            setTimeout(() => {
+                db.ref('systemCommand/reloadSignal').set(Date.now()).then(() => {
+                    closeMasterControlModal();
+                }).catch(err => {
+                    showCustomAlert("Gagal", "Gagal mengirim sinyal refresh: " + err.message);
+                });
+            }, 1500);
+        }
+    }
+
+    // --- FITUR BARU: EXPORT STATE JSON ---
+    function exportStateJson() {
+        try {
+            const exportData = {
+                timestamp: Date.now(),
+                date: getWibDateString(),
+                currentSpots: currentSpots,
+                activeQueue: activeQueue,
+                pausedQueue: pausedQueue,
+                shiftMorningQueue: shiftMorningQueue,
+                shiftAfternoonQueue: shiftAfternoonQueue,
+                spotShiftOrigin: spotShiftOrigin,
+                activeSessions: activeSessions,
+                activityLogs: activityLogs,
+                employees: employees
+            };
+
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `greeter_backup_${getWibDateString()}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            showCustomAlert("Berhasil", "File backup JSON berhasil diunduh.");
+        } catch (e) {
+            showCustomAlert("Gagal", "Gagal melakukan export JSON: " + e.message);
+        }
+    }
+
+    // --- FITUR BARU: IMPORT STATE JSON ---
+    function importStateJson(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const importedData = JSON.parse(e.target.result);
+                if (!importedData || !importedData.date) {
+                    throw new Error("Format file JSON tidak valid.");
+                }
+
+                if (confirm(`Impor data dari tanggal ${importedData.date}? Tindakan ini akan menimpa data sistem saat ini dan menyegarkan semua perangkat.`)) {
+                    currentSpots = importedData.currentSpots || currentSpots;
+                    activeQueue = importedData.activeQueue || [];
+                    pausedQueue = importedData.pausedQueue || [];
+                    shiftMorningQueue = importedData.shiftMorningQueue || [];
+                    shiftAfternoonQueue = importedData.shiftAfternoonQueue || [];
+                    spotShiftOrigin = importedData.spotShiftOrigin || spotShiftOrigin;
+                    activeSessions = importedData.activeSessions || [];
+                    activityLogs = importedData.activityLogs || [];
+                    if (importedData.employees) {
+                        employees = importedData.employees;
+                        localStorage.setItem('custom_employees_list', JSON.stringify(employees));
+                    }
+
+                    pushStateToFirebase();
+                    broadcastRefreshAllDevices();
+                }
+            } catch (err) {
+                showCustomAlert("Gagal Import", "File JSON rusak atau tidak dikenali: " + err.message);
+            }
+        };
+        reader.readAsText(file);
     }
 
     function saveAdminScriptUrl() {
@@ -1426,7 +1684,7 @@
             document.getElementById('report-pin-section').classList.add('hidden');
             document.getElementById('report-content-section').classList.remove('hidden');
         } else {
-            document.getElementById('report-pin-error').classList.add('hidden');
+            document.getElementById('report-pin-error').classList.remove('hidden');
         }
     }
 
@@ -2343,7 +2601,6 @@
         }).catch(err => console.error("Gagal sync sheet:", err));
     }
 
-    // --- FUNGSI NORMALISASI TANGGAL & RENDER RIWAYAT YANG DISEMPURNAKAN ---
     function normalizeDateString(dateStr) {
         if (!dateStr) return getWibDateString();
         if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
