@@ -31,6 +31,26 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
     <script>
+    // --- PENGAMAN TAMBAHAN: CEK TAB BASI SEBELUM AKSI ---
+    if (!sessionStorage.getItem('tab_loaded_time')) {
+        sessionStorage.setItem('tab_loaded_time', Date.now());
+    }
+
+    function ensureFreshTabBeforeAction() {
+        const loadedTime = parseInt(sessionStorage.getItem('tab_loaded_time')) || Date.now();
+        const idleDuration = Date.now() - loadedTime;
+        
+        // Jika tab sudah dibiarkan lebih dari 30 menit tanpa refresh
+        if (idleDuration > 1800000) {
+            sessionStorage.setItem('tab_loaded_time', Date.now());
+            alert("Tab ini sudah lama tidak aktif. Sistem akan menyegarkan data secara otomatis agar tidak membawa data lama ke database.");
+            location.reload(); 
+            return false;
+        }
+        return true;
+    }
+    // ---------------------------------------------------
+
     // --- FITUR PENGAMAN IDLE / AUTO-REFRESH OTOMATIS ---
     let idleMinutes = 0;
     setInterval(() => {
@@ -391,7 +411,7 @@
 
                     <div class="flex justify-end gap-2 pt-3">
                         <button onclick="closeRotasiPinModal()" class="border border-slate-300 text-slate-700 px-4 py-2 rounded-xl text-xs font-semibold">Batal</button>
-                        <button onclick="executeManualRotationCustom()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-sm">Terapkan Pengaturan</button>
+                        <button onclick="if(!ensureFreshTabBeforeAction()) return; executeManualRotationCustom()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-sm">Terapkan Pengaturan</button>
                     </div>
                 </div>
             </div>
@@ -632,7 +652,7 @@
 
                 <div class="grid grid-cols-2 gap-3">
                     <button onclick="closeBuddyModalViewOnly()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 py-3 rounded-xl font-bold text-xs md:text-sm transition shadow-2xs">Batal</button>
-                    <button id="btn-finish-session" onclick="finishBuddySessionConfirmed()" class="bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold text-xs md:text-sm transition shadow-sm">Selesai Sesi ✓</button>
+                    <button id="btn-finish-session" onclick="if(!ensureFreshTabBeforeAction()) return; finishBuddySessionConfirmed()" class="bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold text-xs md:text-sm transition shadow-sm">Selesai Sesi ✓</button>
                 </div>
             </div>
         </div>
@@ -717,7 +737,7 @@
 
                     <div class="flex justify-end gap-3 pt-2">
                         <button onclick="closeSmtModal()" class="border border-slate-300 text-slate-700 px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-50 transition">Batal</button>
-                        <button id="btn-save-smt" onclick="saveSmtList()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition">Simpan & Akumulasikan Urutan</button>
+                        <button id="btn-save-smt" onclick="if(!ensureFreshTabBeforeAction()) return; saveSmtList()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition">Simpan & Akumulasikan Urutan</button>
                     </div>
                 </div>
             </div>
@@ -787,7 +807,7 @@
 
                 <div class="flex justify-end gap-3">
                     <button onclick="closeSkipModal()" class="border border-slate-300 text-slate-700 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-50 transition">Batal</button>
-                    <button onclick="confirmSkipAction()" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition">Konfirmasi Skip</button>
+                    <button onclick="if(!ensureFreshTabBeforeAction()) return; confirmSkipAction()" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition">Konfirmasi Skip</button>
                 </div>
             </div>
         </div>
@@ -1222,7 +1242,7 @@
             document.getElementById('master-step-pin').classList.add('hidden');
             document.getElementById('master-step-content').classList.remove('hidden');
         } else {
-            document.getElementById('master-pin-error').classList.remove('hidden');
+            document.getElementById('master-pin-error').classList.add('hidden');
         }
     }
 
