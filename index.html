@@ -40,8 +40,8 @@
         const loadedTime = parseInt(sessionStorage.getItem('tab_loaded_time')) || Date.now();
         const idleDuration = Date.now() - loadedTime;
         
-        // Jika tab sudah dibiarkan lebih dari 30 menit tanpa refresh
-        if (idleDuration > 1800000) {
+        // Jika tab sudah dibiarkan lebih dari 1 menit tanpa refresh
+        if (idleDuration > 60000) {
             sessionStorage.setItem('tab_loaded_time', Date.now());
             alert("Tab ini sudah lama tidak aktif. Sistem akan menyegarkan data secara otomatis agar tidak membawa data lama ke database.");
             location.reload(); 
@@ -51,11 +51,11 @@
     }
     // ---------------------------------------------------
 
-    // --- FITUR PENGAMAN IDLE / AUTO-REFRESH OTOMATIS ---
+    // --- FITUR PENGAMAN IDLE / AUTO-REFRESH OTOMATIS (1 MENIT) ---
     let idleMinutes = 0;
     setInterval(() => {
         idleMinutes++;
-        if (idleMinutes >= 30) {
+        if (idleMinutes >= 1) {
             location.reload(); 
         }
     }, 60000);
@@ -475,7 +475,8 @@
                         <button onclick="masterResetQueueAndSpots()" class="bg-rose-600 hover:bg-rose-700 text-white p-3 rounded-xl text-xs font-bold transition shadow-xs">🗑️ Reset Seluruh Antrean & Titik</button>
                         <button onclick="masterClearActiveSessions()" class="bg-rose-600 hover:bg-rose-700 text-white p-3 rounded-xl text-xs font-bold transition shadow-xs">⏳ Hapus Sesi Buddy Gantung</button>
                         <button onclick="localStorage.removeItem('custom_employees_list'); location.reload();" class="bg-amber-600 hover:bg-amber-700 text-white p-3 rounded-xl text-xs font-bold transition shadow-xs">🔄 Reset Daftar SMT ke Default</button>
-                        <button onclick="location.reload()" class="bg-slate-800 hover:bg-slate-900 text-white p-3 rounded-xl text-xs font-bold transition shadow-xs">⚡ Paksa Reload Aplikasi</button>
+                        <button onclick="masterClearAllCacheAndStorage()" class="bg-red-700 hover:bg-red-800 text-white p-3 rounded-xl text-xs font-bold transition shadow-xs col-span-full">🧹 Hapus Seluruh Cache & Data Basi (Reset Total)</button>
+                        <button onclick="location.reload()" class="bg-slate-800 hover:bg-slate-900 text-white p-3 rounded-xl text-xs font-bold transition shadow-xs col-span-full">⚡ Paksa Reload Aplikasi</button>
                     </div>
 
                     <div class="flex justify-end pt-3 border-t border-slate-100">
@@ -1171,7 +1172,7 @@
             document.getElementById('live-map-modal').classList.remove('hidden');
             initLiveStoreMap();
         } else {
-            document.getElementById('live-map-pin-error').classList.add('hidden');
+            document.getElementById('live-map-pin-error').classList.remove('hidden');
         }
     }
 
@@ -1305,6 +1306,32 @@
             closeMasterControlModal();
         }
     }
+
+    function masterClearAllCacheAndStorage() {
+        if (confirm("⚠️ PERHATIAN: Tindakan ini akan menghapus seluruh cache lokal, riwayat sesi browser, dan pengaturan tersimpan (kecuali URL Script & Data Karyawan penting) untuk mengatasi data basi. Lanjutkan?")) {
+            try {
+                // Hapus data lokal terkait state aplikasi
+                localStorage.removeItem('greeter_full_state_backup');
+                localStorage.removeItem('greeter_active_sessions');
+                sessionStorage.clear();
+
+                // Jika browser mendukung Cache API, bersihkan cache service worker/browser
+                if ('caches' in window) {
+                    caches.keys().then(names => {
+                        names.forEach(name => {
+                            caches.delete(name);
+                        });
+                    });
+                }
+
+                alert("Cache dan data basi berhasil dibersihkan secara total. Halaman akan dimuat ulang.");
+                location.reload(true);
+            } catch (e) {
+                localStorage.clear();
+                location.reload(true);
+            }
+        }
+    }
     // ---------------------------------------------------
 
     function openSmtModal() {
@@ -1390,7 +1417,7 @@
             document.getElementById('report-pin-section').classList.add('hidden');
             document.getElementById('report-content-section').classList.remove('hidden');
         } else {
-            document.getElementById('report-pin-error').classList.remove('hidden');
+            document.getElementById('report-pin-error').classList.add('hidden');
         }
     }
 
