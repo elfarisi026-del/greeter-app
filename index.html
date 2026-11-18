@@ -32,16 +32,13 @@
     <script>
     // --- FITUR PENGAMAN IDLE / AUTO-REFRESH OTOMATIS ---
     let idleMinutes = 0;
-    // Cek setiap 1 menit apakah tab ditinggal idle terlalu lama
     setInterval(() => {
         idleMinutes++;
-        // Jika tab ditinggal tanpa aktivitas selama lebih dari 30 menit
         if (idleMinutes >= 30) {
-            location.reload(); // Otomatis refresh halaman untuk menarik data paling fresh dari Firebase
+            location.reload(); 
         }
     }, 60000);
 
-    // Reset hitungan idle setiap kali ada interaksi (klik, sentuh, ketik, mouse)
     ['mousemove', 'keypress', 'click', 'touchstart'].forEach(eventName => {
         window.addEventListener(eventName, () => {
             idleMinutes = 0;
@@ -122,7 +119,6 @@
     let liveStoreMap = null;
     let liveMarkers = [];
 
-    // Menggunakan Standar Waktu Global WIB (Asia/Jakarta)
     function getWibCurrentTime() {
         try {
             const now = new Date();
@@ -305,7 +301,7 @@
             <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-100">
                 <h3 class="text-lg font-bold text-slate-900 mb-1">🔐 Verifikasi PIN Petugas</h3>
                 <p id="staff-pin-info" class="text-xs text-slate-500 mb-4">Masukkan NIK petugas yang bersangkutan untuk konfirmasi.</p>
-                <input type="password" id="staff-pin-input" placeholder="Masukkan NIK petugas..." class="border border-slate-300 rounded-xl px-4 py-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium mb-2">
+                <input type="password" id="staff-pin-input" class="border border-slate-300 rounded-xl px-4 py-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium mb-2">
                 <p id="staff-pin-error" class="text-rose-500 text-xs font-medium hidden mb-3">NIK petugas salah!</p>
                 <div class="flex justify-end gap-2 pt-2">
                     <button onclick="closeStaffPinModal()" class="border border-slate-300 text-slate-700 px-4 py-2 rounded-xl text-xs font-semibold hover:bg-slate-50 transition">Batal</button>
@@ -330,7 +326,7 @@
             <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-100">
                 <h3 class="text-lg font-bold text-slate-900 mb-1">🔐 Cek Posisi SMT Buddy</h3>
                 <p class="text-xs text-slate-500 mb-4">Masukkan PIN sekuriti untuk membuka pemantauan denah toko.</p>
-                <input type="password" id="live-map-pin-input" placeholder="Masukkan PIN..." class="border border-slate-300 rounded-xl px-4 py-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium mb-2">
+                <input type="password" id="live-map-pin-input" class="border border-slate-300 rounded-xl px-4 py-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium mb-2">
                 <p id="live-map-pin-error" class="text-rose-500 text-xs font-medium hidden mb-3">PIN salah!</p>
                 <div class="flex justify-end gap-2 pt-2">
                     <button onclick="closeLiveMapPinModal()" class="border border-slate-300 text-slate-700 px-4 py-2 rounded-xl text-xs font-semibold">Batal</button>
@@ -353,13 +349,14 @@
             </div>
         </div>
 
+        <!-- MODAL ROTASI & PENGHAPUSAN NAMA PETUGAS -->
         <div id="rotasi-pin-modal" class="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
             <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
-                <h3 class="text-lg font-bold text-slate-900 mb-1">🔄 Pengatur Rotasi & Antrean Manual</h3>
-                <p class="text-xs text-slate-500 mb-4">Kelola posisi petugas ke titik greeter atau atur posisi antrean cadangan secara akurat.</p>
+                <h3 class="text-lg font-bold text-slate-900 mb-1">🔄 Pengatur Rotasi & Penghapusan Petugas</h3>
+                <p class="text-xs text-slate-500 mb-4">Kelola posisi petugas, pindahkan antrean, atau hapus nama petugas dari sistem hari ini.</p>
 
                 <div id="rotasi-step-pin" class="space-y-3">
-                    <input type="password" id="rotasi-pin-input" placeholder="Masukkan PIN Admin..." class="border border-slate-300 rounded-xl px-4 py-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">
+                    <input type="password" id="rotasi-pin-input" class="border border-slate-300 rounded-xl px-4 py-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">
                     <p id="rotasi-pin-error" class="text-rose-500 text-xs font-medium hidden">PIN salah!</p>
                     <div class="flex justify-end gap-2 pt-2">
                         <button onclick="closeRotasiPinModal()" class="border border-slate-300 text-slate-700 px-4 py-2 rounded-xl text-xs font-semibold">Batal</button>
@@ -374,16 +371,17 @@
                     </div>
 
                     <div>
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">Pilih Tujuan Penempatan / Antrean:</label>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Pilih Tujuan Penempatan / Aksi:</label>
                         <select id="rotasi-spot-select" onchange="updateRotationPositionOptions()" class="border border-slate-300 rounded-xl px-3.5 py-2.5 w-full text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">
                             <option value="spot_0">Titik 1 - Main Entrance</option>
                             <option value="spot_1">Titik 2 - CarPark / CP</option>
                             <option value="spot_2">Titik 3 - HomeGallery / HG</option>
                             <option value="queue">Antrean Cadangan</option>
+                            <option value="delete">🗑️ Hapus / Keluarkan dari Sistem Hari Ini</option>
                         </select>
                     </div>
 
-                    <div>
+                    <div id="rotasi-position-wrapper">
                         <label class="block text-xs font-semibold text-slate-700 mb-1">Pilih Urutan / Posisi Penempatan:</label>
                         <select id="rotasi-position-select" class="border border-slate-300 rounded-xl px-3.5 py-2.5 w-full text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"></select>
                     </div>
@@ -396,6 +394,63 @@
             </div>
         </div>
 
+        <!-- MODAL MASTER CONTROL & PENGATURAN TOTAL (PIN: 08121989 & Placeholder Dikosongkan) -->
+        <div id="master-control-modal" class="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
+            <div class="bg-white rounded-2xl max-w-lg w-full p-6 md:p-8 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+                <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+                    <h3 class="text-xl font-bold text-slate-900">⚙️ Master Control & Pengaturan Total</h3>
+                    <button onclick="closeMasterControlModal()" class="text-slate-400 hover:text-slate-600 text-2xl font-bold">&times;</button>
+                </div>
+
+                <div id="master-step-pin" class="space-y-3">
+                    <p class="text-xs text-slate-500">Menu ini mencakup pengaturan total, reset sistem, dan kendali mutlak database. Masukkan PIN Admin:</p>
+                    <input type="password" id="master-pin-input" class="border border-slate-300 rounded-xl px-4 py-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium">
+                    <p id="master-pin-error" class="text-rose-500 text-xs font-medium hidden">PIN Master salah!</p>
+                    <div class="flex justify-end gap-2 pt-2">
+                        <button onclick="closeMasterControlModal()" class="border border-slate-300 text-slate-700 px-4 py-2 rounded-xl text-xs font-semibold">Batal</button>
+                        <button onclick="verifyMasterPin()" class="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-sm">Buka Kontrol</button>
+                    </div>
+                </div>
+
+                <div id="master-step-content" class="space-y-4 hidden">
+                    <div class="bg-amber-50 border border-amber-200 p-4 rounded-xl">
+                        <h4 class="font-bold text-amber-900 text-sm mb-1">⚠️ Zona Kendali Mutlak</h4>
+                        <p class="text-xs text-amber-800">Gunakan fitur di bawah ini dengan hati-hati untuk mereset atau menyesuaikan parameter operasional sistem secara instan.</p>
+                    </div>
+
+                    <div class="space-y-3">
+                        <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl flex justify-between items-center">
+                            <div>
+                                <h5 class="font-bold text-slate-900 text-sm">Reset Seluruh Antrean & Titik Aktif</h5>
+                                <p class="text-xs text-slate-500">Mengosongkan semua titik greeter dan antrean cadangan hari ini.</p>
+                            </div>
+                            <button onclick="masterResetQueueAndSpots()" class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-2xs transition">Reset Antrean</button>
+                        </div>
+
+                        <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl flex justify-between items-center">
+                            <div>
+                                <h5 class="font-bold text-slate-900 text-sm">Hapus Sesi Aktif & Cache Lokal</h5>
+                                <p class="text-xs text-slate-500">Membersihkan seluruh sesi buddy yang sedang menggantung.</p>
+                            </div>
+                            <button onclick="masterClearActiveSessions()" class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-2xs transition">Hapus Sesi</button>
+                        </div>
+
+                        <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl flex justify-between items-center">
+                            <div>
+                                <h5 class="font-bold text-slate-900 text-sm">Paksa Muat Ulang & Sinkronisasi</h5>
+                                <p class="text-xs text-slate-500">Memaksa aplikasi menarik ulang data terkini dari server Firebase.</p>
+                            </div>
+                            <button onclick="location.reload()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-2xs transition">Reload App</button>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end pt-3 border-t border-slate-100">
+                        <button onclick="closeMasterControlModal()" class="bg-slate-800 hover:bg-slate-900 text-white px-5 py-2.5 rounded-xl text-xs font-semibold shadow-sm">Tutup</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="max-w-5xl mx-auto p-4 md:p-8">
             <header class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-200 pb-5 mb-6 gap-4">
                 <div>
@@ -403,19 +458,22 @@
                     <p class="text-sm text-slate-500 mt-0.5 font-medium" id="current-date"></p>
                 </div>
                 <div class="flex flex-wrap gap-2.5">
+                    <button onclick="openMasterControlModal()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2">
+                        <span>⚙️ Master Control</span>
+                    </button>
                     <button onclick="openLiveMapPinModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2">
                         <span>🗺️ Cek Posisi SMT Buddy</span>
                     </button>
                     <button onclick="openSmtModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2">
-                        <span>⚙️ Menu Input SMT & Shift</span>
+                        <span>📋 Menu Input SMT & Shift</span>
                     </button>
                     <button onclick="openBuddyModalActiveList()" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2">
                         <span>⏳ Sesi Buddy Aktif</span>
                     </button>
-                    <button onclick="openHistoryModal()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2">
+                    <button onclick="openHistoryModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2">
                         <span>📜 Riwayat Sesi Buddy</span>
                     </button>
-                    <button onclick="openReportModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2">
+                    <button onclick="openReportModal()" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2">
                         <span>📊 Rekap & WhatsApp (.xlsx)</span>
                     </button>
                 </div>
@@ -496,7 +554,7 @@
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-2">
                         <span class="font-bold text-slate-700 text-sm">Antrean SMT Cadangan / Berikutnya:</span>
                         <button onclick="requestRotateVolleyball()" class="bg-amber-600 hover:bg-amber-700 text-white text-xs px-3.5 py-2 rounded-xl font-bold transition shadow-xs flex items-center gap-1.5">
-                            <span>🔄 Pengatur Rotasi & Antrean Manual</span>
+                            <span>🔄 Pengatur Rotasi & Hapus Nama Petugas</span>
                         </button>
                     </div>
                     <div id="queue-display" class="space-y-1.5 text-sm text-slate-600">
@@ -743,7 +801,6 @@
             }
         }, 1000);
 
-        // Sinkronisasi Real-Time Firebase dengan Aman & Konversi Array Kuat
         db.ref('appState').on('value', (snapshot) => {
             try {
                 const val = snapshot.val();
@@ -1124,6 +1181,53 @@
             });
         }, 300);
     }
+
+    // --- FITUR MASTER CONTROL & PENGATURAN TOTAL (PIN: 08121989 & Placeholder Dikosongkan) ---
+    function openMasterControlModal() {
+        document.getElementById('master-pin-input').value = '';
+        document.getElementById('master-pin-error').classList.add('hidden');
+        document.getElementById('master-step-pin').classList.remove('hidden');
+        document.getElementById('master-step-content').classList.add('hidden');
+        document.getElementById('master-control-modal').classList.remove('hidden');
+    }
+
+    function closeMasterControlModal() {
+        document.getElementById('master-control-modal').classList.add('hidden');
+    }
+
+    function verifyMasterPin() {
+        const pin = document.getElementById('master-pin-input').value;
+        if (pin === '08121989') {
+            document.getElementById('master-step-pin').classList.add('hidden');
+            document.getElementById('master-step-content').classList.remove('hidden');
+        } else {
+            document.getElementById('master-pin-error').classList.remove('hidden');
+        }
+    }
+
+    function masterResetQueueAndSpots() {
+        if (confirm("Yakin ingin mereset seluruh antrean dan titik aktif hari ini?")) {
+            currentSpots = [[Array(getMaxTitik1Slots()).fill(null)], [null, null], [null, null]];
+            activeQueue = [];
+            pausedQueue = [];
+            spotShiftOrigin = [[Array(getMaxTitik1Slots()).fill(null)], [null, null], [null, null]];
+            pushStateToFirebase();
+            updateDisplay();
+            showCustomAlert("Berhasil", "Seluruh antrean dan titik greeter telah direset.");
+            closeMasterControlModal();
+        }
+    }
+
+    function masterClearActiveSessions() {
+        if (confirm("Yakin ingin menghapus seluruh sesi buddy aktif yang tersimpan?")) {
+            activeSessions = [];
+            localStorage.removeItem('greeter_active_sessions');
+            pushStateToFirebase();
+            showCustomAlert("Berhasil", "Sesi buddy aktif berhasil dibersihkan.");
+            closeMasterControlModal();
+        }
+    }
+    // ---------------------------------------------------
 
     function openSmtModal() {
         const modal = document.getElementById('smt-modal');
@@ -1717,7 +1821,6 @@
             cleanupActiveQueue();
             const limitSpot1 = getMaxTitik1Slots();
 
-            // Render Titik 1
             const el0 = document.getElementById('spot-0');
             if (el0) {
                 let html0 = '';
@@ -1746,7 +1849,6 @@
                 el0.innerHTML = html0;
             }
 
-            // Render Titik 2 & Titik 3
             for (let i = 1; i < 3; i++) {
                 const el = document.getElementById(`spot-${i}`);
                 let htmlStr = '';
@@ -1779,7 +1881,6 @@
                 if (el) el.innerHTML = htmlStr;
             }
 
-            // Render Antrean Cadangan
             const qContainer = document.getElementById('queue-display');
             if (qContainer) {
                 qContainer.innerHTML = '';
@@ -1893,8 +1994,16 @@
 
     function updateRotationPositionOptions() {
         const spotSelectVal = document.getElementById('rotasi-spot-select').value;
+        const posWrapper = document.getElementById('rotasi-position-wrapper');
         const posSelect = document.getElementById('rotasi-position-select');
         posSelect.innerHTML = '';
+
+        if (spotSelectVal === 'delete') {
+            if (posWrapper) posWrapper.style.display = 'none';
+            return;
+        } else {
+            if (posWrapper) posWrapper.style.display = 'block';
+        }
 
         if (spotSelectVal.startsWith('spot_')) {
             const sIdx = parseInt(spotSelectVal.replace('spot_', ''));
@@ -1936,7 +2045,6 @@
 
             const chosenItem = JSON.parse(selectEl.value);
             const destinationType = spotSelectEl.value;
-            const targetPositionIndex = parseInt(posSelectEl.value);
             const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
 
             let staffObj = null;
@@ -1957,6 +2065,19 @@
             }
 
             const staffName = typeof staffObj === 'object' ? (staffObj.name || staffObj.nama || 'Petugas') : staffObj;
+            
+            if (destinationType === 'delete') {
+                sanitizeStateForTime();
+                advanceRotationAndFill();
+                cleanupActiveQueue();
+                pushStateToFirebase();
+                updateDisplay();
+                closeRotasiPinModal();
+                showCustomAlert('Berhasil Dihapus', `Petugas ${staffName} berhasil dihapus/dikeluarkan dari perputaran sistem hari ini.`);
+                return;
+            }
+
+            const targetPositionIndex = parseInt(posSelectEl.value);
             const morningArr = Array.isArray(shiftMorningQueue) ? shiftMorningQueue : Object.values(shiftMorningQueue);
             const isMorningStaff = morningArr.some(emp => emp.nik === staffObj.nik);
             const staffOrigin = isMorningStaff ? 'pagi' : 'siang';
