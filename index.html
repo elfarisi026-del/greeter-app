@@ -1004,11 +1004,12 @@
                 updateDisplay();
                 return;
             }
+            const staffName = typeof staff === 'object' ? (staff.name || staff.nama || 'Petugas') : staff;
 
             pendingStaffAction = { action, spotIndex, staffPositionIndex, staff };
             document.getElementById('staff-pin-input').value = '';
             document.getElementById('staff-pin-error').classList.add('hidden');
-            document.getElementById('staff-pin-info').innerText = `Masukkan NIK petugas ${staff.name} untuk konfirmasi (${action === 'mulai' ? 'Buddy' : 'Skip Giliran'}):`;
+            document.getElementById('staff-pin-info').innerText = `Masukkan NIK petugas ${staffName} untuk konfirmasi (${action === 'mulai' ? 'Buddy' : 'Skip Giliran'}):`;
             document.getElementById('staff-pin-modal').classList.remove('hidden');
         } catch (e) {
             console.error("Error requestStaffPin:", e);
@@ -1095,9 +1096,10 @@
                         if (staff) {
                             const baseCoord = spotCoordinates[sIndex] ? spotCoordinates[sIndex].coords : [500, 500];
                             const offsetCoord = [baseCoord[0] + (pIndex * 40), baseCoord[1]];
+                            const staffName = typeof staff === 'object' ? (staff.name || staff.nama || 'Petugas') : staff;
 
                             const marker = L.marker(offsetCoord).addTo(liveStoreMap)
-                                .bindPopup(`<b>Titik ${sIndex + 1} (${["Main Entrance", "CarPark / CP", "HomeGallery / HG"][sIndex]})</b><br>Petugas: ${staff.name} (NIK: ${staff.nik})`);
+                                .bindPopup(`<b>Titik ${sIndex + 1} (${["Main Entrance", "CarPark / CP", "HomeGallery / HG"][sIndex]})</b><br>Petugas: ${staffName} (NIK: ${staff.nik})`);
                             liveMarkers.push(marker);
                         }
                     });
@@ -1235,6 +1237,7 @@
             const diffSec = Math.floor((currentTime - sess.startTime) / 1000);
             const mins = String(Math.floor(diffSec / 60)).padStart(2, '0');
             const secs = String(diffSec % 60).padStart(2, '0');
+            const staffName = typeof sess.staff === 'object' ? (sess.staff.name || sess.staff.nama || 'Petugas') : sess.staff;
 
             const div = document.createElement('div');
             div.className = 'bg-slate-50 border border-slate-200 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shadow-2xs';
@@ -1244,7 +1247,7 @@
                         <span class="text-xs font-extrabold uppercase tracking-wider text-blue-700 bg-blue-100 px-2 py-0.5 rounded-md">${spotNames[sess.spotIndex]}</span>
                         <span class="text-xs font-mono text-slate-500">NIK: ${sess.staff.nik}</span>
                     </div>
-                    <h4 class="font-bold text-slate-900 text-base mt-1">${sess.staff.name}</h4>
+                    <h4 class="font-bold text-slate-900 text-base mt-1">${staffName}</h4>
                     <p class="text-xs font-mono font-bold text-indigo-700 mt-0.5" id="active-item-timer-${sess.id}">⏳ Durasi: ${mins}:${secs}</p>
                 </div>
                 <div class="flex items-center gap-2 w-full sm:w-auto">
@@ -1279,6 +1282,7 @@
             localStorage.setItem('greeter_active_sessions', JSON.stringify(activeSessions));
 
             const staff = sess.staff;
+            const staffName = typeof staff === 'object' ? (staff.name || staff.nama || 'Petugas') : staff;
             const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
             const targetSpotIndex = Number(sess.spotIndex);
             const targetSpotPos = Number(sess.spotPositionIndex);
@@ -1336,7 +1340,7 @@
             const logData = {
                 date: getWibDateString(),
                 time: timeNow,
-                staffName: staff.name,
+                staffName: staffName,
                 spot: spotNames[targetSpotIndex] || "Titik Greeter",
                 shift: "CANCEL",
                 duration: "00:00",
@@ -1354,7 +1358,7 @@
             updateDisplay();
             pushStateToFirebase();
 
-            showCustomAlert('Sesi Dibatalkan', `Sesi ${staff.name} dibatalkan dan petugas dikembalikan ke titik asalnya.`);
+            showCustomAlert('Sesi Dibatalkan', `Sesi ${staffName} dibatalkan dan petugas dikembalikan ke titik asalnya.`);
         } catch (e) {
             console.error("Error executeCancelBuddySession:", e);
         }
@@ -1384,7 +1388,8 @@
         closeActiveSessionsModal();
 
         const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
-        document.getElementById('buddy-info-text').innerText = `Titik: ${spotNames[sess.spotIndex]} | Petugas: ${sess.staff.name}`;
+        const staffName = typeof sess.staff === 'object' ? (sess.staff.name || sess.staff.nama || 'Petugas') : sess.staff;
+        document.getElementById('buddy-info-text').innerText = `Titik: ${spotNames[sess.spotIndex]} | Petugas: ${staffName}`;
 
         const diffSec = Math.floor((Date.now() - sess.startTime) / 1000);
         const mins = String(Math.floor(diffSec / 60)).padStart(2, '0');
@@ -1458,6 +1463,7 @@
                 updateDisplay();
                 return;
             }
+            const staffName = typeof staff === 'object' ? (staff.name || staff.nama || 'Petugas') : staff;
 
             const newSession = {
                 id: 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
@@ -1476,7 +1482,7 @@
             advanceRotationAndFill();
             pushStateToFirebase();
             updateDisplay();
-            showCustomAlert('Sesi Dimulai', `Sesi buddy untuk ${staff.name} telah dimulai.`);
+            showCustomAlert('Sesi Dimulai', `Sesi buddy untuk ${staffName} telah dimulai.`);
         } catch (e) {
             console.error("Error startBuddySession:", e);
         }
@@ -1499,6 +1505,7 @@
             localStorage.setItem('greeter_active_sessions', JSON.stringify(activeSessions));
 
             const staff = sess.staff;
+            const staffName = typeof staff === 'object' ? (staff.name || staff.nama || 'Petugas') : staff;
             const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
             
             const diffSec = Math.floor((Date.now() - sess.startTime) / 1000);
@@ -1525,7 +1532,7 @@
             const logData = {
                 date: getWibDateString(),
                 time: timeNow,
-                staffName: staff.name,
+                staffName: staffName,
                 spot: spotNames[sess.spotIndex] || "Titik Greeter",
                 shift: "BUDDY SELESAI",
                 duration: duration,
@@ -1548,7 +1555,7 @@
 
             pushStateToFirebase();
             if (finishBtn) finishBtn.disabled = false;
-            showCustomAlert('Laporan Selesai', `Sesi buddy ${staff.name} selesai.`);
+            showCustomAlert('Laporan Selesai', `Sesi buddy ${staffName} selesai.`);
         } catch (e) {
             console.error("Error finishBuddySessionConfirmed:", e);
         }
@@ -1594,9 +1601,10 @@
         countEl.innerText = selectedStaffQueue.length;
         preview.innerHTML = '';
         selectedStaffQueue.forEach((s, idx) => {
+            const staffName = typeof s === 'object' ? (s.name || s.nama || 'Petugas') : s;
             const tag = document.createElement('div');
             tag.className = 'bg-blue-50 border border-blue-200 text-blue-900 text-xs px-3 py-1.5 rounded-xl font-semibold flex items-center gap-1.5 shadow-2xs';
-            tag.innerHTML = `<span>${idx+1}. ${s.name}</span>`;
+            tag.innerHTML = `<span>${idx+1}. ${staffName}</span>`;
             preview.appendChild(tag);
         });
     }
@@ -1699,10 +1707,11 @@
                 for(let i=0; i<limitSpot1; i++) {
                     let staff = currentSpots[0] && currentSpots[0][i] ? currentSpots[0][i] : null;
                     if(staff) {
+                        let staffName = typeof staff === 'object' ? (staff.name || staff.nama || 'Petugas') : staff;
                         html0 += `
                             <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-2">
                                 <div class="flex justify-between items-center">
-                                    <strong class="text-slate-900 text-xs">${i+1}. ${staff.name}</strong>
+                                    <strong class="text-slate-900 text-xs">${i+1}. ${staffName}</strong>
                                     <span class="text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md">Aktif di Titik</span>
                                 </div>
                                 <div class="grid grid-cols-2 gap-1.5 pt-1 border-t border-slate-100">
@@ -1729,10 +1738,11 @@
                 for (let p = 0; p < maxP; p++) {
                     let staff = currentSpots[i] && currentSpots[i][p] ? currentSpots[i][p] : null;
                     if (staff) {
+                        let staffName = typeof staff === 'object' ? (staff.name || staff.nama || 'Petugas') : staff;
                         htmlStr += `
                             <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-2 mb-2">
                                 <div class="flex justify-between items-center">
-                                    <strong class="text-slate-900 text-xs">${p+1}. ${staff.name}</strong>
+                                    <strong class="text-slate-900 text-xs">${p+1}. ${staffName}</strong>
                                     <span class="text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md">Aktif di Titik</span>
                                 </div>
                                 <div class="grid grid-cols-2 gap-1.5 pt-1 border-t border-slate-100">
@@ -1759,9 +1769,10 @@
                 const activeQueueArr = Array.isArray(activeQueue) ? activeQueue : Object.values(activeQueue);
                 if (activeQueueArr.length > 0) {
                     activeQueueArr.forEach((r, idx) => {
+                        let staffName = typeof r === 'object' ? (r.name || r.nama || 'Petugas') : r;
                         const row = document.createElement('div');
                         row.className = 'flex items-center justify-between bg-white px-3.5 py-2.5 rounded-xl border border-slate-200/80 shadow-2xs';
-                        row.innerHTML = `<span class="font-semibold text-slate-800 text-xs md:text-sm"><span class="text-blue-600 font-bold mr-2">${idx + 1}.</span>${r.name}</span><span class="text-xs text-slate-400 font-mono">NIK: ${r.nik}</span>`;
+                        row.innerHTML = `<span class="font-semibold text-slate-800 text-xs md:text-sm"><span class="text-blue-600 font-bold mr-2">${idx + 1}.</span>${staffName}</span><span class="text-xs text-slate-400 font-mono">NIK: ${r.nik}</span>`;
                         qContainer.appendChild(row);
                     });
                 } else {
@@ -1801,12 +1812,13 @@
             
             const activeQueueArr = Array.isArray(activeQueue) ? activeQueue : Object.values(activeQueue);
             activeQueueArr.forEach((staff, idx) => {
+                let staffName = typeof staff === 'object' ? (staff.name || staff.nama || 'Petugas') : staff;
                 allAvailableStaff.push({
-                    name: staff.name,
+                    name: staffName,
                     nik: staff.nik,
                     source: 'queue',
                     index: idx,
-                    label: `[Antrean Cadangan] ${staff.name}`
+                    label: `[Antrean Cadangan] ${staffName}`
                 });
             });
 
@@ -1815,13 +1827,14 @@
                 if (spotGroup) {
                     spotGroup.forEach((staff, pIdx) => {
                         if (staff) {
+                            let staffName = typeof staff === 'object' ? (staff.name || staff.nama || 'Petugas') : staff;
                             allAvailableStaff.push({
-                                name: staff.name,
+                                name: staffName,
                                 nik: staff.nik,
                                 source: 'spot',
                                 sIdx: sIdx,
                                 pIdx: pIdx,
-                                label: `[Aktif di ${spotNames[sIdx]}] ${staff.name}`
+                                label: `[Aktif di ${spotNames[sIdx]}] ${staffName}`
                             });
                         }
                     });
@@ -1832,12 +1845,13 @@
             if (pausedArr && pausedArr.length > 0) {
                 pausedArr.forEach((item, idx) => {
                     if (item && item.staff) {
+                        let staffName = typeof item.staff === 'object' ? (item.staff.name || item.staff.nama || 'Petugas') : item.staff;
                         allAvailableStaff.push({
-                            name: item.staff.name,
+                            name: staffName,
                             nik: item.staff.nik,
                             source: 'paused',
                             index: idx,
-                            label: `[Sedang di Luar / Izin] ${item.staff.name}`
+                            label: `[Sedang di Luar / Izin] ${staffName}`
                         });
                     }
                 });
@@ -1925,6 +1939,7 @@
                 return;
             }
 
+            const staffName = typeof staffObj === 'object' ? (staffObj.name || staffObj.nama || 'Petugas') : staffObj;
             const morningArr = Array.isArray(shiftMorningQueue) ? shiftMorningQueue : Object.values(shiftMorningQueue);
             const isMorningStaff = morningArr.some(emp => emp.nik === staffObj.nik);
             const staffOrigin = isMorningStaff ? 'pagi' : 'siang';
@@ -1940,11 +1955,11 @@
                     activeQueue.unshift(existingStaff);
                 }
 
-                triggerNextGreeterNotification(staffObj.name, spotNames[targetSpotIndex]);
-                showCustomAlert('Berhasil', `Petugas ${staffObj.name} berhasil ditempatkan di ${spotNames[targetSpotIndex]} (Urutan/Slot ke-${targetPositionIndex + 1}).`);
+                triggerNextGreeterNotification(staffName, spotNames[targetSpotIndex]);
+                showCustomAlert('Berhasil', `Petugas ${staffName} berhasil ditempatkan di ${spotNames[targetSpotIndex]} (Urutan/Slot ke-${targetPositionIndex + 1}).`);
             } else if (destinationType === 'queue') {
                 activeQueue.splice(targetPositionIndex, 0, staffObj);
-                showCustomAlert('Berhasil', `Petugas ${staffObj.name} berhasil dimasukkan ke Antrean Cadangan di urutan ke-${targetPositionIndex + 1}.`);
+                showCustomAlert('Berhasil', `Petugas ${staffName} berhasil dimasukkan ke Antrean Cadangan di urutan ke-${targetPositionIndex + 1}.`);
             }
 
             sanitizeStateForTime();
@@ -1962,8 +1977,9 @@
         skipSpotIndex = spotIndex;
         skipStaffIndexInSpot = staffPositionIndex;
         const staff = currentSpots[spotIndex][staffPositionIndex];
+        const staffName = typeof staff === 'object' ? (staff.name || staff.nama || 'Petugas') : staff;
         const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
-        document.getElementById('skip-info-text').innerText = `Titik: ${spotNames[spotIndex]} | Petugas: ${staff.name}`;
+        document.getElementById('skip-info-text').innerText = `Titik: ${spotNames[spotIndex]} | Petugas: ${staffName}`;
         document.getElementById('skip-modal').classList.remove('hidden');
         document.getElementById('skip-reason-detail').value = '';
     }
@@ -1989,6 +2005,7 @@
                 return;
             }
 
+            const staffName = typeof staff === 'object' ? (staff.name || staff.nama || 'Petugas') : staff;
             const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
             const category = document.getElementById('skip-reason-category').value;
             const detailInput = document.getElementById('skip-reason-detail');
@@ -2007,7 +2024,7 @@
                 const logData = {
                     date: getWibDateString(),
                     time: timeNow,
-                    staffName: staff.name,
+                    staffName: staffName,
                     spot: spotNames[skipSpotIndex],
                     shift: "SKIP IZIN",
                     duration: `${hoursToAdd} Jam`,
@@ -2021,7 +2038,7 @@
                 const logData = {
                     date: getWibDateString(),
                     time: timeNow,
-                    staffName: staff.name,
+                    staffName: staffName,
                     spot: spotNames[skipSpotIndex],
                     shift: "SKIP",
                     duration: "00:00 (SKIP)",
@@ -2046,7 +2063,7 @@
             cleanupActiveQueue();
             pushStateToFirebase();
             updateDisplay();
-            showCustomAlert('Berhasil Skip', `Petugas ${staff.name} berhasil di-skip dan turun ke antrean bawah.`);
+            showCustomAlert('Berhasil Skip', `Petugas ${staffName} berhasil di-skip dan turun ke antrean bawah.`);
         } catch (e) {
             console.error("Error confirmSkipAction:", e);
         }
