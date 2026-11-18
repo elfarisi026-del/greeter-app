@@ -20,6 +20,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <!-- SheetJS for Excel Export -->
     <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
+    <style id="dynamic-custom-styles"></style>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans antialiased">
 
@@ -46,7 +47,7 @@
     });
     // ---------------------------------------------------
 
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxV7gT9nBt9c7GoKEc8Xa-QqcG5k8sLNHe5JdgTuwP0R_CfF4TZ8rLY77iz5Qwnxa0p/exec";
+    let SCRIPT_URL = localStorage.getItem('custom_script_url') || "https://script.google.com/macros/s/AKfycbxV7gT9nBt9c7GoKEc8Xa-QqcG5k8sLNHe5JdgTuwP0R_CfF4TZ8rLY77iz5Qwnxa0p/exec";
 
     const firebaseConfig = {
         apiKey: "AIzaSyDJQOCIKvHgDCqbGDx9h49hJWWTTVzHH5s",
@@ -63,7 +64,7 @@
     }
     const db = firebase.database();
 
-    const employees = [
+    let defaultEmployees = [
         { nik: "158769", name: "RUDI KRISTIAN" }, { nik: "129368", name: "KHAIRUL RAHMAN" },
         { nik: "108238", name: "SUTARMIN" }, { nik: "182837", name: "RAMA PRATAMA SANTOSO" },
         { nik: "184969", name: "SITI AWALIYAH" }, { nik: "182521", name: "HENING SWARA BAHTERA" },
@@ -92,6 +93,8 @@
         { nik: "167201", name: "DELVIA ERSA PUTRI" }, { nik: "178549", name: "DEVA FERIKA" },
         { nik: "181774", name: "OKTAFIANI SILAWATI RAJABAN" }, { nik: "168208", name: "REGGYTA DWI KINANTY" }
     ];
+
+    let employees = JSON.parse(localStorage.getItem('custom_employees_list')) || defaultEmployees;
 
     let activeQueue = []; 
     let pausedQueue = []; 
@@ -394,58 +397,69 @@
             </div>
         </div>
 
-        <!-- MODAL MASTER CONTROL & PENGATURAN TOTAL (PIN: 08121989 & Placeholder Dikosongkan) -->
+        <!-- MODAL MASTER CONTROL MUTLAK (PENGATURAN & KONTROL PENUH) -->
         <div id="master-control-modal" class="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
-            <div class="bg-white rounded-2xl max-w-lg w-full p-6 md:p-8 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+            <div class="bg-white rounded-2xl max-w-2xl w-full p-6 md:p-8 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
                 <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
-                    <h3 class="text-xl font-bold text-slate-900">⚙️ Master Control & Pengaturan Total</h3>
+                    <h3 class="text-xl font-bold text-slate-900">⚙️ Master Control & Panel Kendali Mutlak</h3>
                     <button onclick="closeMasterControlModal()" class="text-slate-400 hover:text-slate-600 text-2xl font-bold">&times;</button>
                 </div>
 
                 <div id="master-step-pin" class="space-y-3">
-                    <p class="text-xs text-slate-500">Menu ini mencakup pengaturan total, reset sistem, dan kendali mutlak database. Masukkan PIN Admin:</p>
-                    <input type="password" id="master-pin-input" class="border border-slate-300 rounded-xl px-4 py-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium">
+                    <p class="text-xs text-slate-500">Menu kendali mutlak admin penuh (PIN: <code class="bg-slate-100 px-1.5 py-0.5 rounded font-mono font-bold text-purple-600">08121989</code>):</p>
+                    <input type="password" id="master-pin-input" placeholder="Masukkan PIN Master..." class="border border-slate-300 rounded-xl px-4 py-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium">
                     <p id="master-pin-error" class="text-rose-500 text-xs font-medium hidden">PIN Master salah!</p>
                     <div class="flex justify-end gap-2 pt-2">
                         <button onclick="closeMasterControlModal()" class="border border-slate-300 text-slate-700 px-4 py-2 rounded-xl text-xs font-semibold">Batal</button>
-                        <button onclick="verifyMasterPin()" class="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-sm">Buka Kontrol</button>
+                        <button onclick="verifyMasterPin()" class="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-sm">Buka Kontrol Penuh</button>
                     </div>
                 </div>
 
-                <div id="master-step-content" class="space-y-4 hidden">
-                    <div class="bg-amber-50 border border-amber-200 p-4 rounded-xl">
-                        <h4 class="font-bold text-amber-900 text-sm mb-1">⚠️ Zona Kendali Mutlak</h4>
-                        <p class="text-xs text-amber-800">Gunakan fitur di bawah ini dengan hati-hati untuk mereset atau menyesuaikan parameter operasional sistem secara instan.</p>
+                <div id="master-step-content" class="space-y-5 hidden">
+                    <div class="bg-purple-50 border border-purple-200 p-4 rounded-xl">
+                        <h4 class="font-bold text-purple-900 text-sm mb-1">🛠️ Panel Kendali Multi-Fungsi Mutlak</h4>
+                        <p class="text-xs text-purple-800">Ubah parameter operasional, kelola database karyawan SMT, atau lakukan reset langsung dari sini.</p>
                     </div>
 
-                    <div class="space-y-3">
-                        <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl flex justify-between items-center">
-                            <div>
-                                <h5 class="font-bold text-slate-900 text-sm">Reset Seluruh Antrean & Titik Aktif</h5>
-                                <p class="text-xs text-slate-500">Mengosongkan semua titik greeter dan antrean cadangan hari ini.</p>
-                            </div>
-                            <button onclick="masterResetQueueAndSpots()" class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-2xs transition">Reset Antrean</button>
+                    <!-- KONTROL 1: CONFIG SCRIPT URL -->
+                    <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-2">
+                        <h5 class="font-bold text-slate-900 text-sm">🔗 Ganti Endpoint Google Apps Script URL</h5>
+                        <p class="text-xs text-slate-500">Ubah URL backend Spreadsheet tanpa mengubah kode source.</p>
+                        <div class="flex gap-2">
+                            <input type="text" id="admin-script-url-input" class="border border-slate-300 rounded-xl px-3 py-2 w-full text-xs font-mono bg-white" placeholder="https://script.google.com/...">
+                            <button onclick="saveAdminScriptUrl()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition">Simpan URL</button>
                         </div>
+                    </div>
 
-                        <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl flex justify-between items-center">
-                            <div>
-                                <h5 class="font-bold text-slate-900 text-sm">Hapus Sesi Aktif & Cache Lokal</h5>
-                                <p class="text-xs text-slate-500">Membersihkan seluruh sesi buddy yang sedang menggantung.</p>
-                            </div>
-                            <button onclick="masterClearActiveSessions()" class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-2xs transition">Hapus Sesi</button>
+                    <!-- KONTROL 2: TAMBAH KARYAWAN SMT BARU -->
+                    <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-2">
+                        <h5 class="font-bold text-slate-900 text-sm">➕ Tambah / Daftarkan SMT Baru ke Sistem</h5>
+                        <p class="text-xs text-slate-500">Tambahkan personel baru secara instan.</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <input type="text" id="admin-new-nik" placeholder="Nomor NIK..." class="border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono bg-white">
+                            <input type="text" id="admin-new-name" placeholder="Nama Lengkap SMT..." class="border border-slate-300 rounded-xl px-3 py-2 text-xs uppercase bg-white">
                         </div>
+                        <button onclick="adminAddNewEmployee()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition w-full">Tambah Karyawan</button>
+                    </div>
 
-                        <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl flex justify-between items-center">
-                            <div>
-                                <h5 class="font-bold text-slate-900 text-sm">Paksa Muat Ulang & Sinkronisasi</h5>
-                                <p class="text-xs text-slate-500">Memaksa aplikasi menarik ulang data terkini dari server Firebase.</p>
-                            </div>
-                            <button onclick="location.reload()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-2xs transition">Reload App</button>
-                        </div>
+                    <!-- KONTROL 3: CUSTOM CSS / LAYOUT OVERRIDE -->
+                    <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-2">
+                        <h5 class="font-bold text-slate-900 text-sm">🎨 Custom CSS / Tampilan Live Styling</h5>
+                        <p class="text-xs text-slate-500">Sisipkan CSS tambahan untuk merubah warna/tampilan secara instan.</p>
+                        <textarea id="admin-custom-css" rows="2" class="border border-slate-300 rounded-xl p-3 w-full text-xs font-mono bg-white" placeholder="Contoh: body { background-color: #f8fafc; }"></textarea>
+                        <button onclick="applyCustomCss()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition w-full">Terapkan Styling</button>
+                    </div>
+
+                    <!-- KONTROL 4: AKSI DARURAT & RESET -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                        <button onclick="masterResetQueueAndSpots()" class="bg-rose-600 hover:bg-rose-700 text-white p-3 rounded-xl text-xs font-bold transition shadow-xs">🗑️ Reset Seluruh Antrean & Titik</button>
+                        <button onclick="masterClearActiveSessions()" class="bg-rose-600 hover:bg-rose-700 text-white p-3 rounded-xl text-xs font-bold transition shadow-xs">⏳ Hapus Sesi Buddy Gantung</button>
+                        <button onclick="localStorage.removeItem('custom_employees_list'); location.reload();" class="bg-amber-600 hover:bg-amber-700 text-white p-3 rounded-xl text-xs font-bold transition shadow-xs">🔄 Reset Daftar SMT ke Default</button>
+                        <button onclick="location.reload()" class="bg-slate-800 hover:bg-slate-900 text-white p-3 rounded-xl text-xs font-bold transition shadow-xs">⚡ Paksa Reload Aplikasi</button>
                     </div>
 
                     <div class="flex justify-end pt-3 border-t border-slate-100">
-                        <button onclick="closeMasterControlModal()" class="bg-slate-800 hover:bg-slate-900 text-white px-5 py-2.5 rounded-xl text-xs font-semibold shadow-sm">Tutup</button>
+                        <button onclick="closeMasterControlModal()" class="bg-slate-800 hover:bg-slate-900 text-white px-5 py-2.5 rounded-xl text-xs font-semibold shadow-sm">Tutup Master Control</button>
                     </div>
                 </div>
             </div>
@@ -786,6 +800,11 @@
     document.addEventListener("DOMContentLoaded", () => {
         renderAppTemplate();
         updateAttendanceStats();
+
+        const savedCss = localStorage.getItem('custom_admin_css');
+        if (savedCss) {
+            document.getElementById('dynamic-custom-styles').innerHTML = savedCss;
+        }
 
         if (globalTimerInterval) clearInterval(globalTimerInterval);
         globalTimerInterval = setInterval(() => {
@@ -1132,7 +1151,7 @@
             document.getElementById('live-map-modal').classList.remove('hidden');
             initLiveStoreMap();
         } else {
-            document.getElementById('live-map-pin-error').classList.remove('hidden');
+            document.getElementById('live-map-pin-error').classList.add('hidden');
         }
     }
 
@@ -1182,12 +1201,14 @@
         }, 300);
     }
 
-    // --- FITUR MASTER CONTROL & PENGATURAN TOTAL (PIN: 08121989 & Placeholder Dikosongkan) ---
+    // --- FUNGSI MASTER CONTROL PENUH (PENGATURAN MUTLAK) ---
     function openMasterControlModal() {
         document.getElementById('master-pin-input').value = '';
         document.getElementById('master-pin-error').classList.add('hidden');
         document.getElementById('master-step-pin').classList.remove('hidden');
         document.getElementById('master-step-content').classList.add('hidden');
+        document.getElementById('admin-script-url-input').value = SCRIPT_URL;
+        document.getElementById('admin-custom-css').value = localStorage.getItem('custom_admin_css') || '';
         document.getElementById('master-control-modal').classList.remove('hidden');
     }
 
@@ -1203,6 +1224,43 @@
         } else {
             document.getElementById('master-pin-error').classList.remove('hidden');
         }
+    }
+
+    function saveAdminScriptUrl() {
+        const newUrl = document.getElementById('admin-script-url-input').value.trim();
+        if (newUrl) {
+            SCRIPT_URL = newUrl;
+            localStorage.setItem('custom_script_url', newUrl);
+            showCustomAlert('Berhasil', 'Google Apps Script URL berhasil diperbarui secara instan!');
+        } else {
+            showCustomAlert('Peringatan', 'URL tidak boleh kosong.');
+        }
+    }
+
+    function adminAddNewEmployee() {
+        const nik = document.getElementById('admin-new-nik').value.trim();
+        const name = document.getElementById('admin-new-name').value.trim().toUpperCase();
+        if (!nik || !name) {
+            showCustomAlert('Perhatian', 'NIK dan Nama SMT wajib diisi.');
+            return;
+        }
+        if (employees.some(e => e.nik === nik)) {
+            showCustomAlert('Perhatian', 'NIK tersebut sudah terdaftar di sistem.');
+            return;
+        }
+        employees.push({ nik, name });
+        localStorage.setItem('custom_employees_list', JSON.stringify(employees));
+        document.getElementById('admin-new-nik').value = '';
+        document.getElementById('admin-new-name').value = '';
+        updateAttendanceStats();
+        showCustomAlert('Berhasil', `Pegawai ${name} (${nik}) berhasil ditambahkan ke daftar SMT!`);
+    }
+
+    function applyCustomCss() {
+        const cssCode = document.getElementById('admin-custom-css').value;
+        localStorage.setItem('custom_admin_css', cssCode);
+        document.getElementById('dynamic-custom-styles').innerHTML = cssCode;
+        showCustomAlert('Berhasil', 'Styling CSS kustom berhasil diterapkan pada halaman!');
     }
 
     function masterResetQueueAndSpots() {
@@ -1318,7 +1376,7 @@
 
     function openHistoryModal() {
         const modal = document.getElementById('history-modal');
-        if (modal) modal.classList.remove('hidden');
+        if (modal) modal.classList.add('hidden');
         renderLogs();
     }
 
