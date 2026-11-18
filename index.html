@@ -31,6 +31,15 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
     <script>
+    // --- PENGAMAN ANTI-SPAM KLIK GANDA (GLOBAL ACTION LOCK) ---
+    let isActionLocked = false;
+    function lockAction(durationMs = 1500) {
+        if (isActionLocked) return false;
+        isActionLocked = true;
+        setTimeout(() => { isActionLocked = false; }, durationMs);
+        return true;
+    }
+
     // --- PENGAMAN TAMBAHAN: CEK TAB BASI SEBELUM AKSI (BATAS 5 MENIT = 300000 ms) ---
     const IDLE_LIMIT_MINUTES = 5;
     const IDLE_LIMIT_MS = IDLE_LIMIT_MINUTES * 60 * 1000;
@@ -992,7 +1001,8 @@
                 let dataToUse = val;
                 const todayStr = getWibDateString();
 
-                if (!val || (val.date && val.date !== todayStr)) {
+                // Single Source of Truth: Hanya gunakan backup lokal jika Firebase benar-benar kosong/offline (val === null)
+                if (!val) {
                     const localBackup = localStorage.getItem('greeter_full_state_backup');
                     if (localBackup) {
                         try {
@@ -1008,18 +1018,8 @@
                     } else {
                         dataToUse = null;
                     }
-                } else if (val && val.timestamp) {
-                    const localBackup = localStorage.getItem('greeter_full_state_backup');
-                    if (localBackup) {
-                        try {
-                            const parsedBackup = JSON.parse(localBackup);
-                            if (parsedBackup && parsedBackup.timestamp && parsedBackup.date === todayStr) {
-                                if (parsedBackup.timestamp > val.timestamp + 5000) {
-                                    dataToUse = parsedBackup;
-                                }
-                            }
-                        } catch (e) {}
-                    }
+                } else if (val.date && val.date !== todayStr) {
+                    dataToUse = null;
                 }
 
                 if (dataToUse) {
@@ -1311,6 +1311,7 @@
     }
 
     function verifyStaffPin() {
+        if (!lockAction()) return;
         try {
             if (!pendingStaffAction) return;
             const enteredNik = document.getElementById('staff-pin-input').value.trim();
@@ -1864,6 +1865,7 @@
     }
 
     function executeCancelBuddySession() {
+        if (!lockAction()) return;
         try {
             if (!pendingCancelSessionId) return;
             const sessionId = pendingCancelSessionId;
@@ -2550,6 +2552,7 @@
     }
 
     function executeManualRotationCustom() {
+        if (!lockAction()) return;
         try {
             const selectEl = document.getElementById('rotasi-target-select');
             const spotSelectEl = document.getElementById('rotasi-spot-select');
@@ -2662,6 +2665,7 @@
     }
 
     function confirmSkipAction() {
+        if (!lockAction()) return;
         try {
             const staff = currentSpots[skipSpotIndex] && currentSpots[skipSpotIndex][skipStaffIndexInSpot];
             if (!staff) {
