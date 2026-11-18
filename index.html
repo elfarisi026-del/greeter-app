@@ -42,7 +42,7 @@
         
         if (idleDuration > 60000) {
             sessionStorage.setItem('tab_loaded_time', Date.now());
-            alert("Tab ini sudah lama tidak aktif. Sistem akan menyegarkan data secara otomatis agar tidak membawa data lama ke database.");
+            alert("Tunggu refresh halaman dulu...");
             location.reload(); 
             return false;
         }
@@ -844,6 +844,7 @@
                 let dataToUse = val;
                 const todayStr = getWibDateString();
 
+                // PENGAMAN BERLAPIS: Validasi tanggal & timestamp untuk mencegah data mundur
                 if (!val || (val.date && val.date !== todayStr)) {
                     const localBackup = localStorage.getItem('greeter_full_state_backup');
                     if (localBackup) {
@@ -859,6 +860,19 @@
                         }
                     } else {
                         dataToUse = null;
+                    }
+                } else if (val && val.timestamp) {
+                    const localBackup = localStorage.getItem('greeter_full_state_backup');
+                    if (localBackup) {
+                        try {
+                            const parsedBackup = JSON.parse(localBackup);
+                            if (parsedBackup && parsedBackup.timestamp && parsedBackup.date === todayStr) {
+                                // Jika data lokal jauh lebih baru dibanding server (mencegah overwrite server yang basi/delayed)
+                                if (parsedBackup.timestamp > val.timestamp + 5000) {
+                                    dataToUse = parsedBackup;
+                                }
+                            }
+                        } catch (e) {}
                     }
                 }
 
@@ -951,6 +965,7 @@
             const plainOrigin = spotShiftOrigin.map(group => group ? group.map(org => org ? org : null) : []);
 
             const stateData = {
+                timestamp: Date.now(),
                 date: getWibDateString(),
                 currentSpots: plainSpots,
                 activeQueue: Array.isArray(activeQueue) ? activeQueue : Object.values(activeQueue),
@@ -1882,26 +1897,32 @@
     function updateAttendanceStats() {
         try {
             const uniqueNik = new Set();
-            function collectNiks(source) {
-                if (!source) return;
-                const arr = Array.isArray(source) ? source : Object.values(source);
-                arr.forEach(s => { 
-                    if (s) {
-                        if (s.nik) uniqueNik.add(s.nik);
-                        else if (s.staff && s.nik) uniqueNik.add(s.staff.nik);
-                        else if (typeof s === 'object') {
-                            Object.values(s).forEach(sub => { if (sub && sub.nik) uniqueNik.add(sub.nik); });
-                        }
-                    }
-                });
-            }
+            const wibHour = getWibHour();
 
-            collectNiks(shiftMorningQueue);
-            collectNiks(shiftAfternoonQueue);
-            collectNiks(activeQueue);
-            collectNiks(pausedQueue);
-            collectNiks(activeSessions);
-            collectNiks(currentSpots);
+            if (wibHour < 22) {
+                function collectNiks(source) {
+                    if (!source) return;
+                    const arr = Array.isArray(source) ? source : Object.values(source);
+                    arr.forEach(s => { 
+                        if (s) {
+                            if (s.nik) uniqueNik.add(s.nik);
+                            else if (s.staff && s.nik) uniqueNik.add(s.staff.nik);
+                            else if (typeof s === 'object') {
+                                Object.values(s).forEach(sub => { if (sub && sub.nik) uniqueNik.add(sub.nik); });
+                            }
+                        }
+                    });
+                }
+
+                if (wibHour < 20) {
+                    collectNiks(shiftMorningQueue);
+                }
+                collectNiks(shiftAfternoonQueue);
+                collectNiks(activeQueue);
+                collectNiks(pausedQueue);
+                collectNiks(activeSessions);
+                collectNiks(currentSpots);
+            }
 
             const present = uniqueNik.size;
             const off = employees.length - present;
@@ -2325,9 +2346,7 @@
     // --- FUNGSI NORMALISASI TANGGAL & RENDER RIWAYAT YANG DISEMPURNAKAN ---
     function normalizeDateString(dateStr) {
         if (!dateStr) return getWibDateString();
-        // Jika format sudah YYYY-MM-DD
         if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
-        // Jika format DD/MM/YYYY dari spreadsheet
         if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
             const parts = dateStr.split('/');
             return `${parts[2]}-${parts[1]}-${parts[0]}`;
@@ -2373,7 +2392,6 @@
     async function fetchSpreadsheetLogs() {
         let allLogs = [];
         
-        // Ambil dari activityLogs lokal/Firebase terlebih dahulu
         const localLogs = Array.isArray(activityLogs) ? activityLogs : Object.values(activityLogs);
         if (localLogs && localLogs.length > 0) {
             allLogs = localLogs.map((item, idx) => ({
@@ -2390,7 +2408,6 @@
             }));
         }
 
-        // Ambil juga dari Spreadsheet via SCRIPT_URL jika ada
         if (SCRIPT_URL) {
             try {
                 const response = await fetch(SCRIPT_URL);
@@ -2443,7 +2460,6 @@
             const limitDateStr = d.toISOString().split('T')[0];
             return logs.filter(l => l.date >= limitDateStr);
         } else {
-            // Bulanan (YYYY-MM)
             return logs.filter(l => l.date && l.date.startsWith(todayStr.substring(0, 7)));
         }
     }
