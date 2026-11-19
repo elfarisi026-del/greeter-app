@@ -35,6 +35,9 @@
     let isActionLocked = false;
     let isFirebaseConnected = true;
     let isSyncingState = false;
+    let hasReceivedInitialFirebaseSnapshot = false;
+    let tabWokeUpAt = 0;
+    const WAKE_SYNC_GRACE_MS = 1500;
     const DEVICE_CLIENT_ID = 'dev_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now();
 
     function lockAction(durationMs = 1500) {
@@ -57,14 +60,24 @@
         idleMinutes = 0;
     }
 
-    // --- PENAMBAHAN: VISIBILITYCHANGE LISTENER ---
-    // Ketika perangkat kembali aktif dari sleep/tab background, pastikan timer & koneksi di-reset agar tidak membawa state basi
+    // --- VISIBILITYCHANGE LISTENER: PAKSA TARIK DATA TERBARU DARI SERVER SAAT LAYAR HP MENYALA ---
     document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "visible") {
+            tabWokeUpAt = Date.now();
             resetTabActivityTimer();
             if (db && typeof db.goOnline === 'function') {
                 try { db.goOnline(); } catch (e) {}
             }
+            if (db) {
+                db.ref('appState').once('value').then((snapshot) => {
+                    applyRemoteSnapshotToLocal(snapshot.val());
+                }).catch(() => {});
+            }
+            try {
+                sanitizeStateForTime();
+                updateDisplay();
+                updateActiveBuddyButtonBadge();
+            } catch (e) {}
         }
     });
 
@@ -75,6 +88,10 @@
         }
         if (isSyncingState) {
             showCustomAlert("Sedang Sinkronisasi", "Sistem sedang menyinkronkan data dari perangkat lain. Silakan coba 1 detik lagi.");
+            return false;
+        }
+        if (tabWokeUpAt > 0 && (Date.now() - tabWokeUpAt) < WAKE_SYNC_GRACE_MS) {
+            showCustomAlert("Menyesuaikan Data Tab", "Tab baru saja aktif kembali. Tunggu 1-2 detik agar sinkronisasi data terbaru selesai sebelum klik.");
             return false;
         }
 
@@ -202,6 +219,16 @@
     let liveStoreMap = null;
     let liveMarkers = [];
 
+    // --- AUTO-FILL GUARD: ISI SLOT KOSONG JIKA ANTREAN TERSEDIA (JEDA 3 DETIK) ---
+    let emptySlotStreakSec = 0;
+
+    function hasEmptySlotWithQueuedStaff() {
+        const slots = getOrderedFlowSlots();
+        const hasEmpty = slots.some(sl => !currentSpots[sl.s] || !currentSpots[sl.s][sl.p]);
+        const queueArr = toSafeArray(activeQueue);
+        return hasEmpty && queueArr.length > 0;
+    }
+
     function toSafeArray(val) {
         if (!val) return [];
         if (Array.isArray(val)) return val.filter(item => item !== null && item !== undefined);
@@ -315,6 +342,213 @@
         inputElement.value = rupiah;
     }
 
+    // --- HELPER NORMALISASI STATE UNTUK ATOMIC TRANSACTION ---
+    function buildNormalizedStateObject(rawState, todayStr) {
+        const limitSpot1 = getMaxTitik1Slots();
+        const normalizedSpots = [
+            Array(limitSpot1).fill(null),
+            Array(2).fill(null),
+            Array(2).fill(null)
+        ];
+        if (rawState && rawState.currentSpots) {
+            Object.keys(rawState.currentSpots).forEach(sStr => {
+                const s = parseInt(sStr, 10);
+                if (!isNaN(s) && rawState.currentSpots[s] && s >= 0 && s < 3) {
+                    const spotGroup = rawState.currentSpots[s];
+                    Object.keys(spotGroup).forEach(pStr => {
+                        const p = parseInt(pStr, 10);
+                        const maxP = (s === 0) ? limitSpot1 : 2;
+                        if (!isNaN(p) && p >= 0 && p < maxP && spotGroup[p]) {
+                            normalizedSpots[s][p] = { ...spotGroup[p] };
+                        }
+                    });
+                }
+            });
+        }
+
+        const normalizedOrigin = [
+            Array(limitSpot1).fill(null),
+            Array(2).fill(null),
+            Array(2).fill(null)
+        ];
+        if (rawState && rawState.spotShiftOrigin) {
+            Object.keys(rawState.spotShiftOrigin).forEach(sStr => {
+                const s = parseInt(sStr, 10);
+                if (!isNaN(s) && rawState.spotShiftOrigin[s] && s >= 0 && s < 3) {
+                    const originGroup = rawState.spotShiftOrigin[s];
+                    Object.keys(originGroup).forEach(pStr => {
+                        const p = parseInt(pStr, 10);
+                        const maxP = (s === 0) ? limitSpot1 : 2;
+                        if (!isNaN(p) && p >= 0 && p < maxP && originGroup[p]) {
+                            normalizedOrigin[s][p] = originGroup[p];
+                        }
+                    });
+                }
+            });
+        }
+
+        return {
+            timestamp: Date.now(),
+            lastUpdatedBy: DEVICE_CLIENT_ID,
+            date: todayStr,
+            currentSpots: normalizedSpots,
+            activeQueue: toSafeArray(rawState && rawState.activeQueue).map(x => ({ ...x })),
+            pausedQueue: toSafeArray(rawState && rawState.pausedQueue).map(x => ({ ...x })),
+            shiftMorningQueue: toSafeArray(rawState && rawState.shiftMorningQueue).map(x => ({ ...x })),
+            shiftAfternoonQueue: toSafeArray(rawState && rawState.shiftAfternoonQueue).map(x => ({ ...x })),
+            spotShiftOrigin: normalizedOrigin,
+            activeSessions: toSafeArray(rawState && rawState.activeSessions).map(x => ({ ...x })),
+            activityLogs: toSafeArray(rawState && rawState.activityLogs).map(x => ({ ...x }))
+        };
+    }
+
+    function sanitizeAndAdvanceStateObject(st) {
+        const wibHour = getWibHour();
+        const limitSpot1 = getMaxTitik1Slots();
+        const slots = [];
+        for (let p = 0; p < limitSpot1; p++) slots.push({ s: 0, p });
+        for (let p = 0; p < 2; p++) slots.push({ s: 1, p });
+        for (let p = 0; p < 2; p++) slots.push({ s: 2, p });
+
+        if (wibHour >= 22) {
+            st.activeQueue = [];
+            st.currentSpots.forEach((group, s) => {
+                if (Array.isArray(group)) {
+                    group.forEach((staff, p) => {
+                        if (staff) {
+                            st.currentSpots[s][p] = null;
+                            if (st.spotShiftOrigin[s]) st.spotShiftOrigin[s][p] = null;
+                        }
+                    });
+                }
+            });
+            return st;
+        }
+
+        if (wibHour >= 20) {
+            const activeBuddyNiks = new Set(
+                toSafeArray(st.activeSessions)
+                    .map(s => s && s.staff && s.staff.nik ? String(s.staff.nik) : null)
+                    .filter(Boolean)
+            );
+            const morningNiks = new Set(
+                toSafeArray(st.shiftMorningQueue)
+                    .map(e => e && e.nik ? String(e.nik) : null)
+                    .filter(Boolean)
+            );
+
+            st.activeQueue = toSafeArray(st.activeQueue).filter(staff => {
+                if (!staff || !staff.nik) return false;
+                const nikStr = String(staff.nik);
+                return !(morningNiks.has(nikStr) && !activeBuddyNiks.has(nikStr));
+            });
+
+            st.currentSpots.forEach((group, s) => {
+                if (Array.isArray(group)) {
+                    group.forEach((staff, p) => {
+                        if (staff && staff.nik) {
+                            const nikStr = String(staff.nik);
+                            if (morningNiks.has(nikStr) && !activeBuddyNiks.has(nikStr)) {
+                                st.currentSpots[s][p] = null;
+                                if (st.spotShiftOrigin[s]) st.spotShiftOrigin[s][p] = null;
+                            }
+                        }
+                    });
+                }
+            });
+        }
+
+        // Bersihkan duplikat petugas yang sudah aktif di spot/session/paused dari activeQueue
+        const busyNiks = new Set();
+        st.currentSpots.forEach(group => {
+            if (Array.isArray(group)) group.forEach(sf => { if (sf && sf.nik) busyNiks.add(String(sf.nik)); });
+        });
+        toSafeArray(st.activeSessions).forEach(sess => {
+            if (sess && sess.staff && sess.staff.nik) busyNiks.add(String(sess.staff.nik));
+        });
+        toSafeArray(st.pausedQueue).forEach(item => {
+            if (item && item.staff && item.staff.nik) busyNiks.add(String(item.staff.nik));
+        });
+
+        const seenQueue = new Set();
+        st.activeQueue = toSafeArray(st.activeQueue).filter(sf => {
+            if (!sf || !sf.nik) return false;
+            const nikStr = String(sf.nik);
+            if (busyNiks.has(nikStr) || seenQueue.has(nikStr)) return false;
+            seenQueue.add(nikStr);
+            return true;
+        });
+
+        // Kompresi slot maju & isi slot kosong dari antrean cadangan
+        let activeItems = [];
+        slots.forEach(sl => {
+            if (st.currentSpots[sl.s] && st.currentSpots[sl.s][sl.p]) {
+                activeItems.push({
+                    staff: st.currentSpots[sl.s][sl.p],
+                    origin: (st.spotShiftOrigin[sl.s] && st.spotShiftOrigin[sl.s][sl.p]) ? st.spotShiftOrigin[sl.s][sl.p] : 'pagi'
+                });
+            }
+        });
+
+        slots.forEach((sl, i) => {
+            if (i < activeItems.length) {
+                st.currentSpots[sl.s][sl.p] = activeItems[i].staff;
+                st.spotShiftOrigin[sl.s][sl.p] = activeItems[i].origin;
+            } else {
+                st.currentSpots[sl.s][sl.p] = null;
+                st.spotShiftOrigin[sl.s][sl.p] = null;
+            }
+        });
+
+        const morningList = toSafeArray(st.shiftMorningQueue);
+        slots.forEach(sl => {
+            if (!st.currentSpots[sl.s][sl.p] && st.activeQueue.length > 0) {
+                const nextStaff = st.activeQueue.shift();
+                st.currentSpots[sl.s][sl.p] = nextStaff;
+                const isMorning = morningList.some(emp => emp && String(emp.nik) === String(nextStaff.nik));
+                st.spotShiftOrigin[sl.s][sl.p] = isMorning ? 'pagi' : 'siang';
+            }
+        });
+
+        return st;
+    }
+
+    // --- EKSEKUTOR TRANSAKSI ATOMIK BERBASIS NIAT (INTENT-BASED TRANSACTION) ---
+    function commitAtomicIntent(mutatorFn, onDoneCallback) {
+        const todayStr = getWibDateString();
+        isSyncingState = true;
+        let sideEffects = {};
+
+        db.ref('appState').transaction((remoteData) => {
+            const baseRaw = (remoteData && remoteData.date === todayStr) ? remoteData : null;
+            let workingState = buildNormalizedStateObject(baseRaw, todayStr);
+
+            sideEffects = {};
+            const result = mutatorFn(workingState, sideEffects);
+            if (result === false) {
+                return; // Batalkan transaksi jika kondisi di server sudah berubah
+            }
+
+            sanitizeAndAdvanceStateObject(workingState);
+            workingState.timestamp = Date.now();
+            workingState.lastUpdatedBy = DEVICE_CLIENT_ID;
+            return workingState;
+        }, (error, committed, snapshot) => {
+            isSyncingState = false;
+            if (error) {
+                console.error("Transaksi Firebase gagal:", error);
+                showCustomAlert("Gangguan Koneksi", "Gagal menyinkronkan ke server. Silakan coba lagi.");
+                return;
+            }
+            if (snapshot && snapshot.exists()) {
+                applyRemoteSnapshotToLocal(snapshot.val());
+            }
+            if (typeof onDoneCallback === 'function') {
+                onDoneCallback(committed, sideEffects);
+            }
+        }, false);
+    }
+
     function cleanupActiveQueue() {
         const activeNiks = new Set();
         currentSpots.forEach(group => {
@@ -338,6 +572,55 @@
             if (activeNiks.has(nikStr) || seenInQueue.has(nikStr)) return false;
             seenInQueue.add(nikStr);
             return true;
+        });
+    }
+
+    // --- AUTO-CLOSE SESI BUDDY GANTUNG PADA PUKUL 23:00 WIB ---
+    function checkAndAutoCloseOverdueSessionsAtomic() {
+        if (getWibHour() < 23) return;
+        if (toSafeArray(activeSessions).length === 0) return;
+
+        commitAtomicIntent((st, fx) => {
+            if (getWibHour() < 23) return false;
+            const sessionsArr = toSafeArray(st.activeSessions);
+            if (sessionsArr.length === 0) return false;
+
+            const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
+            const currentTime = Date.now();
+            const todayStr = getWibDateString();
+            const timeNow = getWibTimeString();
+            fx.closedLogs = [];
+
+            sessionsArr.forEach(sess => {
+                if (!sess || !sess.staff) return;
+                const staffName = typeof sess.staff === 'object' ? (sess.staff.name || sess.staff.nama || 'Petugas') : sess.staff;
+                const diffSec = Math.max(0, Math.floor((currentTime - sess.startTime) / 1000));
+                const mins = String(Math.floor(diffSec / 60)).padStart(2, '0');
+                const secs = String(Math.floor(diffSec % 60)).padStart(2, '0');
+                const duration = `${mins}:${secs}`;
+
+                const logData = {
+                    date: todayStr,
+                    time: timeNow,
+                    staffName: staffName,
+                    spot: spotNames[sess.spotIndex] || "Titik Greeter",
+                    shift: "AUTO-CLOSE",
+                    duration: duration,
+                    reason: "AUTO-CLOSE [Melebihi Pukul 23:00 WIB / Lupa Selesai]",
+                    photo: "Tanpa Foto",
+                    gps: "-"
+                };
+
+                st.activityLogs.unshift(logData);
+                fx.closedLogs.push(logData);
+            });
+
+            st.activeSessions = [];
+            return true;
+        }, (committed, fx) => {
+            if (committed && Array.isArray(fx.closedLogs)) {
+                fx.closedLogs.forEach(logData => syncLogToSpreadsheet(logData));
+            }
         });
     }
 
@@ -674,8 +957,8 @@
                     <button onclick="openSmtModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2">
                         <span>📋 Menu Input SMT & Shift</span>
                     </button>
-                    <button onclick="openBuddyModalActiveList()" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2">
-                        <span>⏳ Sesi Buddy Aktif</span>
+                    <button id="btn-active-buddy-header" onclick="openBuddyModalActiveList()" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2">
+                        <span id="btn-active-buddy-label">⏳ Sesi Buddy Aktif</span>
                     </button>
                     <button onclick="openHistoryModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2">
                         <span>📜 Riwayat Sesi Buddy</span>
@@ -991,9 +1274,79 @@
         if (dateEl) dateEl.innerText = nowWibText;
     }
 
+    function applyRemoteSnapshotToLocal(val) {
+        try {
+            let dataToUse = val;
+            const todayStr = getWibDateString();
+
+            // Hanya pakai localBackup jika snapshot awal server benar-benar kosong (val === null)
+            if (!val) {
+                const localBackup = localStorage.getItem('greeter_full_state_backup');
+                if (localBackup) {
+                    try {
+                        const parsedBackup = JSON.parse(localBackup);
+                        if (parsedBackup && parsedBackup.date === todayStr) {
+                            dataToUse = parsedBackup;
+                        } else {
+                            dataToUse = null;
+                        }
+                    } catch (err) {
+                        dataToUse = null;
+                    }
+                } else {
+                    dataToUse = null;
+                }
+            } else if (val.date && val.date !== todayStr) {
+                dataToUse = null;
+            }
+
+            if (dataToUse) {
+                const normalized = buildNormalizedStateObject(dataToUse, todayStr);
+                currentSpots = normalized.currentSpots;
+                activeQueue = normalized.activeQueue;
+                pausedQueue = normalized.pausedQueue;
+                shiftMorningQueue = normalized.shiftMorningQueue;
+                shiftAfternoonQueue = normalized.shiftAfternoonQueue;
+                spotShiftOrigin = normalized.spotShiftOrigin;
+                activeSessions = normalized.activeSessions;
+                activityLogs = normalized.activityLogs;
+
+                localStorage.setItem('greeter_full_state_backup', JSON.stringify(normalized));
+                localStorage.setItem('greeter_active_sessions', JSON.stringify(activeSessions));
+
+                sanitizeStateForTime();
+                cleanupActiveQueue();
+                updateDisplay();
+                updateAttendanceStats();
+                renderLogs();
+                renderActiveSessionsList();
+                updateActiveBuddyButtonBadge();
+            } else {
+                currentSpots = [Array(getMaxTitik1Slots()).fill(null), [null, null], [null, null]];
+                activeQueue = [];
+                pausedQueue = [];
+                shiftMorningQueue = [];
+                shiftAfternoonQueue = [];
+                spotShiftOrigin = [Array(getMaxTitik1Slots()).fill(null), [null, null], [null, null]];
+                activeSessions = [];
+                localStorage.setItem('greeter_active_sessions', JSON.stringify([]));
+                activityLogs = [];
+                updateDisplay();
+                updateAttendanceStats();
+                renderLogs();
+                renderActiveSessionsList();
+                updateActiveBuddyButtonBadge();
+            }
+        } catch (err) {
+            console.error("Gagal memproses state database:", err);
+            updateDisplay();
+        }
+    }
+
     document.addEventListener("DOMContentLoaded", () => {
         renderAppTemplate();
         updateAttendanceStats();
+        updateActiveBuddyButtonBadge();
 
         const savedCss = localStorage.getItem('custom_admin_css');
         if (savedCss) {
@@ -1021,10 +1374,25 @@
             globalTimerInterval = setInterval(() => {
                 try {
                     updateActiveSessionsTimersUI();
-                    if (!isSyncingState && isFirebaseConnected && sanitizeStateForTime()) {
-                        advanceRotationAndFill();
-                        pushStateToFirebase();
-                        updateDisplay();
+                    updateActiveBuddyButtonBadge();
+
+                    if (!isSyncingState && isFirebaseConnected && hasReceivedInitialFirebaseSnapshot) {
+                        checkAndAutoCloseOverdueSessionsAtomic();
+                        const timeSanitized = sanitizeStateForTime();
+
+                        if (hasEmptySlotWithQueuedStaff()) {
+                            emptySlotStreakSec++;
+                        } else {
+                            emptySlotStreakSec = 0;
+                        }
+
+                        // Tunggu 3 detik berturut-turut agar aksi normal (Buddy/Skip/Rotasi) selesai dulu
+                        if (timeSanitized || emptySlotStreakSec >= 3) {
+                            emptySlotStreakSec = 0;
+                            commitAtomicIntent((st) => {
+                                return true; // sanitizeAndAdvanceStateObject dijalankan otomatis di dalam transaksi
+                            });
+                        }
                     }
                 } catch (e) {
                     console.error("Error pada globalTimerInterval:", e);
@@ -1033,211 +1401,10 @@
         }, deviceTimerJitterMs);
 
         db.ref('appState').on('value', (snapshot) => {
-            try {
-                const val = snapshot.val();
-                let dataToUse = val;
-                const todayStr = getWibDateString();
-
-                // Single Source of Truth: Hanya gunakan backup lokal jika Firebase benar-benar kosong/offline (val === null)
-                if (!val) {
-                    const localBackup = localStorage.getItem('greeter_full_state_backup');
-                    if (localBackup) {
-                        try {
-                            const parsedBackup = JSON.parse(localBackup);
-                            if (parsedBackup && parsedBackup.date === todayStr) {
-                                dataToUse = parsedBackup;
-                            } else {
-                                dataToUse = null;
-                            }
-                        } catch (err) {
-                            dataToUse = null;
-                        }
-                    } else {
-                        dataToUse = null;
-                    }
-                } else if (val.date && val.date !== todayStr) {
-                    dataToUse = null;
-                }
-
-                if (dataToUse) {
-                    const limitSpot1 = getMaxTitik1Slots();
-                    
-                    currentSpots = [
-                        Array(limitSpot1).fill(null),
-                        Array(2).fill(null),
-                        Array(2).fill(null)
-                    ];
-                    if (dataToUse.currentSpots) {
-                        const spotsObj = dataToUse.currentSpots;
-                        Object.keys(spotsObj).forEach(sStr => {
-                            const s = parseInt(sStr, 10);
-                            if (!isNaN(s) && spotsObj[s] && s >= 0 && s < 3) {
-                                const spotGroup = spotsObj[s];
-                                Object.keys(spotGroup).forEach(pStr => {
-                                    const p = parseInt(pStr, 10);
-                                    const maxP = (s === 0) ? limitSpot1 : 2;
-                                    if (!isNaN(p) && p >= 0 && p < maxP && spotGroup[p]) {
-                                        currentSpots[s][p] = spotGroup[p];
-                                    }
-                                });
-                            }
-                        });
-                    }
-
-                    activeQueue = toSafeArray(dataToUse.activeQueue);
-                    pausedQueue = toSafeArray(dataToUse.pausedQueue);
-                    shiftMorningQueue = toSafeArray(dataToUse.shiftMorningQueue);
-                    shiftAfternoonQueue = toSafeArray(dataToUse.shiftAfternoonQueue);
-                    
-                    spotShiftOrigin = [
-                        Array(limitSpot1).fill(null),
-                        Array(2).fill(null),
-                        Array(2).fill(null)
-                    ];
-                    if (dataToUse.spotShiftOrigin) {
-                        const originObj = dataToUse.spotShiftOrigin;
-                        Object.keys(originObj).forEach(sStr => {
-                            const s = parseInt(sStr, 10);
-                            if (!isNaN(s) && originObj[s] && s >= 0 && s < 3) {
-                                const originGroup = originObj[s];
-                                Object.keys(originGroup).forEach(pStr => {
-                                    const p = parseInt(pStr, 10);
-                                    const maxP = (s === 0) ? limitSpot1 : 2;
-                                    if (!isNaN(p) && p >= 0 && p < maxP && originGroup[p]) {
-                                        spotShiftOrigin[s][p] = originGroup[p];
-                                    }
-                                });
-                            }
-                        });
-                    }
-
-                    activeSessions = toSafeArray(dataToUse.activeSessions);
-                    localStorage.setItem('greeter_active_sessions', JSON.stringify(activeSessions));
-                    activityLogs = toSafeArray(dataToUse.activityLogs);
-
-                    sanitizeStateForTime();
-                    cleanupActiveQueue();
-                    updateDisplay();
-                    updateAttendanceStats();
-                    renderLogs();
-                    renderActiveSessionsList();
-                } else {
-                    currentSpots = [Array(getMaxTitik1Slots()).fill(null), [null, null], [null, null]];
-                    activeQueue = [];
-                    pausedQueue = [];
-                    shiftMorningQueue = [];
-                    shiftAfternoonQueue = [];
-                    spotShiftOrigin = [Array(getMaxTitik1Slots()).fill(null), [null, null], [null, null]];
-                    activeSessions = [];
-                    localStorage.setItem('greeter_active_sessions', JSON.stringify([]));
-                    activityLogs = [];
-                    updateDisplay();
-                    updateAttendanceStats();
-                    renderLogs();
-                    renderActiveSessionsList();
-                }
-            } catch (err) {
-                console.error("Gagal memproses state database:", err);
-                updateDisplay();
-            }
+            hasReceivedInitialFirebaseSnapshot = true;
+            applyRemoteSnapshotToLocal(snapshot.val());
         });
     });
-
-    // --- ATOMIC TRANSACTION SYNC UNTUK MENCEGAH RACE CONDITION PADA 60+ PERANGKAT ---
-    function pushStateToFirebase(mergeOptions = {}) {
-        try {
-            sanitizeStateForTime();
-            cleanupActiveQueue();
-
-            const plainSpots = currentSpots.map(group => Array.isArray(group) ? group.map(staff => staff ? {...staff} : null) : []);
-            const plainOrigin = spotShiftOrigin.map(group => Array.isArray(group) ? group.map(org => org ? org : null) : []);
-
-            const stateData = {
-                timestamp: Date.now(),
-                lastUpdatedBy: DEVICE_CLIENT_ID,
-                date: getWibDateString(),
-                currentSpots: plainSpots,
-                activeQueue: toSafeArray(activeQueue),
-                pausedQueue: toSafeArray(pausedQueue),
-                shiftMorningQueue: toSafeArray(shiftMorningQueue),
-                shiftAfternoonQueue: toSafeArray(shiftAfternoonQueue),
-                spotShiftOrigin: plainOrigin,
-                activeSessions: toSafeArray(activeSessions),
-                activityLogs: toSafeArray(activityLogs)
-            };
-
-            localStorage.setItem('greeter_full_state_backup', JSON.stringify(stateData));
-            localStorage.setItem('greeter_active_sessions', JSON.stringify(stateData.activeSessions));
-
-            isSyncingState = true;
-            db.ref('appState').transaction((remoteData) => {
-                if (!remoteData || remoteData.date !== stateData.date) {
-                    return stateData;
-                }
-
-                // Gabungkan log aktivitas dari perangkat lain agar log tidak hilang saat bentrok detik yang sama
-                const remoteLogs = toSafeArray(remoteData.activityLogs);
-                const localLogs = toSafeArray(stateData.activityLogs);
-                const seenLogKeys = new Set();
-                const mergedLogs = [];
-
-                [...localLogs, ...remoteLogs].forEach(l => {
-                    if (!l) return;
-                    const key = `${l.date}_${l.time}_${l.staffName}_${l.shift}_${l.reason}`;
-                    if (!seenLogKeys.has(key)) {
-                        seenLogKeys.add(key);
-                        mergedLogs.push(l);
-                    }
-                });
-
-                // Gabungkan sesi buddy aktif dari perangkat lain (kecuali sesi yang baru saja dihapus/diselesaikan oleh perangkat ini)
-                const remoteSessions = toSafeArray(remoteData.activeSessions);
-                const localSessions = toSafeArray(stateData.activeSessions);
-                const removedSessionId = mergeOptions.removedSessionId || null;
-                const sessionMap = new Map();
-
-                remoteSessions.forEach(s => {
-                    if (s && s.id && s.id !== removedSessionId) {
-                        sessionMap.set(s.id, s);
-                    }
-                });
-                localSessions.forEach(s => {
-                    if (s && s.id && s.id !== removedSessionId) {
-                        sessionMap.set(s.id, s);
-                    }
-                });
-
-                const mergedSessions = Array.from(sessionMap.values());
-                const activeSessionNiks = new Set(
-                    mergedSessions.map(s => s && s.staff && s.staff.nik ? String(s.staff.nik) : null).filter(Boolean)
-                );
-
-                // Pastikan petugas yang sedang aktif di sesi buddy perangkat lain tidak ikut terduplikasi di spot/queue
-                const sanitizedSpots = plainSpots.map(group =>
-                    group.map(st => (st && activeSessionNiks.has(String(st.nik))) ? null : st)
-                );
-                const sanitizedQueue = stateData.activeQueue.filter(
-                    st => st && st.nik && !activeSessionNiks.has(String(st.nik))
-                );
-
-                return {
-                    ...stateData,
-                    currentSpots: sanitizedSpots,
-                    activeQueue: sanitizedQueue,
-                    activeSessions: mergedSessions,
-                    activityLogs: mergedLogs
-                };
-            }, (error, committed, snapshot) => {
-                isSyncingState = false;
-                if (error) {
-                    console.error("Transaksi Firebase gagal:", error);
-                }
-            }, false);
-        } catch (e) {
-            isSyncingState = false;
-            console.error("Error pushStateToFirebase:", e);
-        }
-    }
 
     function getOrderedFlowSlots() {
         let slots = [];
@@ -1297,32 +1464,35 @@
         cleanupActiveQueue();
     }
 
-    // Interval pausedQueue dengan jitter agar 60+ device tidak serentak mengeksekusi resumeTime di detik yang sama
+    // Interval pausedQueue atomik dengan jitter agar 60+ device tidak bentrok saat waktu izin habis
     setTimeout(() => {
         setInterval(() => {
             try {
-                if (isSyncingState || !isFirebaseConnected) return;
+                if (isSyncingState || !isFirebaseConnected || !hasReceivedInitialFirebaseSnapshot) return;
                 const safePaused = toSafeArray(pausedQueue);
-                if (safePaused.length > 0) {
-                    const currentTime = Date.now();
-                    let updatedPausedQueue = [];
-                    let stateChanged = false;
+                const currentTime = Date.now();
+                const hasDueResume = safePaused.some(item => item && item.staff && currentTime >= item.resumeTime);
 
-                    safePaused.forEach(item => {
-                        if (item && item.staff && currentTime >= item.resumeTime) {
-                            activeQueue.push(item.staff);
-                            stateChanged = true;
-                        } else if (item && item.staff) {
-                            updatedPausedQueue.push(item);
-                        }
+                if (hasDueResume) {
+                    commitAtomicIntent((st) => {
+                        const nowMs = Date.now();
+                        const currentPaused = toSafeArray(st.pausedQueue);
+                        let updatedPaused = [];
+                        let anyChanged = false;
+
+                        currentPaused.forEach(item => {
+                            if (item && item.staff && nowMs >= item.resumeTime) {
+                                st.activeQueue.push(item.staff);
+                                anyChanged = true;
+                            } else if (item && item.staff) {
+                                updatedPaused.push(item);
+                            }
+                        });
+
+                        if (!anyChanged) return false;
+                        st.pausedQueue = updatedPaused;
+                        return true;
                     });
-
-                    if (stateChanged) {
-                        pausedQueue = updatedPausedQueue;
-                        advanceRotationAndFill();
-                        pushStateToFirebase();
-                        updateDisplay();
-                    }
                 }
             } catch (e) {
                 console.error("Error pausedQueue interval:", e);
@@ -1424,7 +1594,6 @@
                 const { action, spotIndex, staffPositionIndex, staff } = pendingStaffAction;
                 closeStaffPinModal();
 
-                // Validasi ulang keberadaan petugas di titik sebelum eksekusi (mencegah race condition saat modal PIN terbuka)
                 const currentSlotStaff = currentSpots[spotIndex] && currentSpots[spotIndex][staffPositionIndex];
                 if (!currentSlotStaff || String(currentSlotStaff.nik) !== String(staff.nik)) {
                     showCustomAlert('Informasi', 'Posisi petugas baru saja berubah oleh perangkat lain. Silakan cek posisi terbaru.');
@@ -1579,65 +1748,65 @@
         if (confirm("Jalankan algoritma acak rotasi otomatis berdasarkan urutan selesai buddy, skip sementara non-jam, shift pagi, dan shift siang?")) {
             try {
                 const todayStr = getWibDateString();
-                const logsArr = toSafeArray(activityLogs);
-                
-                let finishedBuddyNiks = [];
-                let skipSementaraNiks = [];
+                commitAtomicIntent((st) => {
+                    const logsArr = toSafeArray(st.activityLogs);
+                    let finishedBuddyNiks = [];
+                    let skipSementaraNiks = [];
 
-                logsArr.forEach(l => {
-                    if (l && normalizeDateString(l.date) === todayStr) {
-                        const matchingEmp = employees.find(e => e.name === l.staffName);
-                        if (matchingEmp) {
-                            const nikStr = String(matchingEmp.nik);
-                            if (l.shift === "BUDDY SELESAI" && !finishedBuddyNiks.includes(nikStr)) {
-                                finishedBuddyNiks.push(nikStr);
-                            } else if (l.shift === "SKIP" && !skipSementaraNiks.includes(nikStr)) {
-                                skipSementaraNiks.push(nikStr);
+                    logsArr.forEach(l => {
+                        if (l && normalizeDateString(l.date) === todayStr) {
+                            const matchingEmp = employees.find(e => e.name === l.staffName);
+                            if (matchingEmp) {
+                                const nikStr = String(matchingEmp.nik);
+                                if (l.shift === "BUDDY SELESAI" && !finishedBuddyNiks.includes(nikStr)) {
+                                    finishedBuddyNiks.push(nikStr);
+                                } else if (l.shift === "SKIP" && !skipSementaraNiks.includes(nikStr)) {
+                                    skipSementaraNiks.push(nikStr);
+                                }
                             }
                         }
+                    });
+
+                    const morningArr = toSafeArray(st.shiftMorningQueue);
+                    const afternoonArr = toSafeArray(st.shiftAfternoonQueue);
+                    let baseMasterList = [...morningArr, ...afternoonArr];
+                    if (baseMasterList.length === 0) {
+                        baseMasterList = [...employees];
+                    }
+
+                    let newQueue = [];
+                    let addedNiks = new Set();
+
+                    finishedBuddyNiks.forEach(nik => {
+                        const emp = baseMasterList.find(e => String(e.nik) === String(nik));
+                        if (emp && !addedNiks.has(String(emp.nik))) {
+                            newQueue.push(emp);
+                            addedNiks.add(String(emp.nik));
+                        }
+                    });
+
+                    skipSementaraNiks.forEach(nik => {
+                        const emp = baseMasterList.find(e => String(e.nik) === String(nik));
+                        if (emp && !addedNiks.has(String(emp.nik))) {
+                            newQueue.push(emp);
+                            addedNiks.add(String(emp.nik));
+                        }
+                    });
+
+                    baseMasterList.forEach(emp => {
+                        if (emp && emp.nik && !addedNiks.has(String(emp.nik))) {
+                            newQueue.push(emp);
+                            addedNiks.add(String(emp.nik));
+                        }
+                    });
+
+                    st.activeQueue = newQueue;
+                    return true;
+                }, (committed) => {
+                    if (committed) {
+                        showCustomAlert("Berhasil", "Rotasi antrean berhasil diacak otomatis sesuai urutan prioritas terbaru!");
                     }
                 });
-
-                const morningArr = toSafeArray(shiftMorningQueue);
-                const afternoonArr = toSafeArray(shiftAfternoonQueue);
-                
-                let baseMasterList = [...morningArr, ...afternoonArr];
-                if (baseMasterList.length === 0) {
-                    baseMasterList = [...employees];
-                }
-
-                let newQueue = [];
-                let addedNiks = new Set();
-
-                finishedBuddyNiks.forEach(nik => {
-                    const emp = baseMasterList.find(e => String(e.nik) === String(nik));
-                    if (emp && !addedNiks.has(String(emp.nik))) {
-                        newQueue.push(emp);
-                        addedNiks.add(String(emp.nik));
-                    }
-                });
-
-                skipSementaraNiks.forEach(nik => {
-                    const emp = baseMasterList.find(e => String(e.nik) === String(nik));
-                    if (emp && !addedNiks.has(String(emp.nik))) {
-                        newQueue.push(emp);
-                        addedNiks.add(String(emp.nik));
-                    }
-                });
-
-                baseMasterList.forEach(emp => {
-                    if (emp && emp.nik && !addedNiks.has(String(emp.nik))) {
-                        newQueue.push(emp);
-                        addedNiks.add(String(emp.nik));
-                    }
-                });
-
-                activeQueue = newQueue;
-                advanceRotationAndFill();
-                pushStateToFirebase();
-                updateDisplay();
-                
-                showCustomAlert("Berhasil", "Rotasi antrean berhasil diacak otomatis sesuai urutan prioritas terbaru!");
             } catch (e) {
                 showCustomAlert("Gagal", "Terjadi kesalahan saat mengacak rotasi: " + e.message);
             }
@@ -1700,21 +1869,15 @@
                 }
 
                 if (confirm(`Impor data dari tanggal ${importedData.date}? Tindakan ini akan menimpa data sistem saat ini dan menyegarkan semua perangkat.`)) {
-                    currentSpots = importedData.currentSpots || currentSpots;
-                    activeQueue = toSafeArray(importedData.activeQueue);
-                    pausedQueue = toSafeArray(importedData.pausedQueue);
-                    shiftMorningQueue = toSafeArray(importedData.shiftMorningQueue);
-                    shiftAfternoonQueue = toSafeArray(importedData.shiftAfternoonQueue);
-                    spotShiftOrigin = importedData.spotShiftOrigin || spotShiftOrigin;
-                    activeSessions = toSafeArray(importedData.activeSessions);
-                    activityLogs = toSafeArray(importedData.activityLogs);
                     if (Array.isArray(importedData.employees) && importedData.employees.length > 0) {
                         employees = importedData.employees;
                         localStorage.setItem('custom_employees_list', JSON.stringify(employees));
                     }
 
-                    pushStateToFirebase();
-                    broadcastRefreshAllDevices();
+                    const normalizedImport = buildNormalizedStateObject(importedData, importedData.date);
+                    db.ref('appState').set(normalizedImport).then(() => {
+                        broadcastRefreshAllDevices();
+                    });
                 }
             } catch (err) {
                 showCustomAlert("Gagal Import", "File JSON rusak atau tidak dikenali: " + err.message);
@@ -1765,26 +1928,33 @@
 
     function masterResetQueueAndSpots() {
         if (confirm("Yakin ingin mereset seluruh antrean dan titik aktif hari ini?")) {
-            currentSpots = [Array(getMaxTitik1Slots()).fill(null), [null, null], [null, null]];
-            activeQueue = [];
-            pausedQueue = [];
-            spotShiftOrigin = [Array(getMaxTitik1Slots()).fill(null), [null, null], [null, null]];
-            pushStateToFirebase();
-            updateDisplay();
-            showCustomAlert("Berhasil", "Seluruh antrean dan titik greeter telah direset.");
-            closeMasterControlModal();
+            commitAtomicIntent((st) => {
+                st.currentSpots = [Array(getMaxTitik1Slots()).fill(null), [null, null], [null, null]];
+                st.activeQueue = [];
+                st.pausedQueue = [];
+                st.spotShiftOrigin = [Array(getMaxTitik1Slots()).fill(null), [null, null], [null, null]];
+                return true;
+            }, (committed) => {
+                if (committed) {
+                    showCustomAlert("Berhasil", "Seluruh antrean dan titik greeter telah direset.");
+                    closeMasterControlModal();
+                }
+            });
         }
     }
 
     function masterClearActiveSessions() {
         if (confirm("Yakin ingin menghapus seluruh sesi buddy aktif yang tersimpan?")) {
-            activeSessions = [];
-            localStorage.removeItem('greeter_active_sessions');
-            db.ref('appState/activeSessions').remove().catch(err => console.error(err));
-            pushStateToFirebase();
-            renderActiveSessionsList();
-            showCustomAlert("Berhasil", "Sesi buddy aktif berhasil dibersihkan.");
-            closeMasterControlModal();
+            commitAtomicIntent((st) => {
+                st.activeSessions = [];
+                return true;
+            }, (committed) => {
+                if (committed) {
+                    localStorage.removeItem('greeter_active_sessions');
+                    showCustomAlert("Berhasil", "Sesi buddy aktif berhasil dibersihkan.");
+                    closeMasterControlModal();
+                }
+            });
         }
     }
 
@@ -1927,6 +2097,31 @@
         if (modal) modal.classList.add('hidden');
     }
 
+    // --- UPDATE BADGE JUMLAH & KEDIP MERAH TOMBOL SESI BUDDY AKTIF ---
+    function updateActiveBuddyButtonBadge() {
+        const btn = document.getElementById('btn-active-buddy-header');
+        const label = document.getElementById('btn-active-buddy-label');
+        if (!btn || !label) return;
+
+        const sessionsArr = toSafeArray(activeSessions);
+        const count = sessionsArr.length;
+        label.innerText = count > 0 ? `⏳ Sesi Buddy Aktif (${count})` : `⏳ Sesi Buddy Aktif`;
+
+        const currentTime = Date.now();
+        const hasOver80MinSession = sessionsArr.some(sess => {
+            if (!sess || !sess.startTime) return false;
+            const diffSec = Math.max(0, Math.floor((currentTime - sess.startTime) / 1000));
+            return diffSec >= (80 * 60);
+        });
+        const isPast22Wib = getWibHour() >= 22;
+
+        if (count > 0 && (hasOver80MinSession || isPast22Wib)) {
+            btn.className = "bg-rose-600 hover:bg-rose-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2 animate-pulse";
+        } else {
+            btn.className = "bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2";
+        }
+    }
+
     function renderActiveSessionsList() {
         const container = document.getElementById('active-sessions-list-container');
         if (!container) return;
@@ -1945,7 +2140,7 @@
             if (!sess || !sess.staff) return;
             const diffSec = Math.max(0, Math.floor((currentTime - sess.startTime) / 1000));
             const mins = String(Math.floor(diffSec / 60)).padStart(2, '0');
-            const secs = String(diffSec % 60).padStart(2, '0');
+            const secs = String(Math.floor(diffSec % 60)).padStart(2, '0');
             const staffName = typeof sess.staff === 'object' ? (sess.staff.name || sess.staff.nama || 'Petugas') : sess.staff;
             const spotLabel = spotNames[sess.spotIndex] || 'Titik Greeter';
 
@@ -1988,96 +2183,95 @@
             const sessionId = pendingCancelSessionId;
             closeCancelConfirmModal();
 
-            activeSessions = toSafeArray(activeSessions);
-            const sessIdx = activeSessions.findIndex(s => s && s.id === sessionId);
-            if (sessIdx === -1) {
-                showCustomAlert('Informasi', 'Sesi buddy ini sudah dibatalkan atau diselesaikan oleh perangkat lain.');
-                renderActiveSessionsList();
-                return;
-            }
-
-            const sess = activeSessions.splice(sessIdx, 1)[0];
-            localStorage.setItem('greeter_active_sessions', JSON.stringify(activeSessions));
-
-            const staff = sess.staff;
-            const staffName = typeof staff === 'object' ? (staff.name || staff.nama || 'Petugas') : staff;
-            const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
-            const targetSpotIndex = Number(sess.spotIndex);
-            const targetSpotPos = Number(sess.spotPositionIndex);
-
-            const slots = getOrderedFlowSlots();
-            let originalLinearIndex = slots.findIndex(sl => sl.s === targetSpotIndex && sl.p === targetSpotPos);
-
-            let currentActiveStaffList = [];
-            slots.forEach(sl => {
-                if (currentSpots[sl.s] && currentSpots[sl.s][sl.p]) {
-                    currentActiveStaffList.push({
-                        staff: currentSpots[sl.s][sl.p],
-                        origin: (spotShiftOrigin[sl.s] && spotShiftOrigin[sl.s][sl.p]) ? spotShiftOrigin[sl.s][sl.p] : 'pagi'
-                    });
+            commitAtomicIntent((st, fx) => {
+                const sessIdx = st.activeSessions.findIndex(s => s && s.id === sessionId);
+                if (sessIdx === -1) {
+                    fx.alreadyHandled = true;
+                    return false;
                 }
-            });
 
-            const morningArr = toSafeArray(shiftMorningQueue);
-            const isMorningStaff = morningArr.some(emp => emp && String(emp.nik) === String(staff.nik));
-            const staffOrigin = isMorningStaff ? 'pagi' : 'siang';
+                const sess = st.activeSessions.splice(sessIdx, 1)[0];
+                const staff = sess.staff;
+                const staffName = typeof staff === 'object' ? (staff.name || staff.nama || 'Petugas') : staff;
+                const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
+                const targetSpotIndex = Number(sess.spotIndex);
+                const targetSpotPos = Number(sess.spotPositionIndex);
 
-            if (originalLinearIndex !== -1) {
-                currentActiveStaffList = currentActiveStaffList.filter(item => String(item.staff.nik) !== String(staff.nik));
+                const slots = getOrderedFlowSlots();
+                let originalLinearIndex = slots.findIndex(sl => sl.s === targetSpotIndex && sl.p === targetSpotPos);
 
-                const insertIdx = Math.min(originalLinearIndex, currentActiveStaffList.length);
-                currentActiveStaffList.splice(insertIdx, 0, { staff: staff, origin: staffOrigin });
+                let currentActiveStaffList = [];
+                slots.forEach(sl => {
+                    if (st.currentSpots[sl.s] && st.currentSpots[sl.s][sl.p]) {
+                        currentActiveStaffList.push({
+                            staff: st.currentSpots[sl.s][sl.p],
+                            origin: (st.spotShiftOrigin[sl.s] && st.spotShiftOrigin[sl.s][sl.p]) ? st.spotShiftOrigin[sl.s][sl.p] : 'pagi'
+                        });
+                    }
+                });
 
-                for (let s = 0; s < 3; s++) {
-                    if (Array.isArray(currentSpots[s])) {
-                        for (let p = 0; p < currentSpots[s].length; p++) {
-                            currentSpots[s][p] = null;
-                            if (spotShiftOrigin[s]) spotShiftOrigin[s][p] = null;
+                const morningArr = toSafeArray(st.shiftMorningQueue);
+                const isMorningStaff = morningArr.some(emp => emp && String(emp.nik) === String(staff.nik));
+                const staffOrigin = isMorningStaff ? 'pagi' : 'siang';
+
+                if (originalLinearIndex !== -1) {
+                    currentActiveStaffList = currentActiveStaffList.filter(item => String(item.staff.nik) !== String(staff.nik));
+                    const insertIdx = Math.min(originalLinearIndex, currentActiveStaffList.length);
+                    currentActiveStaffList.splice(insertIdx, 0, { staff: staff, origin: staffOrigin });
+
+                    for (let s = 0; s < 3; s++) {
+                        if (Array.isArray(st.currentSpots[s])) {
+                            for (let p = 0; p < st.currentSpots[s].length; p++) {
+                                st.currentSpots[s][p] = null;
+                                if (st.spotShiftOrigin[s]) st.spotShiftOrigin[s][p] = null;
+                            }
                         }
                     }
-                }
 
-                for (let i = 0; i < slots.length; i++) {
-                    if (i < currentActiveStaffList.length) {
-                        const slotInfo = slots[i];
-                        const activeInfo = currentActiveStaffList[i];
-                        currentSpots[slotInfo.s][slotInfo.p] = activeInfo.staff;
-                        spotShiftOrigin[slotInfo.s][slotInfo.p] = activeInfo.origin;
+                    for (let i = 0; i < slots.length; i++) {
+                        if (i < currentActiveStaffList.length) {
+                            const slotInfo = slots[i];
+                            const activeInfo = currentActiveStaffList[i];
+                            st.currentSpots[slotInfo.s][slotInfo.p] = activeInfo.staff;
+                            st.spotShiftOrigin[slotInfo.s][slotInfo.p] = activeInfo.origin;
+                        }
                     }
+
+                    for (let i = slots.length; i < currentActiveStaffList.length; i++) {
+                        st.activeQueue.unshift(currentActiveStaffList[i].staff);
+                    }
+                } else {
+                    st.activeQueue.unshift(staff);
                 }
 
-                for (let i = slots.length; i < currentActiveStaffList.length; i++) {
-                    activeQueue.unshift(currentActiveStaffList[i].staff);
+                const timeNow = getWibTimeString();
+                const logData = {
+                    date: getWibDateString(),
+                    time: timeNow,
+                    staffName: staffName,
+                    spot: spotNames[targetSpotIndex] || "Titik Greeter",
+                    shift: "CANCEL",
+                    duration: "00:00",
+                    reason: "BATAL [Customer Sudah Janjian] -> Kembali ke Titik Awal",
+                    photo: "Tanpa Foto",
+                    gps: "-"
+                };
+
+                st.activityLogs.unshift(logData);
+                fx.logData = logData;
+                fx.staffName = staffName;
+                return true;
+            }, (committed, fx) => {
+                if (fx.alreadyHandled) {
+                    showCustomAlert('Informasi', 'Sesi buddy ini sudah dibatalkan atau diselesaikan oleh perangkat lain.');
+                    renderActiveSessionsList();
+                    return;
                 }
-            } else {
-                activeQueue.unshift(staff);
-                advanceRotationAndFill();
-            }
-
-            const timeNow = getWibTimeString();
-            const logData = {
-                date: getWibDateString(),
-                time: timeNow,
-                staffName: staffName,
-                spot: spotNames[targetSpotIndex] || "Titik Greeter",
-                shift: "CANCEL",
-                duration: "00:00",
-                reason: "BATAL [Customer Sudah Janjian] -> Kembali ke Titik Awal",
-                photo: "Tanpa Foto",
-                gps: "-"
-            };
-
-            activityLogs = toSafeArray(activityLogs);
-            activityLogs.unshift(logData);
-            syncLogToSpreadsheet(logData);
-
-            cleanupActiveQueue();
-            renderActiveSessionsList();
-            renderLogs();
-            updateDisplay();
-            pushStateToFirebase({ removedSessionId: sessionId });
-
-            showCustomAlert('Sesi Dibatalkan', `Sesi ${staffName} dibatalkan dan petugas dikembalikan ke titik asalnya.`);
+                if (committed && fx.logData) {
+                    syncLogToSpreadsheet(fx.logData);
+                    showCustomAlert('Sesi Dibatalkan', `Sesi ${fx.staffName} dibatalkan dan petugas dikembalikan ke titik asalnya.`);
+                }
+            });
         } catch (e) {
             console.error("Error executeCancelBuddySession:", e);
         }
@@ -2093,7 +2287,7 @@
             if (timerEl) {
                 const diffSec = Math.max(0, Math.floor((currentTime - sess.startTime) / 1000));
                 const mins = String(Math.floor(diffSec / 60)).padStart(2, '0');
-                const secs = String(diffSec % 60).padStart(2, '0');
+                const secs = String(Math.floor(diffSec % 60)).padStart(2, '0');
                 timerEl.innerText = `⏳ Durasi: ${mins}:${secs}`;
             }
         });
@@ -2117,7 +2311,7 @@
 
         const diffSec = Math.max(0, Math.floor((Date.now() - sess.startTime) / 1000));
         const mins = String(Math.floor(diffSec / 60)).padStart(2, '0');
-        const secs = String(diffSec % 60).padStart(2, '0');
+        const secs = String(Math.floor(diffSec % 60)).padStart(2, '0');
         document.getElementById('timer-display').innerText = `${mins}:${secs}`;
 
         const photoInput = document.getElementById('buddy-photo');
@@ -2188,39 +2382,70 @@
 
     function startBuddySession(spotIndex, staffPositionIndex) {
         try {
-            sanitizeStateForTime();
-            const staff = currentSpots[spotIndex] && currentSpots[spotIndex][staffPositionIndex];
-            if (!staff) {
+            const targetStaff = currentSpots[spotIndex] && currentSpots[spotIndex][staffPositionIndex];
+            if (!targetStaff) {
                 showCustomAlert('Informasi', 'Data petugas sudah kedaluwarsa. Silakan muat ulang.');
                 updateDisplay();
                 return;
             }
-            const staffName = typeof staff === 'object' ? (staff.name || staff.nama || 'Petugas') : staff;
+            const targetNik = String(targetStaff.nik);
+            const targetName = typeof targetStaff === 'object' ? (targetStaff.name || targetStaff.nama || 'Petugas') : targetStaff;
 
-            activeSessions = toSafeArray(activeSessions);
-            if (activeSessions.some(s => s && s.staff && String(s.staff.nik) === String(staff.nik))) {
-                showCustomAlert('Perhatian', `${staffName} sudah memiliki sesi buddy yang sedang aktif.`);
-                return;
-            }
+            commitAtomicIntent((st, fx) => {
+                // Pastikan petugas yang sama belum aktif di sesi buddy lain
+                if (st.activeSessions.some(s => s && s.staff && String(s.staff.nik) === targetNik)) {
+                    fx.errorMsg = `${targetName} sudah memiliki sesi buddy yang sedang aktif.`;
+                    return false;
+                }
 
-            const newSession = {
-                id: 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
-                spotIndex: Number(spotIndex),
-                spotPositionIndex: Number(staffPositionIndex),
-                staff: staff,
-                startTime: Date.now()
-            };
+                // Cari petugas di titik yang diklik (atau jika sudah bergeser slot karena device lain klik duluan, tetap temukan posisinya)
+                let foundS = -1;
+                let foundP = -1;
+                let foundStaffObj = null;
 
-            activeSessions.push(newSession);
-            localStorage.setItem('greeter_active_sessions', JSON.stringify(activeSessions));
+                if (st.currentSpots[spotIndex] && st.currentSpots[spotIndex][staffPositionIndex] && String(st.currentSpots[spotIndex][staffPositionIndex].nik) === targetNik) {
+                    foundS = spotIndex;
+                    foundP = staffPositionIndex;
+                    foundStaffObj = st.currentSpots[spotIndex][staffPositionIndex];
+                } else {
+                    for (let s = 0; s < st.currentSpots.length; s++) {
+                        if (!Array.isArray(st.currentSpots[s])) continue;
+                        for (let p = 0; p < st.currentSpots[s].length; p++) {
+                            if (st.currentSpots[s][p] && String(st.currentSpots[s][p].nik) === targetNik) {
+                                foundS = s;
+                                foundP = p;
+                                foundStaffObj = st.currentSpots[s][p];
+                                break;
+                            }
+                        }
+                        if (foundS !== -1) break;
+                    }
+                }
 
-            currentSpots[spotIndex][staffPositionIndex] = null;
-            if (spotShiftOrigin[spotIndex]) spotShiftOrigin[spotIndex][staffPositionIndex] = null;
+                if (foundS === -1 || !foundStaffObj) {
+                    fx.errorMsg = 'Data petugas pada titik ini baru saja berubah oleh perangkat lain.';
+                    return false;
+                }
 
-            advanceRotationAndFill();
-            pushStateToFirebase();
-            updateDisplay();
-            showCustomAlert('Sesi Dimulai', `Sesi buddy untuk ${staffName} telah dimulai.`);
+                const newSession = {
+                    id: 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+                    spotIndex: Number(foundS),
+                    spotPositionIndex: Number(foundP),
+                    staff: foundStaffObj,
+                    startTime: Date.now()
+                };
+
+                st.activeSessions.push(newSession);
+                st.currentSpots[foundS][foundP] = null;
+                if (st.spotShiftOrigin[foundS]) st.spotShiftOrigin[foundS][foundP] = null;
+                return true;
+            }, (committed, fx) => {
+                if (!committed) {
+                    if (fx.errorMsg) showCustomAlert('Informasi', fx.errorMsg);
+                    return;
+                }
+                showCustomAlert('Sesi Dimulai', `Sesi buddy untuk ${targetName} telah dimulai.`);
+            });
         } catch (e) {
             console.error("Error startBuddySession:", e);
         }
@@ -2251,27 +2476,6 @@
             if (finishBtn) finishBtn.disabled = true;
 
             const finishedSessId = targetFinishingSessionId;
-            activeSessions = toSafeArray(activeSessions);
-            const sessIdx = activeSessions.findIndex(s => s && s.id === finishedSessId);
-            if (sessIdx === -1) {
-                if (finishBtn) finishBtn.disabled = false;
-                closeBuddyModalViewOnly();
-                showCustomAlert('Informasi', 'Sesi ini sudah diselesaikan sebelumnya oleh perangkat lain.');
-                return;
-            }
-
-            const sess = activeSessions.splice(sessIdx, 1)[0];
-            localStorage.setItem('greeter_active_sessions', JSON.stringify(activeSessions));
-
-            const staff = sess.staff;
-            const staffName = typeof staff === 'object' ? (staff.name || staff.nama || 'Petugas') : staff;
-            const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
-            
-            const diffSec = Math.max(0, Math.floor((Date.now() - sess.startTime) / 1000));
-            const mins = String(Math.floor(diffSec / 60)).padStart(2, '0');
-            const secs = String(diffSec % 60).padStart(2, '0');
-            const duration = `${mins}:${secs}`;
-
             let fullReason = `${category}: Value=${detailVal || '0'}`;
             if (category === 'Pending' && detailText) {
                 fullReason += ` | Alasan=${detailText}`;
@@ -2283,37 +2487,57 @@
             const hasPhoto = photoInput && photoInput.files.length > 0 ? "Ada Foto" : "Tanpa Foto";
             const gpsStr = staffLatitude ? `${staffLatitude.toFixed(5)}, ${staffLongitude.toFixed(5)}` : "Layout Kotwis";
             const timeNow = getWibTimeString();
+            const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
 
-            const logData = {
-                date: getWibDateString(),
-                time: timeNow,
-                staffName: staffName,
-                spot: spotNames[sess.spotIndex] || "Titik Greeter",
-                shift: "BUDDY SELESAI",
-                duration: duration,
-                reason: fullReason,
-                photo: hasPhoto,
-                gps: gpsStr
-            };
+            commitAtomicIntent((st, fx) => {
+                const sessIdx = st.activeSessions.findIndex(s => s && s.id === finishedSessId);
+                if (sessIdx === -1) {
+                    fx.alreadyFinished = true;
+                    return false;
+                }
 
-            activityLogs = toSafeArray(activityLogs);
-            activityLogs.unshift(logData);
-            syncLogToSpreadsheet(logData);
+                const sess = st.activeSessions.splice(sessIdx, 1)[0];
+                const staff = sess.staff;
+                const staffName = typeof staff === 'object' ? (staff.name || staff.nama || 'Petugas') : staff;
 
-            advanceRotationAndFill();
-            activeQueue.push(staff);
-            cleanupActiveQueue();
+                const diffSec = Math.max(0, Math.floor((Date.now() - sess.startTime) / 1000));
+                const mins = String(Math.floor(diffSec / 60)).padStart(2, '0');
+                const secs = String(Math.floor(diffSec % 60)).padStart(2, '0');
+                const duration = `${mins}:${secs}`;
 
-            renderLogs();
-            updateDisplay();
-            document.getElementById('buddy-modal').classList.add('hidden');
-            targetFinishingSessionId = null;
+                const logData = {
+                    date: getWibDateString(),
+                    time: timeNow,
+                    staffName: staffName,
+                    spot: spotNames[sess.spotIndex] || "Titik Greeter",
+                    shift: "BUDDY SELESAI",
+                    duration: duration,
+                    reason: fullReason,
+                    photo: hasPhoto,
+                    gps: gpsStr
+                };
 
-            pushStateToFirebase({ removedSessionId: finishedSessId });
-            showCustomAlert('Laporan Selesai', `Sesi buddy ${staffName} selesai.`);
+                st.activityLogs.unshift(logData);
+                st.activeQueue.push(staff);
+                fx.logData = logData;
+                fx.staffName = staffName;
+                return true;
+            }, (committed, fx) => {
+                if (finishBtn) finishBtn.disabled = false;
+                document.getElementById('buddy-modal').classList.add('hidden');
+                targetFinishingSessionId = null;
+
+                if (fx.alreadyFinished) {
+                    showCustomAlert('Informasi', 'Sesi ini sudah diselesaikan sebelumnya oleh perangkat lain.');
+                    return;
+                }
+                if (committed && fx.logData) {
+                    syncLogToSpreadsheet(fx.logData);
+                    showCustomAlert('Laporan Selesai', `Sesi buddy ${fx.staffName} selesai.`);
+                }
+            });
         } catch (e) {
             console.error("Error finishBuddySessionConfirmed:", e);
-        } finally {
             if (finishBtn) finishBtn.disabled = false;
         }
     }
@@ -2371,49 +2595,58 @@
         const saveBtn = document.getElementById('btn-save-smt');
         try {
             if (saveBtn) saveBtn.disabled = true;
-
             const mode = document.querySelector('input[name="shift-mode"]:checked').value;
-            
-            if (mode === 'pagi') {
-                shiftMorningQueue = [...selectedStaffQueue];
-            } else {
-                shiftAfternoonQueue = [...selectedStaffQueue];
-            }
+            const chosenSnapshot = selectedStaffQueue.map(s => ({ ...s }));
 
-            const existingNiks = new Set();
-            currentSpots.forEach(group => {
-                if (Array.isArray(group)) group.forEach(staff => { if (staff && staff.nik) existingNiks.add(String(staff.nik)); });
-            });
-            toSafeArray(activeSessions).forEach(sess => {
-                if (sess && sess.staff && sess.staff.nik) existingNiks.add(String(sess.staff.nik));
-            });
-            toSafeArray(pausedQueue).forEach(item => {
-                if (item && item.staff && item.staff.nik) existingNiks.add(String(item.staff.nik));
-            });
-            toSafeArray(activeQueue).forEach(staff => {
-                if (staff && staff.nik) existingNiks.add(String(staff.nik));
-            });
+            commitAtomicIntent((st, fx) => {
+                // Akumulasikan daftar shift tanpa menghapus petugas shift yang sudah diinput perangkat lain
+                const targetShiftKey = mode === 'pagi' ? 'shiftMorningQueue' : 'shiftAfternoonQueue';
+                const currentShiftList = toSafeArray(st[targetShiftKey]);
+                const existingShiftNiks = new Set(currentShiftList.map(e => e && e.nik ? String(e.nik) : null).filter(Boolean));
 
-            let addedCount = 0;
-            selectedStaffQueue.forEach(staff => {
-                if (staff && staff.nik && !existingNiks.has(String(staff.nik))) {
-                    activeQueue.push(staff);
-                    existingNiks.add(String(staff.nik));
-                    addedCount++;
+                chosenSnapshot.forEach(staff => {
+                    if (staff && staff.nik && !existingShiftNiks.has(String(staff.nik))) {
+                        currentShiftList.push(staff);
+                        existingShiftNiks.add(String(staff.nik));
+                    }
+                });
+                st[targetShiftKey] = currentShiftList;
+
+                // Kumpulkan semua NIK yang sudah aktif di spot, buddy, paused, atau queue
+                const existingNiks = new Set();
+                st.currentSpots.forEach(group => {
+                    if (Array.isArray(group)) group.forEach(staff => { if (staff && staff.nik) existingNiks.add(String(staff.nik)); });
+                });
+                toSafeArray(st.activeSessions).forEach(sess => {
+                    if (sess && sess.staff && sess.staff.nik) existingNiks.add(String(sess.staff.nik));
+                });
+                toSafeArray(st.pausedQueue).forEach(item => {
+                    if (item && item.staff && item.staff.nik) existingNiks.add(String(item.staff.nik));
+                });
+                toSafeArray(st.activeQueue).forEach(staff => {
+                    if (staff && staff.nik) existingNiks.add(String(staff.nik));
+                });
+
+                let addedCount = 0;
+                chosenSnapshot.forEach(staff => {
+                    if (staff && staff.nik && !existingNiks.has(String(staff.nik))) {
+                        st.activeQueue.push(staff);
+                        existingNiks.add(String(staff.nik));
+                        addedCount++;
+                    }
+                });
+
+                fx.addedCount = addedCount;
+                return true;
+            }, (committed, fx) => {
+                if (saveBtn) saveBtn.disabled = false;
+                if (committed) {
+                    closeSmtModal();
+                    showCustomAlert("Berhasil", `Data SMT Shift ${mode.toUpperCase()} berhasil disimpan. ${fx.addedCount} petugas baru ditambahkan ke antrean paling bawah tanpa menimpa data yang sedang berjalan.`);
                 }
             });
-
-            sanitizeStateForTime();
-            advanceRotationAndFill();
-            cleanupActiveQueue();
-            pushStateToFirebase();
-            updateDisplay();
-            updateAttendanceStats();
-            closeSmtModal();
-            showCustomAlert("Berhasil", `Data SMT Shift ${mode.toUpperCase()} berhasil disimpan. ${addedCount} petugas baru ditambahkan ke antrean paling bawah tanpa menimpa data yang sedang berjalan.`);
         } catch (e) {
             console.error("Error saveSmtList:", e);
-        } finally {
             if (saveBtn) saveBtn.disabled = false;
         }
     }
@@ -2691,77 +2924,97 @@
 
             const chosenItem = JSON.parse(selectEl.value);
             const destinationType = spotSelectEl.value;
+            const targetPositionIndex = parseInt(posSelectEl.value, 10);
             const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
 
-            let staffObj = null;
+            commitAtomicIntent((st, fx) => {
+                let staffObj = null;
 
-            if (chosenItem.source === 'queue') {
-                const idx = activeQueue.findIndex(s => s && String(s.nik) === String(chosenItem.nik));
-                if (idx !== -1) staffObj = activeQueue.splice(idx, 1)[0];
-            } else if (chosenItem.source === 'spot') {
-                if (currentSpots[chosenItem.sIdx] && currentSpots[chosenItem.sIdx][chosenItem.pIdx] && String(currentSpots[chosenItem.sIdx][chosenItem.pIdx].nik) === String(chosenItem.nik)) {
-                    staffObj = currentSpots[chosenItem.sIdx][chosenItem.pIdx];
-                    currentSpots[chosenItem.sIdx][chosenItem.pIdx] = null;
-                    if (spotShiftOrigin[chosenItem.sIdx]) spotShiftOrigin[chosenItem.sIdx][chosenItem.pIdx] = null;
-                }
-            } else if (chosenItem.source === 'paused') {
-                const idx = pausedQueue.findIndex(item => item && item.staff && String(item.staff.nik) === String(chosenItem.nik));
-                if (idx !== -1) staffObj = pausedQueue.splice(idx, 1)[0].staff;
-            }
-
-            if (!staffObj) {
-                closeRotasiPinModal();
-                showCustomAlert('Informasi', 'Posisi petugas sudah berubah sebelumnya. Silakan ulangi pengaturan.');
-                updateDisplay();
-                return;
-            }
-
-            const staffName = typeof staffObj === 'object' ? (staffObj.name || staffObj.nama || 'Petugas') : staffObj;
-            
-            if (destinationType === 'delete') {
-                shiftMorningQueue = toSafeArray(shiftMorningQueue).filter(e => e && String(e.nik) !== String(staffObj.nik));
-                shiftAfternoonQueue = toSafeArray(shiftAfternoonQueue).filter(e => e && String(e.nik) !== String(staffObj.nik));
-
-                sanitizeStateForTime();
-                advanceRotationAndFill();
-                cleanupActiveQueue();
-                pushStateToFirebase();
-                updateDisplay();
-                closeRotasiPinModal();
-                showCustomAlert('Berhasil Dihapus', `Petugas ${staffName} berhasil dihapus/dikeluarkan dari perputaran sistem hari ini.`);
-                return;
-            }
-
-            const targetPositionIndex = parseInt(posSelectEl.value, 10);
-            const morningArr = toSafeArray(shiftMorningQueue);
-            const isMorningStaff = morningArr.some(emp => emp && String(emp.nik) === String(staffObj.nik));
-            const staffOrigin = isMorningStaff ? 'pagi' : 'siang';
-
-            if (destinationType.startsWith('spot_')) {
-                const targetSpotIndex = parseInt(destinationType.replace('spot_', ''), 10);
-                
-                let existingStaff = currentSpots[targetSpotIndex][targetPositionIndex];
-                currentSpots[targetSpotIndex][targetPositionIndex] = staffObj;
-                if (spotShiftOrigin[targetSpotIndex]) spotShiftOrigin[targetSpotIndex][targetPositionIndex] = staffOrigin;
-
-                if (existingStaff) {
-                    activeQueue.unshift(existingStaff);
+                // Cari petugas berdasarkan NIK di seluruh sumber aktif server
+                const qIdx = st.activeQueue.findIndex(s => s && String(s.nik) === String(chosenItem.nik));
+                if (qIdx !== -1) {
+                    staffObj = st.activeQueue.splice(qIdx, 1)[0];
                 }
 
-                triggerNextGreeterNotification(staffName, spotNames[targetSpotIndex]);
-                showCustomAlert('Berhasil', `Petugas ${staffName} berhasil ditempatkan di ${spotNames[targetSpotIndex]} (Urutan/Slot ke-${targetPositionIndex + 1}).`);
-            } else if (destinationType === 'queue') {
-                const safePos = Math.min(Math.max(0, targetPositionIndex), activeQueue.length);
-                activeQueue.splice(safePos, 0, staffObj);
-                showCustomAlert('Berhasil', `Petugas ${staffName} berhasil dimasukkan ke Antrean Cadangan di urutan ke-${safePos + 1}.`);
-            }
+                if (!staffObj) {
+                    for (let s = 0; s < st.currentSpots.length; s++) {
+                        if (!Array.isArray(st.currentSpots[s])) continue;
+                        for (let p = 0; p < st.currentSpots[s].length; p++) {
+                            if (st.currentSpots[s][p] && String(st.currentSpots[s][p].nik) === String(chosenItem.nik)) {
+                                staffObj = st.currentSpots[s][p];
+                                st.currentSpots[s][p] = null;
+                                if (st.spotShiftOrigin[s]) st.spotShiftOrigin[s][p] = null;
+                                break;
+                            }
+                        }
+                        if (staffObj) break;
+                    }
+                }
 
-            sanitizeStateForTime();
-            advanceRotationAndFill();
-            cleanupActiveQueue();
-            pushStateToFirebase();
-            updateDisplay();
-            closeRotasiPinModal();
+                if (!staffObj) {
+                    const pIdx = st.pausedQueue.findIndex(item => item && item.staff && String(item.staff.nik) === String(chosenItem.nik));
+                    if (pIdx !== -1) {
+                        staffObj = st.pausedQueue.splice(pIdx, 1)[0].staff;
+                    }
+                }
+
+                if (!staffObj) {
+                    fx.notFound = true;
+                    return false;
+                }
+
+                const staffName = typeof staffObj === 'object' ? (staffObj.name || staffObj.nama || 'Petugas') : staffObj;
+                fx.staffName = staffName;
+
+                if (destinationType === 'delete') {
+                    st.shiftMorningQueue = toSafeArray(st.shiftMorningQueue).filter(e => e && String(e.nik) !== String(staffObj.nik));
+                    st.shiftAfternoonQueue = toSafeArray(st.shiftAfternoonQueue).filter(e => e && String(e.nik) !== String(staffObj.nik));
+                    fx.actionType = 'delete';
+                    return true;
+                }
+
+                const morningArr = toSafeArray(st.shiftMorningQueue);
+                const isMorningStaff = morningArr.some(emp => emp && String(emp.nik) === String(staffObj.nik));
+                const staffOrigin = isMorningStaff ? 'pagi' : 'siang';
+
+                if (destinationType.startsWith('spot_')) {
+                    const targetSpotIndex = parseInt(destinationType.replace('spot_', ''), 10);
+                    let existingStaff = st.currentSpots[targetSpotIndex][targetPositionIndex];
+                    st.currentSpots[targetSpotIndex][targetPositionIndex] = staffObj;
+                    if (st.spotShiftOrigin[targetSpotIndex]) st.spotShiftOrigin[targetSpotIndex][targetPositionIndex] = staffOrigin;
+
+                    if (existingStaff) {
+                        st.activeQueue.unshift(existingStaff);
+                    }
+
+                    fx.actionType = 'spot';
+                    fx.targetSpotName = spotNames[targetSpotIndex];
+                    fx.targetPosNum = targetPositionIndex + 1;
+                } else if (destinationType === 'queue') {
+                    const safePos = Math.min(Math.max(0, targetPositionIndex), st.activeQueue.length);
+                    st.activeQueue.splice(safePos, 0, staffObj);
+                    fx.actionType = 'queue';
+                    fx.safePosNum = safePos + 1;
+                }
+
+                return true;
+            }, (committed, fx) => {
+                closeRotasiPinModal();
+                if (fx.notFound) {
+                    showCustomAlert('Informasi', 'Posisi petugas sudah berubah sebelumnya. Silakan ulangi pengaturan.');
+                    return;
+                }
+                if (!committed) return;
+
+                if (fx.actionType === 'delete') {
+                    showCustomAlert('Berhasil Dihapus', `Petugas ${fx.staffName} berhasil dihapus/dikeluarkan dari perputaran sistem hari ini.`);
+                } else if (fx.actionType === 'spot') {
+                    triggerNextGreeterNotification(fx.staffName, fx.targetSpotName);
+                    showCustomAlert('Berhasil', `Petugas ${fx.staffName} berhasil ditempatkan di ${fx.targetSpotName} (Urutan/Slot ke-${fx.targetPosNum}).`);
+                } else if (fx.actionType === 'queue') {
+                    showCustomAlert('Berhasil', `Petugas ${fx.staffName} berhasil dimasukkan ke Antrean Cadangan di urutan ke-${fx.safePosNum}.`);
+                }
+            });
         } catch (e) {
             console.error("Error executeManualRotationCustom:", e);
         }
@@ -2793,15 +3046,15 @@
     function confirmSkipAction() {
         if (!lockAction()) return;
         try {
-            const staff = currentSpots[skipSpotIndex] && currentSpots[skipSpotIndex][skipStaffIndexInSpot];
-            if (!staff) {
+            const targetStaff = currentSpots[skipSpotIndex] && currentSpots[skipSpotIndex][skipStaffIndexInSpot];
+            if (!targetStaff) {
                 closeSkipModal();
                 showCustomAlert('Informasi', 'Data petugas sudah kedaluwarsa. Silakan muat ulang.');
                 updateDisplay();
                 return;
             }
 
-            const staffName = typeof staff === 'object' ? (staff.name || staff.nama || 'Petugas') : staff;
+            const targetNik = String(targetStaff.nik);
             const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
             const category = document.getElementById('skip-reason-category').value;
             const detailInput = document.getElementById('skip-reason-detail');
@@ -2813,56 +3066,89 @@
             else if (category === '2_Jam') hoursToAdd = 2;
             else if (category === '3_Jam') hoursToAdd = 3;
 
-            activityLogs = toSafeArray(activityLogs);
+            const capturedSpotIndex = skipSpotIndex;
+            const capturedPosIndex = skipStaffIndexInSpot;
 
-            if (hoursToAdd > 0) {
-                const resumeTime = Date.now() + (hoursToAdd * 60 * 60 * 1000);
-                pausedQueue = toSafeArray(pausedQueue);
-                pausedQueue.push({ staff: staff, resumeTime: resumeTime });
+            commitAtomicIntent((st, fx) => {
+                let foundS = -1;
+                let foundP = -1;
+                let foundStaffObj = null;
 
-                const logData = {
-                    date: getWibDateString(),
-                    time: timeNow,
-                    staffName: staffName,
-                    spot: spotNames[skipSpotIndex],
-                    shift: "SKIP IZIN",
-                    duration: `${hoursToAdd} Jam`,
-                    reason: `SKIP [Izin ${hoursToAdd} Jam]: ${detail}`,
-                    photo: "Tanpa Foto",
-                    gps: "-"
-                };
-                activityLogs.unshift(logData);
-                syncLogToSpreadsheet(logData);
-            } else {
-                const logData = {
-                    date: getWibDateString(),
-                    time: timeNow,
-                    staffName: staffName,
-                    spot: spotNames[skipSpotIndex],
-                    shift: "SKIP",
-                    duration: "00:00 (SKIP)",
-                    reason: `SKIP [${category}]: ${detail}`,
-                    photo: "Tanpa Foto",
-                    gps: "-"
-                };
-                activityLogs.unshift(logData);
-                syncLogToSpreadsheet(logData);
-                
-                activeQueue.push(staff);
-            }
+                if (st.currentSpots[capturedSpotIndex] && st.currentSpots[capturedSpotIndex][capturedPosIndex] && String(st.currentSpots[capturedSpotIndex][capturedPosIndex].nik) === targetNik) {
+                    foundS = capturedSpotIndex;
+                    foundP = capturedPosIndex;
+                    foundStaffObj = st.currentSpots[capturedSpotIndex][capturedPosIndex];
+                } else {
+                    for (let s = 0; s < st.currentSpots.length; s++) {
+                        if (!Array.isArray(st.currentSpots[s])) continue;
+                        for (let p = 0; p < st.currentSpots[s].length; p++) {
+                            if (st.currentSpots[s][p] && String(st.currentSpots[s][p].nik) === targetNik) {
+                                foundS = s;
+                                foundP = p;
+                                foundStaffObj = st.currentSpots[s][p];
+                                break;
+                            }
+                        }
+                        if (foundS !== -1) break;
+                    }
+                }
 
-            renderLogs();
-            closeSkipModal();
+                if (foundS === -1 || !foundStaffObj) {
+                    fx.notFound = true;
+                    return false;
+                }
 
-            currentSpots[skipSpotIndex][skipStaffIndexInSpot] = null;
-            if (spotShiftOrigin[skipSpotIndex]) spotShiftOrigin[skipSpotIndex][skipStaffIndexInSpot] = null;
+                const staffName = typeof foundStaffObj === 'object' ? (foundStaffObj.name || foundStaffObj.nama || 'Petugas') : foundStaffObj;
+                let logData = null;
 
-            sanitizeStateForTime();
-            advanceRotationAndFill();
-            cleanupActiveQueue();
-            pushStateToFirebase();
-            updateDisplay();
-            showCustomAlert('Berhasil Skip', `Petugas ${staffName} berhasil di-skip dan turun ke antrean bawah.`);
+                if (hoursToAdd > 0) {
+                    const resumeTime = Date.now() + (hoursToAdd * 60 * 60 * 1000);
+                    st.pausedQueue.push({ staff: foundStaffObj, resumeTime: resumeTime });
+
+                    logData = {
+                        date: getWibDateString(),
+                        time: timeNow,
+                        staffName: staffName,
+                        spot: spotNames[foundS],
+                        shift: "SKIP IZIN",
+                        duration: `${hoursToAdd} Jam`,
+                        reason: `SKIP [Izin ${hoursToAdd} Jam]: ${detail}`,
+                        photo: "Tanpa Foto",
+                        gps: "-"
+                    };
+                } else {
+                    logData = {
+                        date: getWibDateString(),
+                        time: timeNow,
+                        staffName: staffName,
+                        spot: spotNames[foundS],
+                        shift: "SKIP",
+                        duration: "00:00 (SKIP)",
+                        reason: `SKIP [${category}]: ${detail}`,
+                        photo: "Tanpa Foto",
+                        gps: "-"
+                    };
+                    st.activeQueue.push(foundStaffObj);
+                }
+
+                st.activityLogs.unshift(logData);
+                st.currentSpots[foundS][foundP] = null;
+                if (st.spotShiftOrigin[foundS]) st.spotShiftOrigin[foundS][foundP] = null;
+
+                fx.logData = logData;
+                fx.staffName = staffName;
+                return true;
+            }, (committed, fx) => {
+                closeSkipModal();
+                if (fx.notFound) {
+                    showCustomAlert('Informasi', 'Data petugas sudah kedaluwarsa. Silakan muat ulang.');
+                    return;
+                }
+                if (committed && fx.logData) {
+                    syncLogToSpreadsheet(fx.logData);
+                    showCustomAlert('Berhasil Skip', `Petugas ${fx.staffName} berhasil di-skip dan turun ke antrean bawah.`);
+                }
+            });
         } catch (e) {
             console.error("Error confirmSkipAction:", e);
         }
