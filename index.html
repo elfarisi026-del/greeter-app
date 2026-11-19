@@ -31,8 +31,12 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
     <script>
-    // --- PENGAMAN ANTI-SPAM KLIK GANDA (GLOBAL ACTION LOCK) ---
+    // --- PENGAMAN ANTI-SPAM KLIK GANDA & STATUS KONEKSI REALTIME (60+ DEVICE GUARD) ---
     let isActionLocked = false;
+    let isFirebaseConnected = true;
+    let isSyncingState = false;
+    const DEVICE_CLIENT_ID = 'dev_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now();
+
     function lockAction(durationMs = 1500) {
         if (isActionLocked) return false;
         isActionLocked = true;
@@ -40,7 +44,7 @@
         return true;
     }
 
-    // --- PENGAMAN TAMBAHAN: CEK TAB BASI SEBELUM AKSI (BATAS 5 MENIT = 300000 ms) ---
+    // --- PENGAMAN TAMBAHAN: CEK KONEKSI & TAB BASI SEBELUM AKSI ---
     const IDLE_LIMIT_MINUTES = 5;
     const IDLE_LIMIT_MS = IDLE_LIMIT_MINUTES * 60 * 1000;
 
@@ -53,13 +57,33 @@
         idleMinutes = 0;
     }
 
+    // --- PENAMBAHAN: VISIBILITYCHANGE LISTENER ---
+    // Ketika perangkat kembali aktif dari sleep/tab background, pastikan timer & koneksi di-reset agar tidak membawa state basi
+    document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") {
+            resetTabActivityTimer();
+            if (db && typeof db.goOnline === 'function') {
+                try { db.goOnline(); } catch (e) {}
+            }
+        }
+    });
+
     function ensureFreshTabBeforeAction() {
+        if (!isFirebaseConnected) {
+            showCustomAlert("Koneksi Terputus", "Perangkat sedang offline / sinkronisasi tertunda. Periksa jaringan Wi-Fi atau data Anda sebelum melakukan aksi.");
+            return false;
+        }
+        if (isSyncingState) {
+            showCustomAlert("Sedang Sinkronisasi", "Sistem sedang menyinkronkan data dari perangkat lain. Silakan coba 1 detik lagi.");
+            return false;
+        }
+
         const loadedTime = parseInt(sessionStorage.getItem('tab_loaded_time'), 10) || Date.now();
         const idleDuration = Date.now() - loadedTime;
         
-        if (idleDuration > IDLE_LIMIT_MS) {
+        if (idleDuration > IDLE_LIMIT_MS && !isFirebaseConnected) {
             sessionStorage.setItem('tab_loaded_time', Date.now());
-            alert("Tunggu yaa.. Halaman lagi refresh ni karena tidak aktif selama 5 menit...");
+            alert("Tunggu yaa.. Halaman lagi refresh ni karena koneksi terputus selama 5 menit...");
             location.reload(); 
             return false;
         }
@@ -67,11 +91,11 @@
         return true;
     }
 
-    // --- FITUR PENGAMAN IDLE / AUTO-REFRESH OTOMATIS (5 MENIT) ---
+    // --- FITUR PENGAMAN IDLE (HANYA RELOAD JIKA KONEKSI PUTUS AGAR TIDAK MEMUTUS SOCKET 60 DEVICE) ---
     let idleMinutes = 0;
     setInterval(() => {
         idleMinutes++;
-        if (idleMinutes >= IDLE_LIMIT_MINUTES) {
+        if (idleMinutes >= IDLE_LIMIT_MINUTES && !isFirebaseConnected) {
             location.reload(); 
         }
     }, 60000);
@@ -98,6 +122,14 @@
         firebase.initializeApp(firebaseConfig);
     }
     const db = firebase.database();
+
+    // Pantau status koneksi Firebase Realtime Database secara langsung
+    db.ref('.info/connected').on('value', (snap) => {
+        isFirebaseConnected = (snap.val() === true);
+        if (isFirebaseConnected) {
+            flushPendingSpreadsheetLogs();
+        }
+    });
 
     let defaultEmployees = [
         { nik: "158769", name: "RUDI KRISTIAN" }, { nik: "129368", name: "KHAIRUL RAHMAN" },
@@ -981,19 +1013,24 @@
             }
         });
 
+        // Jitter acak per perangkat (150ms - 950ms) agar 60+ perangkat tidak mengeksekusi timer pada milidetik persis sama
+        const deviceTimerJitterMs = 150 + Math.floor(Math.random() * 800);
+
         if (globalTimerInterval) clearInterval(globalTimerInterval);
-        globalTimerInterval = setInterval(() => {
-            try {
-                updateActiveSessionsTimersUI();
-                if (sanitizeStateForTime()) {
-                    advanceRotationAndFill();
-                    pushStateToFirebase();
-                    updateDisplay();
+        setTimeout(() => {
+            globalTimerInterval = setInterval(() => {
+                try {
+                    updateActiveSessionsTimersUI();
+                    if (!isSyncingState && isFirebaseConnected && sanitizeStateForTime()) {
+                        advanceRotationAndFill();
+                        pushStateToFirebase();
+                        updateDisplay();
+                    }
+                } catch (e) {
+                    console.error("Error pada globalTimerInterval:", e);
                 }
-            } catch (e) {
-                console.error("Error pada globalTimerInterval:", e);
-            }
-        }, 1000);
+            }, 1000);
+        }, deviceTimerJitterMs);
 
         db.ref('appState').on('value', (snapshot) => {
             try {
@@ -1106,7 +1143,8 @@
         });
     });
 
-    function pushStateToFirebase() {
+    // --- ATOMIC TRANSACTION SYNC UNTUK MENCEGAH RACE CONDITION PADA 60+ PERANGKAT ---
+    function pushStateToFirebase(mergeOptions = {}) {
         try {
             sanitizeStateForTime();
             cleanupActiveQueue();
@@ -1116,6 +1154,7 @@
 
             const stateData = {
                 timestamp: Date.now(),
+                lastUpdatedBy: DEVICE_CLIENT_ID,
                 date: getWibDateString(),
                 currentSpots: plainSpots,
                 activeQueue: toSafeArray(activeQueue),
@@ -1130,10 +1169,72 @@
             localStorage.setItem('greeter_full_state_backup', JSON.stringify(stateData));
             localStorage.setItem('greeter_active_sessions', JSON.stringify(stateData.activeSessions));
 
-            db.ref('appState').set(stateData).catch(err => {
-                console.error("Gagal simpan ke Firebase:", err);
-            });
+            isSyncingState = true;
+            db.ref('appState').transaction((remoteData) => {
+                if (!remoteData || remoteData.date !== stateData.date) {
+                    return stateData;
+                }
+
+                // Gabungkan log aktivitas dari perangkat lain agar log tidak hilang saat bentrok detik yang sama
+                const remoteLogs = toSafeArray(remoteData.activityLogs);
+                const localLogs = toSafeArray(stateData.activityLogs);
+                const seenLogKeys = new Set();
+                const mergedLogs = [];
+
+                [...localLogs, ...remoteLogs].forEach(l => {
+                    if (!l) return;
+                    const key = `${l.date}_${l.time}_${l.staffName}_${l.shift}_${l.reason}`;
+                    if (!seenLogKeys.has(key)) {
+                        seenLogKeys.add(key);
+                        mergedLogs.push(l);
+                    }
+                });
+
+                // Gabungkan sesi buddy aktif dari perangkat lain (kecuali sesi yang baru saja dihapus/diselesaikan oleh perangkat ini)
+                const remoteSessions = toSafeArray(remoteData.activeSessions);
+                const localSessions = toSafeArray(stateData.activeSessions);
+                const removedSessionId = mergeOptions.removedSessionId || null;
+                const sessionMap = new Map();
+
+                remoteSessions.forEach(s => {
+                    if (s && s.id && s.id !== removedSessionId) {
+                        sessionMap.set(s.id, s);
+                    }
+                });
+                localSessions.forEach(s => {
+                    if (s && s.id && s.id !== removedSessionId) {
+                        sessionMap.set(s.id, s);
+                    }
+                });
+
+                const mergedSessions = Array.from(sessionMap.values());
+                const activeSessionNiks = new Set(
+                    mergedSessions.map(s => s && s.staff && s.staff.nik ? String(s.staff.nik) : null).filter(Boolean)
+                );
+
+                // Pastikan petugas yang sedang aktif di sesi buddy perangkat lain tidak ikut terduplikasi di spot/queue
+                const sanitizedSpots = plainSpots.map(group =>
+                    group.map(st => (st && activeSessionNiks.has(String(st.nik))) ? null : st)
+                );
+                const sanitizedQueue = stateData.activeQueue.filter(
+                    st => st && st.nik && !activeSessionNiks.has(String(st.nik))
+                );
+
+                return {
+                    ...stateData,
+                    currentSpots: sanitizedSpots,
+                    activeQueue: sanitizedQueue,
+                    activeSessions: mergedSessions,
+                    activityLogs: mergedLogs
+                };
+            }, (error, committed, snapshot) => {
+                isSyncingState = false;
+                if (error) {
+                    console.error("Transaksi Firebase gagal:", error);
+                }
+            }, false);
         } catch (e) {
+            isSyncingState = false;
             console.error("Error pushStateToFirebase:", e);
         }
     }
@@ -1196,34 +1297,38 @@
         cleanupActiveQueue();
     }
 
-    setInterval(() => {
-        try {
-            const safePaused = toSafeArray(pausedQueue);
-            if (safePaused.length > 0) {
-                const currentTime = Date.now();
-                let updatedPausedQueue = [];
-                let stateChanged = false;
+    // Interval pausedQueue dengan jitter agar 60+ device tidak serentak mengeksekusi resumeTime di detik yang sama
+    setTimeout(() => {
+        setInterval(() => {
+            try {
+                if (isSyncingState || !isFirebaseConnected) return;
+                const safePaused = toSafeArray(pausedQueue);
+                if (safePaused.length > 0) {
+                    const currentTime = Date.now();
+                    let updatedPausedQueue = [];
+                    let stateChanged = false;
 
-                safePaused.forEach(item => {
-                    if (item && item.staff && currentTime >= item.resumeTime) {
-                        activeQueue.push(item.staff);
-                        stateChanged = true;
-                    } else if (item && item.staff) {
-                        updatedPausedQueue.push(item);
+                    safePaused.forEach(item => {
+                        if (item && item.staff && currentTime >= item.resumeTime) {
+                            activeQueue.push(item.staff);
+                            stateChanged = true;
+                        } else if (item && item.staff) {
+                            updatedPausedQueue.push(item);
+                        }
+                    });
+
+                    if (stateChanged) {
+                        pausedQueue = updatedPausedQueue;
+                        advanceRotationAndFill();
+                        pushStateToFirebase();
+                        updateDisplay();
                     }
-                });
-
-                if (stateChanged) {
-                    pausedQueue = updatedPausedQueue;
-                    advanceRotationAndFill();
-                    pushStateToFirebase();
-                    updateDisplay();
                 }
+            } catch (e) {
+                console.error("Error pausedQueue interval:", e);
             }
-        } catch (e) {
-            console.error("Error pausedQueue interval:", e);
-        }
-    }, 1000);
+        }, 1000);
+    }, 200 + Math.floor(Math.random() * 800));
 
     function triggerNextGreeterNotification(staffName, spotName) {
         if (isAfternoonCutOffTime()) return;
@@ -1316,8 +1421,17 @@
             if (!pendingStaffAction) return;
             const enteredNik = document.getElementById('staff-pin-input').value.trim();
             if (enteredNik === String(pendingStaffAction.staff.nik).trim()) {
-                const { action, spotIndex, staffPositionIndex } = pendingStaffAction;
+                const { action, spotIndex, staffPositionIndex, staff } = pendingStaffAction;
                 closeStaffPinModal();
+
+                // Validasi ulang keberadaan petugas di titik sebelum eksekusi (mencegah race condition saat modal PIN terbuka)
+                const currentSlotStaff = currentSpots[spotIndex] && currentSpots[spotIndex][staffPositionIndex];
+                if (!currentSlotStaff || String(currentSlotStaff.nik) !== String(staff.nik)) {
+                    showCustomAlert('Informasi', 'Posisi petugas baru saja berubah oleh perangkat lain. Silakan cek posisi terbaru.');
+                    updateDisplay();
+                    return;
+                }
+
                 if (action === 'mulai') {
                     startBuddySession(spotIndex, staffPositionIndex);
                 } else if (action === 'skip') {
@@ -1666,6 +1780,7 @@
         if (confirm("Yakin ingin menghapus seluruh sesi buddy aktif yang tersimpan?")) {
             activeSessions = [];
             localStorage.removeItem('greeter_active_sessions');
+            db.ref('appState/activeSessions').remove().catch(err => console.error(err));
             pushStateToFirebase();
             renderActiveSessionsList();
             showCustomAlert("Berhasil", "Sesi buddy aktif berhasil dibersihkan.");
@@ -1868,12 +1983,18 @@
         if (!lockAction()) return;
         try {
             if (!pendingCancelSessionId) return;
+            if (!ensureFreshTabBeforeAction()) return;
+
             const sessionId = pendingCancelSessionId;
             closeCancelConfirmModal();
 
             activeSessions = toSafeArray(activeSessions);
             const sessIdx = activeSessions.findIndex(s => s && s.id === sessionId);
-            if (sessIdx === -1) return;
+            if (sessIdx === -1) {
+                showCustomAlert('Informasi', 'Sesi buddy ini sudah dibatalkan atau diselesaikan oleh perangkat lain.');
+                renderActiveSessionsList();
+                return;
+            }
 
             const sess = activeSessions.splice(sessIdx, 1)[0];
             localStorage.setItem('greeter_active_sessions', JSON.stringify(activeSessions));
@@ -1954,7 +2075,7 @@
             renderActiveSessionsList();
             renderLogs();
             updateDisplay();
-            pushStateToFirebase();
+            pushStateToFirebase({ removedSessionId: sessionId });
 
             showCustomAlert('Sesi Dibatalkan', `Sesi ${staffName} dibatalkan dan petugas dikembalikan ke titik asalnya.`);
         } catch (e) {
@@ -1981,7 +2102,11 @@
     function openFinishSessionModal(sessionId) {
         const sessionsArr = toSafeArray(activeSessions);
         const sess = sessionsArr.find(s => s && s.id === sessionId);
-        if (!sess) return;
+        if (!sess) {
+            showCustomAlert('Informasi', 'Sesi buddy ini sudah diselesaikan oleh perangkat lain.');
+            renderActiveSessionsList();
+            return;
+        }
 
         targetFinishingSessionId = sessionId;
         closeActiveSessionsModal();
@@ -2125,12 +2250,13 @@
 
             if (finishBtn) finishBtn.disabled = true;
 
+            const finishedSessId = targetFinishingSessionId;
             activeSessions = toSafeArray(activeSessions);
-            const sessIdx = activeSessions.findIndex(s => s && s.id === targetFinishingSessionId);
+            const sessIdx = activeSessions.findIndex(s => s && s.id === finishedSessId);
             if (sessIdx === -1) {
                 if (finishBtn) finishBtn.disabled = false;
                 closeBuddyModalViewOnly();
-                showCustomAlert('Informasi', 'Sesi ini sudah diselesaikan sebelumnya.');
+                showCustomAlert('Informasi', 'Sesi ini sudah diselesaikan sebelumnya oleh perangkat lain.');
                 return;
             }
 
@@ -2183,7 +2309,7 @@
             document.getElementById('buddy-modal').classList.add('hidden');
             targetFinishingSessionId = null;
 
-            pushStateToFirebase();
+            pushStateToFirebase({ removedSessionId: finishedSessId });
             showCustomAlert('Laporan Selesai', `Sesi buddy ${staffName} selesai.`);
         } catch (e) {
             console.error("Error finishBuddySessionConfirmed:", e);
@@ -2742,6 +2868,7 @@
         }
     }
 
+    // --- PENANGANAN ERROR PENGIRIMAN SPREADSHEET (OFFLINE RETRY QUEUE) ---
     function syncLogToSpreadsheet(log) {
         if (!SCRIPT_URL) return;
         const payload = {
@@ -2750,12 +2877,45 @@
             point: log.spot,
             status: `Durasi: ${log.duration} | ${log.reason} | GPS: ${log.gps} | Foto: ${log.photo}`
         };
+
         fetch(SCRIPT_URL, {
             method: "POST",
             mode: "no-cors",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
-        }).catch(err => console.error("Gagal sync sheet:", err));
+        }).catch(err => {
+            console.warn("Gagal sync sheet, menyimpan ke antrean retry:", err);
+            try {
+                const pendingLogs = JSON.parse(localStorage.getItem('pending_sheet_logs') || '[]');
+                pendingLogs.push(payload);
+                localStorage.setItem('pending_sheet_logs', JSON.stringify(pendingLogs));
+            } catch (storageErr) {
+                console.error("Gagal simpan pending log:", storageErr);
+            }
+        });
+    }
+
+    function flushPendingSpreadsheetLogs() {
+        if (!SCRIPT_URL || !isFirebaseConnected) return;
+        try {
+            const pendingLogs = JSON.parse(localStorage.getItem('pending_sheet_logs') || '[]');
+            if (!Array.isArray(pendingLogs) || pendingLogs.length === 0) return;
+
+            const remaining = [];
+            pendingLogs.forEach((payload) => {
+                fetch(SCRIPT_URL, {
+                    method: "POST",
+                    mode: "no-cors",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                }).catch(() => {
+                    remaining.push(payload);
+                });
+            });
+            localStorage.setItem('pending_sheet_logs', JSON.stringify(remaining));
+        } catch (e) {
+            console.error("Error flushPendingSpreadsheetLogs:", e);
+        }
     }
 
     function normalizeDateString(dateStr) {
