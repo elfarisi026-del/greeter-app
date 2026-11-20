@@ -26,19 +26,171 @@
 
     <div id="app-container"></div>
 
+    <!-- Modal Jadwal Shift & Penunjukan Tugas Harian (Terisolasi dari appState) -->
+    <div id="dailyScheduleModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden border border-slate-200">
+            <!-- Header -->
+            <div class="px-5 py-4 bg-gradient-to-r from-indigo-600 to-blue-600 text-white flex items-center justify-between gap-2 shrink-0">
+                <div>
+                    <h3 class="text-base sm:text-lg font-bold flex items-center gap-2">
+                        <span>📅</span>
+                        <span>Jadwal Shift & Tugas Harian</span>
+                    </h3>
+                    <p id="dailyScheduleDateLabel" class="text-xs text-indigo-100 mt-0.5">Memuat tanggal berjalan...</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="loadScheduleForSelectedDate(true)" title="Muat Ulang Jadwal" class="bg-white/20 hover:bg-white/30 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition">
+                        🔄 Refresh
+                    </button>
+                    <button onclick="closeDailyScheduleModal()" class="bg-white/20 hover:bg-white/30 text-white w-8 h-8 rounded-lg flex items-center justify-center font-bold transition">
+                        ✕
+                    </button>
+                </div>
+            </div>
+
+            <!-- Baris Pemilih Tanggal Bebas & Tombol Akses Atur Tugas (PIN) -->
+            <div class="px-5 py-3 bg-indigo-50/70 border-b border-indigo-100 flex flex-wrap items-center justify-between gap-2 shrink-0">
+                <div class="flex flex-wrap items-center gap-2">
+                    <label for="scheduleDatePicker" class="text-xs font-bold text-slate-700">Tanggal:</label>
+                    <input type="date" id="scheduleDatePicker" onchange="onScheduleDateChanged()" class="text-xs font-semibold border border-slate-300 bg-white rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <button onclick="resetScheduleDateToToday()" class="text-xs font-semibold bg-white hover:bg-slate-100 text-indigo-700 border border-indigo-200 px-2.5 py-1.5 rounded-lg transition">
+                        Hari Ini
+                    </button>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="copyDailyRolesToClipboard()" title="Salin Susunan Tugas Harian" class="text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg shadow-xs transition flex items-center gap-1">
+                        <span>📋 Salin WA</span>
+                    </button>
+                    <button onclick="toggleScheduleRoleAdminBox()" class="text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg shadow-xs transition flex items-center gap-1.5">
+                        <span>🔐 Atur Tugas Harian</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Area Scroll Utama Modal (Panel PIN/Form + Daftar Tugas + Daftar Jadwal Shift) -->
+            <div class="overflow-y-auto flex-1 divide-y divide-slate-200">
+                <!-- Panel PIN & Pemilihan 16 Peran Tugas Harian (Tersembunyi secara default) -->
+                <div id="scheduleRoleAdminPanel" class="hidden px-5 py-4 bg-amber-50 space-y-3">
+                    <!-- Langkah 1: Verifikasi PIN (Placeholder tanpa membocorkan PIN) -->
+                    <div id="scheduleRolePinStep" class="flex flex-wrap items-center gap-2">
+                        <span class="text-xs font-bold text-amber-900">Verifikasi Akses:</span>
+                        <input type="password" id="scheduleRolePinInput" onkeyup="if(event.key==='Enter') verifyScheduleRolePin()" placeholder="Masukkan kode akses..." class="text-xs border border-amber-300 bg-white rounded-lg px-3 py-1.5 w-44 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium">
+                        <button onclick="verifyScheduleRolePin()" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-3.5 py-1.5 rounded-lg transition">Buka</button>
+                        <button onclick="closeScheduleRoleAdminBox()" class="text-xs text-slate-500 hover:text-slate-700 px-2 py-1">Batal</button>
+                        <p id="scheduleRolePinError" class="w-full text-[11px] font-semibold text-rose-600 hidden">Kode akses tidak sesuai!</p>
+                    </div>
+
+                    <!-- Langkah 2: Form Pemilihan 16 Peran Tugas -->
+                    <div id="scheduleRoleFormStep" class="hidden space-y-3">
+                        <div class="flex items-center justify-between border-b border-amber-200 pb-2">
+                            <div>
+                                <span class="text-xs font-extrabold text-amber-950">👑 Pengaturan Penanggung Jawab Tugas (<span id="roleTargetDateText">-</span>)</span>
+                                <p class="text-[11px] text-amber-800 mt-0.5">Opsi teratas memprioritaskan personel yang masuk pada shift sesuai tanggal terpilih.</p>
+                            </div>
+                            <button onclick="closeScheduleRoleAdminBox()" class="text-xs font-bold text-slate-600 hover:text-slate-900 bg-white px-2.5 py-1 rounded-lg border border-amber-200">Tutup ✕</button>
+                        </div>
+
+                        <div id="roleSelectGridContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5"></div>
+
+                        <div class="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-amber-200">
+                            <button onclick="clearAllRoleSelectInputs()" class="text-xs font-semibold text-rose-700 hover:bg-rose-100 px-3 py-2 rounded-lg transition">
+                                Kosongkan Semua
+                            </button>
+                            <button onclick="saveDailyRoleAssignment()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 px-5 rounded-lg shadow-sm transition">
+                                💾 Simpan Susunan Tugas
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ringkasan 16 Tugas Harian Terpilih (Tampil Live untuk Semua User) -->
+                <div class="px-5 py-3.5 bg-gradient-to-br from-amber-50/80 via-white to-indigo-50/50 space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-extrabold text-slate-800 uppercase tracking-wider">📌 Daftar Penanggung Jawab Tugas</span>
+                        <span id="assignedRoleUpdatedMeta" class="text-[10px] text-slate-400"></span>
+                    </div>
+                    <div id="assignedRolesDisplayGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        <div class="text-slate-400 italic">Memuat penugasan...</div>
+                    </div>
+                </div>
+
+                <!-- Filter Shift & Pencarian Jadwal -->
+                <div class="px-5 py-3 bg-slate-50 flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex items-center gap-1.5 text-xs font-semibold">
+                        <button onclick="setScheduleShiftFilter('ALL')" id="schedFilter-ALL" class="sched-filter-btn px-3 py-1.5 rounded-lg bg-indigo-600 text-white">Semua</button>
+                        <button onclick="setScheduleShiftFilter('P')" id="schedFilter-P" class="sched-filter-btn px-3 py-1.5 rounded-lg bg-white text-slate-600 border border-slate-200">☀️ Pagi (P)</button>
+                        <button onclick="setScheduleShiftFilter('S')" id="schedFilter-S" class="sched-filter-btn px-3 py-1.5 rounded-lg bg-white text-slate-600 border border-slate-200">🌙 Siang (X)</button>
+                    </div>
+                    <input type="text" id="dailyScheduleSearch" oninput="renderDailyScheduleContent()" placeholder="Cari nama atau zona..." class="text-xs border border-slate-300 bg-white rounded-lg px-3 py-1.5 w-full sm:w-52 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <!-- Body Daftar Jadwal Shift Per Zona -->
+                <div id="dailyScheduleBody" class="p-5 space-y-4 text-sm">
+                    <div class="text-center py-10 text-slate-400">Memuat jadwal dari Spreadsheet...</div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="px-5 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500 shrink-0">
+                <span id="dailyScheduleSummary">Total: 0 personel</span>
+                <button onclick="closeDailyScheduleModal()" class="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-lg transition">Tutup</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overlay Please Wait saat menyegarkan data sebelum menjalankan aksi tombol -->
+    <div id="please-wait-overlay" class="fixed inset-0 bg-slate-900/70 backdrop-blur-xs hidden items-center justify-center p-4 z-[9999]">
+        <div class="bg-white rounded-2xl max-w-xs w-full p-6 shadow-2xl border border-slate-100 text-center space-y-3">
+            <div class="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+            <h3 class="text-base font-extrabold text-slate-900">Please wait...</h3>
+            <p class="text-xs text-slate-500 font-medium">Menyegarkan data terbaru sebelum menjalankan aksi Anda...</p>
+        </div>
+    </div>
+
     <!-- Firebase SDK Compat -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
     <script>
-    // --- PENGAMAN ANTI-SPAM KLIK GANDA & STATUS KONEKSI REALTIME (60+ DEVICE GUARD) ---
+    // --- VERSI APLIKASI & PENGAMAN ANTI-STALE OVERWRITE (60+ DEVICE GUARD) ---
+    const APP_VERSION = '2026.11.20.3';
     let isActionLocked = false;
     let isFirebaseConnected = true;
     let isSyncingState = false;
     let hasReceivedInitialFirebaseSnapshot = false;
-    let tabWokeUpAt = 0;
-    const WAKE_SYNC_GRACE_MS = 1500;
+    let lastKnownServerTimestamp = 0;
+    let isRunningPreActionRefresh = false;
     const DEVICE_CLIENT_ID = 'dev_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now();
+
+    function showPleaseWaitOverlay() {
+        const el = document.getElementById('please-wait-overlay');
+        if (el) {
+            el.classList.remove('hidden');
+            el.classList.add('flex');
+        }
+    }
+
+    function hidePleaseWaitOverlay() {
+        const el = document.getElementById('please-wait-overlay');
+        if (el) {
+            el.classList.add('hidden');
+            el.classList.remove('flex');
+        }
+    }
+
+    function forceHardReloadIfOutdated(remoteVersion) {
+        if (!remoteVersion) return false;
+        if (String(remoteVersion) !== String(APP_VERSION)) {
+            try {
+                localStorage.removeItem('greeter_full_state_backup');
+                sessionStorage.clear();
+            } catch (e) {}
+            const cleanUrl = window.location.pathname + '?v=' + encodeURIComponent(remoteVersion) + '&t=' + Date.now();
+            window.location.replace(cleanUrl);
+            return true;
+        }
+        return false;
+    }
 
     function lockAction(durationMs = 1500) {
         if (isActionLocked) return false;
@@ -47,8 +199,8 @@
         return true;
     }
 
-    // --- PENGAMAN TAMBAHAN: CEK KONEKSI & TAB BASI SEBELUM AKSI ---
-    const IDLE_LIMIT_MINUTES = 5;
+    // --- IDLE TIMER 30 MENIT AGAR TIDAK MENGGANGGU SAAT INPUT ---
+    const IDLE_LIMIT_MINUTES = 30;
     const IDLE_LIMIT_MS = IDLE_LIMIT_MINUTES * 60 * 1000;
 
     if (!sessionStorage.getItem('tab_loaded_time')) {
@@ -60,17 +212,19 @@
         idleMinutes = 0;
     }
 
-    // --- VISIBILITYCHANGE LISTENER: PAKSA TARIK DATA TERBARU DARI SERVER SAAT LAYAR HP MENYALA ---
+    // --- VISIBILITYCHANGE LISTENER: PAKSA TARIK DATA & CEK VERSI TERBARU SAAT LAYAR HP MENYALA ---
     document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "visible") {
-            tabWokeUpAt = Date.now();
             resetTabActivityTimer();
             if (db && typeof db.goOnline === 'function') {
                 try { db.goOnline(); } catch (e) {}
             }
             if (db) {
-                db.ref('appState').once('value').then((snapshot) => {
-                    applyRemoteSnapshotToLocal(snapshot.val());
+                db.ref('systemCommand/appVersion').once('value').then((vSnap) => {
+                    if (forceHardReloadIfOutdated(vSnap.val())) return;
+                    return db.ref('appState').once('value').then((snapshot) => {
+                        applyRemoteSnapshotToLocal(snapshot.val());
+                    });
                 }).catch(() => {});
             }
             try {
@@ -81,6 +235,44 @@
         }
     });
 
+    // --- PRE-ACTION LIVE REFRESH: MUNCULKAN "PLEASE WAIT", SEGARKAN DATA TERBARU, LALU JALANKAN AKSI ---
+    function runWithLiveRefresh(actionCallback) {
+        if (isRunningPreActionRefresh) return;
+        if (!isFirebaseConnected) {
+            showCustomAlert("Koneksi Terputus", "Perangkat sedang offline / sinkronisasi tertunda. Periksa jaringan Wi-Fi atau data Anda sebelum melakukan aksi.");
+            return;
+        }
+        if (isSyncingState) {
+            showCustomAlert("Sedang Sinkronisasi", "Sistem sedang menyinkronkan data dari perangkat lain. Silakan coba 1 detik lagi.");
+            return;
+        }
+
+        isRunningPreActionRefresh = true;
+        resetTabActivityTimer();
+        showPleaseWaitOverlay();
+
+        if (db && typeof db.goOnline === 'function') {
+            try { db.goOnline(); } catch (e) {}
+        }
+
+        db.ref('systemCommand/appVersion').once('value').then((vSnap) => {
+            if (forceHardReloadIfOutdated(vSnap.val())) return;
+            return db.ref('appState').once('value').then((snapshot) => {
+                applyRemoteSnapshotToLocal(snapshot.val());
+                hidePleaseWaitOverlay();
+                isRunningPreActionRefresh = false;
+                if (typeof actionCallback === 'function') {
+                    actionCallback();
+                }
+            });
+        }).catch((err) => {
+            console.error("Gagal menyegarkan data sebelum aksi:", err);
+            hidePleaseWaitOverlay();
+            isRunningPreActionRefresh = false;
+            showCustomAlert("Gangguan Koneksi", "Gagal menyegarkan data terbaru dari server. Silakan periksa jaringan lalu coba lagi.");
+        });
+    }
+
     function ensureFreshTabBeforeAction() {
         if (!isFirebaseConnected) {
             showCustomAlert("Koneksi Terputus", "Perangkat sedang offline / sinkronisasi tertunda. Periksa jaringan Wi-Fi atau data Anda sebelum melakukan aksi.");
@@ -90,29 +282,15 @@
             showCustomAlert("Sedang Sinkronisasi", "Sistem sedang menyinkronkan data dari perangkat lain. Silakan coba 1 detik lagi.");
             return false;
         }
-        if (tabWokeUpAt > 0 && (Date.now() - tabWokeUpAt) < WAKE_SYNC_GRACE_MS) {
-            showCustomAlert("Menyesuaikan Data Tab", "Tab baru saja aktif kembali. Tunggu 1-2 detik agar sinkronisasi data terbaru selesai sebelum klik.");
-            return false;
-        }
-
-        const loadedTime = parseInt(sessionStorage.getItem('tab_loaded_time'), 10) || Date.now();
-        const idleDuration = Date.now() - loadedTime;
-        
-        if (idleDuration > IDLE_LIMIT_MS && !isFirebaseConnected) {
-            sessionStorage.setItem('tab_loaded_time', Date.now());
-            alert("Tunggu yaa.. Halaman lagi refresh ni karena koneksi terputus selama 5 menit...");
-            location.reload(); 
-            return false;
-        }
         resetTabActivityTimer();
         return true;
     }
 
-    // --- FITUR PENGAMAN IDLE (HANYA RELOAD JIKA KONEKSI PUTUS AGAR TIDAK MEMUTUS SOCKET 60 DEVICE) ---
+    // --- FITUR PENGAMAN IDLE 30 MENIT ---
     let idleMinutes = 0;
     setInterval(() => {
         idleMinutes++;
-        if (idleMinutes >= IDLE_LIMIT_MINUTES && !isFirebaseConnected) {
+        if (idleMinutes >= IDLE_LIMIT_MINUTES) {
             location.reload(); 
         }
     }, 60000);
@@ -388,7 +566,8 @@
         }
 
         return {
-            timestamp: Date.now(),
+            timestamp: (rawState && typeof rawState.timestamp === 'number') ? rawState.timestamp : Date.now(),
+            appVersion: APP_VERSION,
             lastUpdatedBy: DEVICE_CLIENT_ID,
             date: todayStr,
             currentSpots: normalizedSpots,
@@ -520,6 +699,15 @@
         let sideEffects = {};
 
         db.ref('appState').transaction((remoteData) => {
+            // Lindungi server dari timpaan null sementara saat cache lokal SDK belum terisi
+            if (!remoteData && lastKnownServerTimestamp > 0) {
+                return;
+            }
+            // Tolak menulis di atas data server yang lebih baru daripada snapshot terakhir yang diketahui jika timestamp mundur
+            if (remoteData && typeof remoteData.timestamp === 'number' && remoteData.timestamp < lastKnownServerTimestamp) {
+                return;
+            }
+
             const baseRaw = (remoteData && remoteData.date === todayStr) ? remoteData : null;
             let workingState = buildNormalizedStateObject(baseRaw, todayStr);
 
@@ -530,7 +718,8 @@
             }
 
             sanitizeAndAdvanceStateObject(workingState);
-            workingState.timestamp = Date.now();
+            workingState.timestamp = Math.max(Date.now(), lastKnownServerTimestamp + 1);
+            workingState.appVersion = APP_VERSION;
             workingState.lastUpdatedBy = DEVICE_CLIENT_ID;
             return workingState;
         }, (error, committed, snapshot) => {
@@ -708,7 +897,7 @@
                 <p class="text-sm text-slate-600 mb-5">Membatalkan sesi ini dapat membuat urutan rotasi menjadi tidak dinamis. Apakah Anda ingin melanjutkan?</p>
                 <div class="flex gap-2">
                     <button onclick="closeCancelConfirmModal()" class="flex-1 border border-slate-300 text-slate-700 py-2.5 rounded-xl font-bold text-sm hover:bg-slate-50 transition">Batalkan</button>
-                    <button onclick="executeCancelBuddySession()" class="flex-1 bg-rose-600 hover:bg-rose-700 text-white py-2.5 rounded-xl font-bold text-sm transition shadow-sm">Lanjut</button>
+                    <button onclick="runWithLiveRefresh(() => executeCancelBuddySession())" class="flex-1 bg-rose-600 hover:bg-rose-700 text-white py-2.5 rounded-xl font-bold text-sm transition shadow-sm">Lanjut</button>
                 </div>
             </div>
         </div>
@@ -804,7 +993,7 @@
 
                     <div class="flex justify-end gap-2 pt-3">
                         <button onclick="closeRotasiPinModal()" class="border border-slate-300 text-slate-700 px-4 py-2 rounded-xl text-xs font-semibold">Batal</button>
-                        <button onclick="if(!ensureFreshTabBeforeAction()) return; executeManualRotationCustom()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-sm">Terapkan Pengaturan</button>
+                        <button onclick="runWithLiveRefresh(() => executeManualRotationCustom())" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-sm">Terapkan Pengaturan</button>
                     </div>
                 </div>
             </div>
@@ -871,7 +1060,7 @@
                     <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-3">
                         <h5 class="font-bold text-slate-900 text-sm">🔀 Pengatur Acak Rotasi Otomatis</h5>
                         <p class="text-xs text-slate-500">Susun ulang antrean berdasarkan urutan prioritas (Selesai Buddy, Skip Sementara Non-Jam, Shift Pagi, Shift Siang).</p>
-                        <button onclick="triggerAutoRandomizeRotation()" class="bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-xl text-xs font-bold transition shadow-xs flex items-center justify-center gap-2 w-full">
+                        <button onclick="runWithLiveRefresh(() => triggerAutoRandomizeRotation())" class="bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-xl text-xs font-bold transition shadow-xs flex items-center justify-center gap-2 w-full">
                             <span>🎲 Jalankan Acak Rotasi Otomatis</span>
                         </button>
                     </div>
@@ -948,19 +1137,22 @@
                     <p class="text-sm text-slate-500 mt-0.5 font-medium" id="current-date"></p>
                 </div>
                 <div class="flex flex-wrap gap-2.5">
+                    <button onclick="openDailyScheduleModal()" class="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2">
+                        <span>📅 Jadwal Shift & Tugas</span>
+                    </button>
                     <button onclick="openMasterControlModal()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2">
                         <span>⚙️ Master Control</span>
                     </button>
                     <button onclick="openLiveMapPinModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2">
                         <span>🗺️ Cek Posisi SMT Buddy</span>
                     </button>
-                    <button onclick="openSmtModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2">
+                    <button onclick="runWithLiveRefresh(() => openSmtModal())" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2">
                         <span>📋 Menu Input SMT & Shift</span>
                     </button>
-                    <button id="btn-active-buddy-header" onclick="openBuddyModalActiveList()" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2">
+                    <button id="btn-active-buddy-header" onclick="runWithLiveRefresh(() => openBuddyModalActiveList())" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2">
                         <span id="btn-active-buddy-label">⏳ Sesi Buddy Aktif</span>
                     </button>
-                    <button onclick="openHistoryModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2">
+                    <button onclick="runWithLiveRefresh(() => openHistoryModal())" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2">
                         <span>📜 Riwayat Sesi Buddy</span>
                     </button>
                     <button onclick="openReportModal()" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2">
@@ -1043,7 +1235,7 @@
                 <div class="bg-slate-50/70 p-4 rounded-xl border border-slate-200/70">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-2">
                         <span class="font-bold text-slate-700 text-sm">Antrean SMT Cadangan / Berikutnya:</span>
-                        <button onclick="requestRotateVolleyball()" class="bg-amber-600 hover:bg-amber-700 text-white text-xs px-3.5 py-2 rounded-xl font-bold transition shadow-xs flex items-center gap-1.5">
+                        <button onclick="runWithLiveRefresh(() => requestRotateVolleyball())" class="bg-amber-600 hover:bg-amber-700 text-white text-xs px-3.5 py-2 rounded-xl font-bold transition shadow-xs flex items-center gap-1.5">
                             <span>🔄 Pengatur Rotasi & Hapus Nama Petugas</span>
                         </button>
                     </div>
@@ -1108,7 +1300,7 @@
 
                 <div class="grid grid-cols-2 gap-3">
                     <button onclick="closeBuddyModalViewOnly()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 py-3 rounded-xl font-bold text-xs md:text-sm transition shadow-2xs">Batal</button>
-                    <button id="btn-finish-session" onclick="if(!ensureFreshTabBeforeAction()) return; finishBuddySessionConfirmed()" class="bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold text-xs md:text-sm transition shadow-sm">Selesai ✓</button>
+                    <button id="btn-finish-session" onclick="runWithLiveRefresh(() => finishBuddySessionConfirmed())" class="bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold text-xs md:text-sm transition shadow-sm">Selesai ✓</button>
                 </div>
             </div>
         </div>
@@ -1193,7 +1385,7 @@
 
                     <div class="flex justify-end gap-3 pt-2">
                         <button onclick="closeSmtModal()" class="border border-slate-300 text-slate-700 px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-50 transition">Batal</button>
-                        <button id="btn-save-smt" onclick="if(!ensureFreshTabBeforeAction()) return; saveSmtList()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition">Simpan & Akumulasikan Urutan</button>
+                        <button id="btn-save-smt" onclick="runWithLiveRefresh(() => saveSmtList())" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition">Simpan & Akumulasikan Urutan</button>
                     </div>
                 </div>
             </div>
@@ -1263,7 +1455,7 @@
 
                 <div class="flex justify-end gap-3">
                     <button onclick="closeSkipModal()" class="border border-slate-300 text-slate-700 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-50 transition">Batal</button>
-                    <button onclick="if(!ensureFreshTabBeforeAction()) return; confirmSkipAction()" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition">Konfirmasi Skip</button>
+                    <button onclick="runWithLiveRefresh(() => confirmSkipAction())" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition">Konfirmasi Skip</button>
                 </div>
             </div>
         </div>
@@ -1276,16 +1468,32 @@
 
     function applyRemoteSnapshotToLocal(val) {
         try {
-            let dataToUse = val;
             const todayStr = getWibDateString();
 
-            // Hanya pakai localBackup jika snapshot awal server benar-benar kosong (val === null)
+            // Jika snapshot dari server kosong (val === null) padahal perangkat ini sudah terhubung dengan data hari ini, abaikan agar tidak memuat backup lokal lama
+            if (!val) {
+                if (hasReceivedInitialFirebaseSnapshot && lastKnownServerTimestamp > 0) {
+                    return;
+                }
+            } else {
+                if (val.appVersion && forceHardReloadIfOutdated(val.appVersion)) {
+                    return;
+                }
+                if (typeof val.timestamp === 'number') {
+                    if (val.timestamp < lastKnownServerTimestamp) {
+                        return;
+                    }
+                    lastKnownServerTimestamp = val.timestamp;
+                }
+            }
+
+            let dataToUse = val;
             if (!val) {
                 const localBackup = localStorage.getItem('greeter_full_state_backup');
                 if (localBackup) {
                     try {
                         const parsedBackup = JSON.parse(localBackup);
-                        if (parsedBackup && parsedBackup.date === todayStr) {
+                        if (parsedBackup && parsedBackup.date === todayStr && parsedBackup.appVersion === APP_VERSION) {
                             dataToUse = parsedBackup;
                         } else {
                             dataToUse = null;
@@ -1353,6 +1561,20 @@
             const styleEl = document.getElementById('dynamic-custom-styles');
             if (styleEl) styleEl.innerHTML = savedCss;
         }
+
+        // SINKRONISASI VERSI OTOMATIS: Kunci versi terbaru di server dan paksa reload jika ada tab versi lama
+        db.ref('systemCommand/appVersion').on('value', (snap) => {
+            const serverVersion = snap.val();
+            if (!serverVersion) {
+                db.ref('systemCommand/appVersion').set(APP_VERSION).catch(() => {});
+            } else if (String(serverVersion) !== String(APP_VERSION)) {
+                if (String(APP_VERSION) > String(serverVersion)) {
+                    db.ref('systemCommand/appVersion').set(APP_VERSION).catch(() => {});
+                } else {
+                    forceHardReloadIfOutdated(serverVersion);
+                }
+            }
+        });
 
         // LISTENER LIVE BROADCAST REFRESH (Mendengarkan perintah reload dari admin)
         db.ref('systemCommand/reloadSignal').on('value', (snapshot) => {
@@ -1594,18 +1816,20 @@
                 const { action, spotIndex, staffPositionIndex, staff } = pendingStaffAction;
                 closeStaffPinModal();
 
-                const currentSlotStaff = currentSpots[spotIndex] && currentSpots[spotIndex][staffPositionIndex];
-                if (!currentSlotStaff || String(currentSlotStaff.nik) !== String(staff.nik)) {
-                    showCustomAlert('Informasi', 'Posisi petugas baru saja berubah oleh perangkat lain. Silakan cek posisi terbaru.');
-                    updateDisplay();
-                    return;
-                }
+                runWithLiveRefresh(() => {
+                    const currentSlotStaff = currentSpots[spotIndex] && currentSpots[spotIndex][staffPositionIndex];
+                    if (!currentSlotStaff || String(currentSlotStaff.nik) !== String(staff.nik)) {
+                        showCustomAlert('Informasi', 'Posisi petugas baru saja berubah oleh perangkat lain. Silakan cek posisi terbaru.');
+                        updateDisplay();
+                        return;
+                    }
 
-                if (action === 'mulai') {
-                    startBuddySession(spotIndex, staffPositionIndex);
-                } else if (action === 'skip') {
-                    openSkipModalDirect(spotIndex, staffPositionIndex);
-                }
+                    if (action === 'mulai') {
+                        startBuddySession(spotIndex, staffPositionIndex);
+                    } else if (action === 'skip') {
+                        openSkipModalDirect(spotIndex, staffPositionIndex);
+                    }
+                });
             } else {
                 document.getElementById('staff-pin-error').classList.remove('hidden');
             }
@@ -1716,6 +1940,7 @@
         if (confirm(confirmMsg)) {
             if (targetNode === 'ALL') {
                 db.ref('appState').remove().then(() => {
+                    lastKnownServerTimestamp = 0;
                     localStorage.removeItem('greeter_full_state_backup');
                     localStorage.removeItem('greeter_active_sessions');
                     showCustomAlert("Berhasil", "Keseluruhan node appState berhasil dihapus dari Firebase.");
@@ -1818,7 +2043,10 @@
             showCustomAlert("Pemberitahuan Sistem", "Jangan pencet apapun yaa.. admin lagi refresh halaman semua perangkat terhubung...");
             
             setTimeout(() => {
-                db.ref('systemCommand/reloadSignal').set(Date.now()).then(() => {
+                Promise.all([
+                    db.ref('systemCommand/appVersion').set(APP_VERSION),
+                    db.ref('systemCommand/reloadSignal').set(Date.now())
+                ]).then(() => {
                     closeMasterControlModal();
                 }).catch(err => {
                     showCustomAlert("Gagal", "Gagal mengirim sinyal refresh: " + err.message);
@@ -1831,6 +2059,7 @@
         try {
             const exportData = {
                 timestamp: Date.now(),
+                appVersion: APP_VERSION,
                 date: getWibDateString(),
                 currentSpots: currentSpots,
                 activeQueue: activeQueue,
@@ -1875,6 +2104,7 @@
                     }
 
                     const normalizedImport = buildNormalizedStateObject(importedData, importedData.date);
+                    normalizedImport.timestamp = Math.max(Date.now(), lastKnownServerTimestamp + 1);
                     db.ref('appState').set(normalizedImport).then(() => {
                         broadcastRefreshAllDevices();
                     });
@@ -2157,7 +2387,7 @@
                 </div>
                 <div class="flex items-center gap-2 w-full sm:w-auto">
                     <button onclick="cancelActiveBuddySession('${escapeHtml(sess.id)}')" class="flex-1 sm:flex-initial bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-2 rounded-xl font-bold text-xs shadow-sm transition">❌ Cancel (Janjian)</button>
-                    <button onclick="openFinishSessionModal('${escapeHtml(sess.id)}')" class="flex-1 sm:flex-initial bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-sm transition">Selesai ✓</button>
+                    <button onclick="runWithLiveRefresh(() => openFinishSessionModal('${escapeHtml(sess.id)}'))" class="flex-1 sm:flex-initial bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-sm transition">Selesai ✓</button>
                 </div>
             `;
             container.appendChild(div);
@@ -2712,8 +2942,8 @@
                                     <span class="text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md">Aktif di Titik</span>
                                 </div>
                                 <div class="grid grid-cols-2 gap-1.5 pt-1 border-t border-slate-100">
-                                    <button onclick="requestStaffPin('mulai', 0, ${i})" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition cursor-pointer">🟢 Buddy</button>
-                                    <button onclick="requestStaffPin('skip', 0, ${i})" class="bg-amber-600 hover:bg-amber-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition cursor-pointer">⏭️ Skip</button>
+                                    <button onclick="runWithLiveRefresh(() => requestStaffPin('mulai', 0, ${i}))" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition cursor-pointer">🟢 Buddy</button>
+                                    <button onclick="runWithLiveRefresh(() => requestStaffPin('skip', 0, ${i}))" class="bg-amber-600 hover:bg-amber-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition cursor-pointer">⏭️ Skip</button>
                                 </div>
                             </div>
                         `;
@@ -2742,8 +2972,8 @@
                                     <span class="text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md">Aktif di Titik</span>
                                 </div>
                                 <div class="grid grid-cols-2 gap-1.5 pt-1 border-t border-slate-100">
-                                    <button onclick="requestStaffPin('mulai', ${i}, ${p})" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition cursor-pointer">🟢 Buddy</button>
-                                    <button onclick="requestStaffPin('skip', ${i}, ${p})" class="bg-amber-600 hover:bg-amber-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition cursor-pointer">⏭️ Skip</button>
+                                    <button onclick="runWithLiveRefresh(() => requestStaffPin('mulai', ${i}, ${p}))" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition cursor-pointer">🟢 Buddy</button>
+                                    <button onclick="runWithLiveRefresh(() => requestStaffPin('skip', ${i}, ${p}))" class="bg-amber-600 hover:bg-amber-700 text-white text-xs py-2 px-1 rounded-lg font-semibold transition cursor-pointer">⏭️ Skip</button>
                                 </div>
                             </div>
                         `;
@@ -3384,6 +3614,590 @@ Tanggal: ${getWibDateString()}
 
         window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
         closeReportModal();
+    }
+
+    // =========================================================================
+    // FITUR JADWAL SHIFT & PENUNJUKAN 16 PERAN HARIAN (TERISOLASI DARI appState)
+    // =========================================================================
+    const SCHEDULE_SHEET_ID = '1ex4ysOcpy945ndUJYacvY_ijd8fAiS_QP2w4dFNep30';
+    const MONTH_SHEET_NAMES_ID = [
+        'JANUARI', 'FEBRUARI', 'MARET', 'APRIL', 'MEI', 'JUNI',
+        'JULI', 'AGUSTUS', 'SEPTEMBER', 'OKTOBER', 'NOVEMBER', 'DESEMBER'
+    ];
+
+    const DAILY_ROLE_DEFINITIONS = [
+        { key: 'kaptenPagi', label: 'Kapten Pagi', shiftPref: 'P', badgeColor: 'bg-amber-100 text-amber-800' },
+        { key: 'kaptenSiang', label: 'Kapten Siang', shiftPref: 'S', badgeColor: 'bg-indigo-100 text-indigo-800' },
+        { key: 'lpPagi', label: 'LP Pagi', shiftPref: 'P', badgeColor: 'bg-amber-100 text-amber-800' },
+        { key: 'lpSiang', label: 'LP Siang', shiftPref: 'S', badgeColor: 'bg-indigo-100 text-indigo-800' },
+        { key: 'pameranAccsPagi1', label: 'Pameran Accs Pagi 1', shiftPref: 'P', badgeColor: 'bg-amber-100 text-amber-800' },
+        { key: 'pameranAccsPagi2', label: 'Pameran Accs Pagi 2', shiftPref: 'P', badgeColor: 'bg-amber-100 text-amber-800' },
+        { key: 'pameranAccsSiang1', label: 'Pameran Accs Siang 1', shiftPref: 'S', badgeColor: 'bg-indigo-100 text-indigo-800' },
+        { key: 'pameranAccsSiang2', label: 'Pameran Accs Siang 2', shiftPref: 'S', badgeColor: 'bg-indigo-100 text-indigo-800' },
+        { key: 'pameranMattrasPagi1', label: 'Pameran Mattras Pagi 1', shiftPref: 'P', badgeColor: 'bg-amber-100 text-amber-800' },
+        { key: 'pameranMattrasPagi2', label: 'Pameran Mattras Pagi 2', shiftPref: 'P', badgeColor: 'bg-amber-100 text-amber-800' },
+        { key: 'pameranMattrasSiang1', label: 'Pameran Mattras Siang 1', shiftPref: 'S', badgeColor: 'bg-indigo-100 text-indigo-800' },
+        { key: 'pameranMattrasSiang2', label: 'Pameran Mattras Siang 2', shiftPref: 'S', badgeColor: 'bg-indigo-100 text-indigo-800' },
+        { key: 'canvasingPagi1', label: 'Canvasing Pagi 1', shiftPref: 'P', badgeColor: 'bg-amber-100 text-amber-800' },
+        { key: 'canvasingPagi2', label: 'Canvasing Pagi 2', shiftPref: 'P', badgeColor: 'bg-amber-100 text-amber-800' },
+        { key: 'canvasingSiang1', label: 'Canvasing Siang 1', shiftPref: 'S', badgeColor: 'bg-indigo-100 text-indigo-800' },
+        { key: 'canvasingSiang2', label: 'Canvasing Siang 2', shiftPref: 'S', badgeColor: 'bg-indigo-100 text-indigo-800' }
+    ];
+
+    let scheduleCacheByDate = {};
+    let currentSelectedScheduleDate = '';
+    let currentScheduleShiftFilter = 'ALL';
+    let isScheduleRoleUnlocked = false;
+    let activeRoleListenerRef = null;
+    let currentRoleAssignmentsData = {};
+
+    function getDatePartsFromIso(isoDateStr) {
+        const fallbackIso = getWibDateString();
+        const targetIso = /^\d{4}-\d{2}-\d{2}$/.test(isoDateStr || '') ? isoDateStr : fallbackIso;
+        const [yStr, mStr, dStr] = targetIso.split('-');
+        const yearNum = parseInt(yStr, 10);
+        const monthIdx = parseInt(mStr, 10) - 1;
+        const dayNum = parseInt(dStr, 10);
+        const dateObj = new Date(Date.UTC(yearNum, monthIdx, dayNum, 5, 0, 0));
+        const readableDate = new Intl.DateTimeFormat('id-ID', {
+            timeZone: 'Asia/Jakarta',
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+        }).format(dateObj);
+
+        return {
+            dayNum,
+            monthIdx,
+            yearStr: yStr,
+            dateKey: targetIso,
+            sheetName: MONTH_SHEET_NAMES_ID[monthIdx] || 'NOVEMBER',
+            readableDate
+        };
+    }
+
+    function parseScheduleCsvRows(csvText) {
+        const rows = [];
+        let row = [];
+        let cell = '';
+        let inQuotes = false;
+        for (let i = 0; i < csvText.length; i++) {
+            const ch = csvText[i];
+            const next = csvText[i + 1];
+            if (inQuotes) {
+                if (ch === '"' && next === '"') {
+                    cell += '"';
+                    i++;
+                } else if (ch === '"') {
+                    inQuotes = false;
+                } else {
+                    cell += ch;
+                }
+            } else {
+                if (ch === '"') {
+                    inQuotes = true;
+                } else if (ch === ',') {
+                    row.push(cell.trim());
+                    cell = '';
+                } else if (ch === '\n' || (ch === '\r' && next === '\n')) {
+                    if (ch === '\r') i++;
+                    row.push(cell.trim());
+                    rows.push(row);
+                    row = [];
+                    cell = '';
+                } else {
+                    cell += ch;
+                }
+            }
+        }
+        if (cell.length > 0 || row.length > 0) {
+            row.push(cell.trim());
+            rows.push(row);
+        }
+        return rows;
+    }
+
+    function openDailyScheduleModal() {
+        const modal = document.getElementById('dailyScheduleModal');
+        if (!modal) return;
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+
+        if (!currentSelectedScheduleDate) {
+            currentSelectedScheduleDate = getWibDateString();
+        }
+        const pickerEl = document.getElementById('scheduleDatePicker');
+        if (pickerEl) pickerEl.value = currentSelectedScheduleDate;
+
+        loadScheduleForSelectedDate(false);
+    }
+
+    function closeDailyScheduleModal() {
+        const modal = document.getElementById('dailyScheduleModal');
+        if (!modal) return;
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+
+    function onScheduleDateChanged() {
+        const pickerEl = document.getElementById('scheduleDatePicker');
+        if (!pickerEl || !pickerEl.value) return;
+        currentSelectedScheduleDate = pickerEl.value;
+        loadScheduleForSelectedDate(false);
+    }
+
+    function resetScheduleDateToToday() {
+        currentSelectedScheduleDate = getWibDateString();
+        const pickerEl = document.getElementById('scheduleDatePicker');
+        if (pickerEl) pickerEl.value = currentSelectedScheduleDate;
+        loadScheduleForSelectedDate(false);
+    }
+
+    function toggleScheduleRoleAdminBox() {
+        const panel = document.getElementById('scheduleRoleAdminPanel');
+        if (!panel) return;
+        if (!panel.classList.contains('hidden')) {
+            closeScheduleRoleAdminBox();
+            return;
+        }
+        panel.classList.remove('hidden');
+        if (isScheduleRoleUnlocked) {
+            document.getElementById('scheduleRolePinStep').classList.add('hidden');
+            document.getElementById('scheduleRoleFormStep').classList.remove('hidden');
+            renderAllRoleSelectInputs();
+        } else {
+            document.getElementById('scheduleRolePinStep').classList.remove('hidden');
+            document.getElementById('scheduleRoleFormStep').classList.add('hidden');
+            const pinInput = document.getElementById('scheduleRolePinInput');
+            if (pinInput) {
+                pinInput.value = '';
+                setTimeout(() => pinInput.focus(), 80);
+            }
+            document.getElementById('scheduleRolePinError').classList.add('hidden');
+        }
+    }
+
+    function closeScheduleRoleAdminBox() {
+        const panel = document.getElementById('scheduleRoleAdminPanel');
+        if (panel) panel.classList.add('hidden');
+    }
+
+    function verifyScheduleRolePin() {
+        const pinInput = document.getElementById('scheduleRolePinInput');
+        const errEl = document.getElementById('scheduleRolePinError');
+        if (!pinInput) return;
+
+        if (pinInput.value.trim() === '15032024') {
+            isScheduleRoleUnlocked = true;
+            if (errEl) errEl.classList.add('hidden');
+            document.getElementById('scheduleRolePinStep').classList.add('hidden');
+            document.getElementById('scheduleRoleFormStep').classList.remove('hidden');
+            renderAllRoleSelectInputs();
+        } else {
+            if (errEl) errEl.classList.remove('hidden');
+        }
+    }
+
+    function bindDailyRoleListener(dateKey) {
+        if (activeRoleListenerRef) {
+            activeRoleListenerRef.off();
+            activeRoleListenerRef = null;
+        }
+        currentRoleAssignmentsData = {};
+        renderAssignedRolesDisplayGrid();
+
+        activeRoleListenerRef = db.ref(`dailyRoleAssignments/${dateKey}`);
+        activeRoleListenerRef.on('value', (snap) => {
+            currentRoleAssignmentsData = snap.val() || {};
+            renderAssignedRolesDisplayGrid();
+            if (isScheduleRoleUnlocked) {
+                renderAllRoleSelectInputs();
+            }
+        });
+    }
+
+    function renderAssignedRolesDisplayGrid() {
+        const gridEl = document.getElementById('assignedRolesDisplayGrid');
+        const metaEl = document.getElementById('assignedRoleUpdatedMeta');
+        if (!gridEl) return;
+
+        if (metaEl) {
+            metaEl.textContent = currentRoleAssignmentsData && currentRoleAssignmentsData.updatedAt
+                ? `Update: ${currentRoleAssignmentsData.updatedAt}`
+                : '';
+        }
+
+        gridEl.innerHTML = DAILY_ROLE_DEFINITIONS.map(roleDef => {
+            const assignedName = (currentRoleAssignmentsData && currentRoleAssignmentsData[roleDef.key])
+                ? String(currentRoleAssignmentsData[roleDef.key]).trim()
+                : '';
+            return `
+                <div class="flex items-center justify-between gap-2 bg-white border border-slate-200/80 rounded-xl px-3 py-1.5 shadow-2xs">
+                    <span class="text-[11px] font-bold px-2 py-0.5 rounded-md shrink-0 ${roleDef.badgeColor}">
+                        ${escapeHtml(roleDef.label)}
+                    </span>
+                    <span class="text-xs font-bold truncate ${assignedName ? 'text-slate-900' : 'text-slate-400 font-normal italic'}">
+                        ${escapeHtml(assignedName || 'Belum dipilih')}
+                    </span>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function buildOptionsHtmlForShiftPreference(shiftPref, selectedValue) {
+        const { dateKey } = getDatePartsFromIso(currentSelectedScheduleDate);
+        const scheduleList = scheduleCacheByDate[dateKey] || [];
+        const pagiStaff = scheduleList.filter(x => x.shiftType === 'P');
+        const siangStaff = scheduleList.filter(x => x.shiftType === 'S');
+
+        const primaryGroup = shiftPref === 'P'
+            ? { label: '☀️ Masuk Shift Pagi (P) - Tanggal Ini', list: pagiStaff }
+            : { label: '🌙 Masuk Shift Siang (X) - Tanggal Ini', list: siangStaff };
+
+        const secondaryGroup = shiftPref === 'P'
+            ? { label: '🌙 Masuk Shift Siang (X) - Tanggal Ini', list: siangStaff }
+            : { label: '☀️ Masuk Shift Pagi (P) - Tanggal Ini', list: pagiStaff };
+
+        let html = `<option value="">-- Belum Dipilih --</option>`;
+
+        if (primaryGroup.list.length > 0) {
+            html += `<optgroup label="${primaryGroup.label}">`;
+            primaryGroup.list.forEach(m => {
+                const label = `${m.name} (${m.zone}${m.role ? ' - ' + m.role : ''})`;
+                html += `<option value="${escapeHtml(m.name)}">${escapeHtml(label)}</option>`;
+            });
+            html += `</optgroup>`;
+        }
+
+        if (secondaryGroup.list.length > 0) {
+            html += `<optgroup label="${secondaryGroup.label}">`;
+            secondaryGroup.list.forEach(m => {
+                const label = `${m.name} (${m.zone}${m.role ? ' - ' + m.role : ''})`;
+                html += `<option value="${escapeHtml(m.name)}">${escapeHtml(label)}</option>`;
+            });
+            html += `</optgroup>`;
+        }
+
+        html += `<optgroup label="📋 Daftar Seluruh SMT">`;
+        employees.forEach(emp => {
+            html += `<option value="${escapeHtml(emp.name)}">${escapeHtml(emp.name)} (${escapeHtml(emp.nik)})</option>`;
+        });
+        html += `</optgroup>`;
+
+        if (selectedValue) {
+            const existsInRoster =
+                scheduleList.some(m => m.name === selectedValue) ||
+                employees.some(e => e.name === selectedValue);
+            if (!existsInRoster) {
+                html += `<option value="${escapeHtml(selectedValue)}">${escapeHtml(selectedValue)} (Tersimpan)</option>`;
+            }
+        }
+
+        return html;
+    }
+
+    function renderAllRoleSelectInputs() {
+        const container = document.getElementById('roleSelectGridContainer');
+        const dateTextEl = document.getElementById('roleTargetDateText');
+        if (!container) return;
+
+        const { readableDate } = getDatePartsFromIso(currentSelectedScheduleDate);
+        if (dateTextEl) dateTextEl.textContent = readableDate;
+
+        container.innerHTML = DAILY_ROLE_DEFINITIONS.map(roleDef => {
+            const currentVal = (currentRoleAssignmentsData && currentRoleAssignmentsData[roleDef.key]) || '';
+            const optionsHtml = buildOptionsHtmlForShiftPreference(roleDef.shiftPref, currentVal);
+            return `
+                <div class="bg-white border border-amber-200 rounded-xl p-2.5">
+                    <label for="roleSelect_${roleDef.key}" class="block text-[11px] font-bold text-slate-700 mb-1">
+                        ${escapeHtml(roleDef.label)}
+                    </label>
+                    <select id="roleSelect_${roleDef.key}" class="w-full text-xs font-semibold border border-slate-300 bg-white rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
+                        ${optionsHtml}
+                    </select>
+                </div>
+            `;
+        }).join('');
+
+        DAILY_ROLE_DEFINITIONS.forEach(roleDef => {
+            const sel = document.getElementById(`roleSelect_${roleDef.key}`);
+            const currentVal = (currentRoleAssignmentsData && currentRoleAssignmentsData[roleDef.key]) || '';
+            if (sel) sel.value = currentVal;
+        });
+    }
+
+    function clearAllRoleSelectInputs() {
+        DAILY_ROLE_DEFINITIONS.forEach(roleDef => {
+            const sel = document.getElementById(`roleSelect_${roleDef.key}`);
+            if (sel) sel.value = '';
+        });
+    }
+
+    function saveDailyRoleAssignment() {
+        const { dateKey } = getDatePartsFromIso(currentSelectedScheduleDate);
+        const payload = {
+            updatedAt: `${getWibDateString()} ${getWibTimeString()} WIB`
+        };
+
+        DAILY_ROLE_DEFINITIONS.forEach(roleDef => {
+            const sel = document.getElementById(`roleSelect_${roleDef.key}`);
+            payload[roleDef.key] = sel ? sel.value.trim() : '';
+        });
+
+        db.ref(`dailyRoleAssignments/${dateKey}`).set(payload).then(() => {
+            showCustomAlert('Tersimpan', `Susunan tugas harian untuk tanggal ${dateKey} berhasil disimpan.`);
+            closeScheduleRoleAdminBox();
+        }).catch((err) => {
+            showCustomAlert('Gagal Menyimpan', 'Terjadi kesalahan saat menyimpan data: ' + err.message);
+        });
+    }
+
+    function copyDailyRolesToClipboard() {
+        const { readableDate } = getDatePartsFromIso(currentSelectedScheduleDate);
+        let lines = [`📋 *TUGAS HARIAN & PIC*`, `Tanggal: ${readableDate}`, ``];
+        let filledCount = 0;
+
+        DAILY_ROLE_DEFINITIONS.forEach(roleDef => {
+            const assignedName = (currentRoleAssignmentsData && currentRoleAssignmentsData[roleDef.key])
+                ? String(currentRoleAssignmentsData[roleDef.key]).trim()
+                : '';
+            lines.push(`• *${roleDef.label}:* ${assignedName || '-'}`);
+            if (assignedName) filledCount++;
+        });
+
+        const text = lines.join('\n');
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+                showCustomAlert('Tersalin', `Daftar tugas harian (${filledCount}/16 terisi) berhasil disalin untuk WhatsApp.`);
+            }).catch(() => {
+                window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+            });
+        } else {
+            window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+        }
+    }
+
+    function setScheduleShiftFilter(filterCode) {
+        currentScheduleShiftFilter = filterCode;
+        document.querySelectorAll('.sched-filter-btn').forEach(btn => {
+            btn.classList.remove('bg-indigo-600', 'text-white');
+            btn.classList.add('bg-white', 'text-slate-600', 'border', 'border-slate-200');
+        });
+        const activeBtn = document.getElementById(`schedFilter-${filterCode}`);
+        if (activeBtn) {
+            activeBtn.classList.remove('bg-white', 'text-slate-600', 'border', 'border-slate-200');
+            activeBtn.classList.add('bg-indigo-600', 'text-white');
+        }
+        renderDailyScheduleContent();
+    }
+
+    async function fetchSheetCsvByName(sheetName) {
+        const csvUrl = `https://docs.google.com/spreadsheets/d/${SCHEDULE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}&_=${Date.now()}`;
+        const res = await fetch(csvUrl);
+        if (!res.ok) {
+            throw new Error('Gagal mengakses Google Sheets (pastikan akses Lihat Saja aktif).');
+        }
+        return await res.text();
+    }
+
+    async function loadScheduleForSelectedDate(forceReload = false) {
+        const bodyEl = document.getElementById('dailyScheduleBody');
+        const labelEl = document.getElementById('dailyScheduleDateLabel');
+        const { dayNum, monthIdx, dateKey, sheetName, readableDate } = getDatePartsFromIso(currentSelectedScheduleDate);
+
+        if (labelEl) {
+            labelEl.textContent = `${readableDate} • Tab: ${sheetName}`;
+        }
+
+        bindDailyRoleListener(dateKey);
+
+        if (!forceReload && Array.isArray(scheduleCacheByDate[dateKey])) {
+            if (isScheduleRoleUnlocked) renderAllRoleSelectInputs();
+            renderDailyScheduleContent();
+            return;
+        }
+
+        if (bodyEl) {
+            bodyEl.innerHTML = `<div class="text-center py-10 text-slate-400">⏳ Mengambil jadwal tanggal <b>${escapeHtml(readableDate)}</b> dari tab <b>${escapeHtml(sheetName)}</b>...</div>`;
+        }
+
+        try {
+            let csvText = await fetchSheetCsvByName(sheetName);
+            let rows = parseScheduleCsvRows(csvText);
+
+            // Validasi apakah tab yang dikembalikan benar-benar milik bulan yang dipilih
+            const topText = rows.slice(0, 6).flat().join(' ').toUpperCase();
+            const altMonthKeyword = monthIdx === 1 ? 'FEBUARI' : sheetName;
+            const isCorrectMonthSheet = topText.includes(sheetName) || topText.includes(altMonthKeyword);
+
+            if (!isCorrectMonthSheet && monthIdx === 1) {
+                csvText = await fetchSheetCsvByName('FEBUARI');
+                rows = parseScheduleCsvRows(csvText);
+            } else if (!isCorrectMonthSheet && monthIdx !== 0) {
+                throw new Error(`Tab "${sheetName}" belum tersedia atau belum diberi judul bulan di Spreadsheet.`);
+            }
+
+            // 1. Cari baris header tanggal (1..31) & kolom DEPT / JABATAN
+            let dateHeaderRowIdx = -1;
+            let targetDayColIdx = -1;
+            let deptColIdx = -1;
+            let roleColIdx = -1;
+            let nameColIdx = -1;
+            let nikColIdx = -1;
+
+            for (let r = 0; r < Math.min(rows.length, 20); r++) {
+                const row = rows[r];
+                const foundDayIdx = row.findIndex(c => parseInt(c, 10) === dayNum && String(parseInt(c, 10)) === c.trim());
+                const foundDeptIdx = row.findIndex(c => /^DEPT(\s*\/?\s*JABATAN)?$/i.test(c.trim()));
+
+                if (foundDayIdx !== -1 && foundDeptIdx !== -1) {
+                    dateHeaderRowIdx = r;
+                    targetDayColIdx = foundDayIdx;
+                    deptColIdx = foundDeptIdx;
+
+                    row.forEach((cell, idx) => {
+                        if (idx < foundDayIdx) {
+                            const label = cell.trim().toUpperCase();
+                            if (label === 'JABATAN') roleColIdx = idx;
+                            if (label === 'NAMA') nameColIdx = idx;
+                            if (label === 'NIK' || label === 'NIP') nikColIdx = idx;
+                        }
+                    });
+
+                    if (nameColIdx === -1) nameColIdx = Math.max(0, deptColIdx - 1);
+                    if (nikColIdx === -1) nikColIdx = Math.max(0, nameColIdx - 1);
+                    break;
+                }
+            }
+
+            if (dateHeaderRowIdx === -1 || targetDayColIdx === -1) {
+                throw new Error(`Kolom tanggal ${dayNum} tidak ditemukan pada tab ${sheetName}.`);
+            }
+
+            // 2. Ekstrak personel masuk pada tanggal terpilih dengan meneruskan sel DEPT yang di-merge
+            const results = [];
+            let lastActiveDept = 'UMUM';
+            const summaryRowPattern = /^(PS PAGI|SMT PAGI|PS SIANG|SMT SIANG|TOTAL ALL|OFF|RO|AL|SAKIT|IZIN|KETERANGAN)$/i;
+
+            for (let r = dateHeaderRowIdx + 1; r < rows.length; r++) {
+                const row = rows[r];
+                const rawNo = (row[0] || '').trim();
+                const rawNik = (row[nikColIdx] || '').trim();
+                const rawName = (row[nameColIdx] || '').trim();
+                const rawDept = (row[deptColIdx] || '').trim();
+                const rawRole = roleColIdx !== -1 ? (row[roleColIdx] || '').trim() : '';
+                const shiftCode = (row[targetDayColIdx] || '').trim().toUpperCase();
+
+                if (summaryRowPattern.test(rawNo) || summaryRowPattern.test(rawName) || summaryRowPattern.test(rawDept)) {
+                    continue;
+                }
+
+                if (!rawName && rawNo && !/^\d+$/.test(rawNo)) {
+                    lastActiveDept = rawNo.toUpperCase();
+                    continue;
+                }
+
+                if (rawDept) {
+                    lastActiveDept = rawDept.includes('/')
+                        ? rawDept.split('/')[0].trim().toUpperCase()
+                        : rawDept.toUpperCase();
+                }
+
+                if (!rawName || /^(NAMA|DEPT)$/i.test(rawName)) continue;
+
+                // Hanya ambil yang benar-benar masuk kerja: P (Pagi) atau X (Siang)
+                if (shiftCode !== 'P' && shiftCode !== 'X') continue;
+
+                const roleLabel = rawRole || (rawDept.includes('/') ? rawDept.split('/')[1].trim() : 'STAFF');
+                const shiftType = shiftCode === 'P' ? 'P' : 'S';
+                const shiftLabel = shiftCode === 'P' ? 'Pagi (P)' : 'Siang (X)';
+
+                results.push({
+                    nik: rawNik,
+                    name: rawName,
+                    zone: lastActiveDept,
+                    role: roleLabel.toUpperCase(),
+                    shiftCode,
+                    shiftType,
+                    shiftLabel
+                });
+            }
+
+            scheduleCacheByDate[dateKey] = results;
+            if (isScheduleRoleUnlocked) renderAllRoleSelectInputs();
+            renderDailyScheduleContent();
+        } catch (err) {
+            scheduleCacheByDate[dateKey] = [];
+            if (isScheduleRoleUnlocked) renderAllRoleSelectInputs();
+            if (bodyEl) {
+                bodyEl.innerHTML = `
+                    <div class="bg-rose-50 border border-rose-200 text-rose-700 rounded-xl p-4 text-xs space-y-1">
+                        <div class="font-bold">⚠️ Tidak dapat memuat jadwal otomatis</div>
+                        <div>${escapeHtml(err.message)}</div>
+                    </div>
+                `;
+            }
+        }
+    }
+
+    function renderDailyScheduleContent() {
+        const bodyEl = document.getElementById('dailyScheduleBody');
+        const summaryEl = document.getElementById('dailyScheduleSummary');
+        const keyword = (document.getElementById('dailyScheduleSearch')?.value || '').trim().toLowerCase();
+        if (!bodyEl) return;
+
+        const { dateKey } = getDatePartsFromIso(currentSelectedScheduleDate);
+        const listForDate = scheduleCacheByDate[dateKey] || [];
+
+        const filtered = listForDate.filter(item => {
+            if (currentScheduleShiftFilter !== 'ALL' && item.shiftType !== currentScheduleShiftFilter) return false;
+            if (keyword && !item.name.toLowerCase().includes(keyword) && !item.zone.toLowerCase().includes(keyword)) return false;
+            return true;
+        });
+
+        if (summaryEl) {
+            const pagiCount = filtered.filter(x => x.shiftType === 'P').length;
+            const siangCount = filtered.filter(x => x.shiftType === 'S').length;
+            summaryEl.textContent = `Total Masuk: ${filtered.length} personel (Pagi: ${pagiCount} • Siang: ${siangCount})`;
+        }
+
+        if (filtered.length === 0) {
+            bodyEl.innerHTML = `<div class="text-center py-8 text-slate-400 text-xs">Tidak ada jadwal personel yang cocok untuk filter/tanggal ini.</div>`;
+            return;
+        }
+
+        const groupedByZone = {};
+        filtered.forEach(item => {
+            if (!groupedByZone[item.zone]) groupedByZone[item.zone] = [];
+            groupedByZone[item.zone].push(item);
+        });
+
+        bodyEl.innerHTML = Object.entries(groupedByZone).map(([zone, members]) => `
+            <div class="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                <div class="bg-slate-100 px-3.5 py-2 flex items-center justify-between border-b border-slate-200">
+                    <span class="font-bold text-slate-800 text-xs tracking-wide">📍 ${escapeHtml(zone)}</span>
+                    <span class="text-[11px] font-semibold bg-white text-slate-600 px-2 py-0.5 rounded-full border border-slate-200">${members.length} orang</span>
+                </div>
+                <div class="divide-y divide-slate-100 bg-white">
+                    ${members.map(m => `
+                        <div class="px-3.5 py-2 flex items-center justify-between gap-2">
+                            <div>
+                                <div class="font-semibold text-slate-800 text-xs">${escapeHtml(m.name)}</div>
+                                <div class="text-[11px] text-slate-400">${escapeHtml(m.role || 'STAFF')}${m.nik ? ' • ' + escapeHtml(m.nik) : ''}</div>
+                            </div>
+                            <span class="text-[11px] font-bold px-2.5 py-1 rounded-full ${
+                                m.shiftType === 'P'
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : 'bg-indigo-100 text-indigo-800'
+                            }">
+                                ${escapeHtml(m.shiftLabel)}
+                            </span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `).join('');
     }
     </script>
 </body>
