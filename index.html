@@ -58,7 +58,7 @@
                     </button>
                 </div>
                 <div class="flex items-center gap-2">
-                    <button onclick="copyDailyRolesToClipboard()" title="Salin Susunan Tugas Harian" class="text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg shadow-xs transition flex items-center gap-1">
+                    <button onclick="copyDailyRolesToClipboard()" title="Salin Susunan Tugas & Jadwal Lengkap" class="text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg shadow-xs transition flex items-center gap-1">
                         <span>📋 Salin WA</span>
                     </button>
                     <button onclick="toggleScheduleRoleAdminBox()" class="text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg shadow-xs transition flex items-center gap-1.5">
@@ -69,7 +69,7 @@
 
             <!-- Area Scroll Utama Modal (Panel PIN/Form + Daftar Tugas + Daftar Jadwal Shift) -->
             <div class="overflow-y-auto flex-1 divide-y divide-slate-200">
-                <!-- Panel PIN & Pemilihan 16 Peran Tugas Harian (Tersembunyi secara default) -->
+                <!-- Panel PIN & Pemilihan 18 Peran Tugas Harian (Tersembunyi secara default) -->
                 <div id="scheduleRoleAdminPanel" class="hidden px-5 py-4 bg-amber-50 space-y-3">
                     <!-- Langkah 1: Verifikasi PIN (Placeholder tanpa membocorkan PIN) -->
                     <div id="scheduleRolePinStep" class="flex flex-wrap items-center gap-2">
@@ -80,7 +80,7 @@
                         <p id="scheduleRolePinError" class="w-full text-[11px] font-semibold text-rose-600 hidden">Kode akses tidak sesuai!</p>
                     </div>
 
-                    <!-- Langkah 2: Form Pemilihan 16 Peran Tugas -->
+                    <!-- Langkah 2: Form Pemilihan 18 Peran Tugas -->
                     <div id="scheduleRoleFormStep" class="hidden space-y-3">
                         <div class="flex items-center justify-between border-b border-amber-200 pb-2">
                             <div>
@@ -93,17 +93,17 @@
                         <div id="roleSelectGridContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5"></div>
 
                         <div class="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-amber-200">
-                            <button onclick="clearAllRoleSelectInputs()" class="text-xs font-semibold text-rose-700 hover:bg-rose-100 px-3 py-2 rounded-lg transition">
+                            <button type="button" onclick="clearAllRoleSelectInputs()" class="text-xs font-semibold text-rose-700 hover:bg-rose-100 px-3 py-2 rounded-lg transition">
                                 Kosongkan Semua
                             </button>
-                            <button onclick="saveDailyRoleAssignment()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 px-5 rounded-lg shadow-sm transition">
+                            <button type="button" id="btnSaveDailyRoleAssignment" onclick="saveDailyRoleAssignment()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 px-5 rounded-lg shadow-sm transition">
                                 💾 Simpan Susunan Tugas
                             </button>
                         </div>
                     </div>
                 </div>
 
-                <!-- Ringkasan 16 Tugas Harian Terpilih (Tampil Live untuk Semua User) -->
+                <!-- Ringkasan 18 Tugas Harian Terpilih (Tampil Live untuk Semua User) -->
                 <div class="px-5 py-3.5 bg-gradient-to-br from-amber-50/80 via-white to-indigo-50/50 space-y-2.5">
                     <div class="flex items-center justify-between">
                         <span class="text-xs font-extrabold text-slate-800 uppercase tracking-wider">📌 Daftar Penanggung Jawab Tugas</span>
@@ -3617,7 +3617,7 @@ Tanggal: ${getWibDateString()}
     }
 
     // =========================================================================
-    // FITUR JADWAL SHIFT & PENUNJUKAN 16 PERAN HARIAN (TERISOLASI DARI appState)
+    // FITUR JADWAL SHIFT & PENUNJUKAN 18 PERAN HARIAN (TERISOLASI DARI appState)
     // =========================================================================
     const SCHEDULE_SHEET_ID = '1ex4ysOcpy945ndUJYacvY_ijd8fAiS_QP2w4dFNep30';
     const MONTH_SHEET_NAMES_ID = [
@@ -3630,8 +3630,10 @@ Tanggal: ${getWibDateString()}
         { key: 'kaptenSiang', label: 'Kapten Siang', shiftPref: 'S', badgeColor: 'bg-indigo-100 text-indigo-800' },
         { key: 'lpPagi', label: 'LP Pagi', shiftPref: 'P', badgeColor: 'bg-amber-100 text-amber-800' },
         { key: 'lpSiang', label: 'LP Siang', shiftPref: 'S', badgeColor: 'bg-indigo-100 text-indigo-800' },
+        { key: 'psPameranAccsPagi', label: 'PS Pameran Accs Pagi', shiftPref: 'P', badgeColor: 'bg-amber-100 text-amber-800' },
         { key: 'pameranAccsPagi1', label: 'Pameran Accs Pagi 1', shiftPref: 'P', badgeColor: 'bg-amber-100 text-amber-800' },
         { key: 'pameranAccsPagi2', label: 'Pameran Accs Pagi 2', shiftPref: 'P', badgeColor: 'bg-amber-100 text-amber-800' },
+        { key: 'psPameranAccsSiang', label: 'PS Pameran Accs Siang', shiftPref: 'S', badgeColor: 'bg-indigo-100 text-indigo-800' },
         { key: 'pameranAccsSiang1', label: 'Pameran Accs Siang 1', shiftPref: 'S', badgeColor: 'bg-indigo-100 text-indigo-800' },
         { key: 'pameranAccsSiang2', label: 'Pameran Accs Siang 2', shiftPref: 'S', badgeColor: 'bg-indigo-100 text-indigo-800' },
         { key: 'pameranMattrasPagi1', label: 'Pameran Mattras Pagi 1', shiftPref: 'P', badgeColor: 'bg-amber-100 text-amber-800' },
@@ -3650,6 +3652,7 @@ Tanggal: ${getWibDateString()}
     let isScheduleRoleUnlocked = false;
     let activeRoleListenerRef = null;
     let currentRoleAssignmentsData = {};
+    let isSavingRoleAssignment = false;
 
     function getDatePartsFromIso(isoDateStr) {
         const fallbackIso = getWibDateString();
@@ -3719,25 +3722,33 @@ Tanggal: ${getWibDateString()}
     }
 
     function openDailyScheduleModal() {
-        const modal = document.getElementById('dailyScheduleModal');
-        if (!modal) return;
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
+        try {
+            const modal = document.getElementById('dailyScheduleModal');
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
 
-        if (!currentSelectedScheduleDate) {
-            currentSelectedScheduleDate = getWibDateString();
+            if (!currentSelectedScheduleDate) {
+                currentSelectedScheduleDate = getWibDateString();
+            }
+            const pickerEl = document.getElementById('scheduleDatePicker');
+            if (pickerEl) pickerEl.value = currentSelectedScheduleDate;
+
+            loadScheduleForSelectedDate(false);
+        } catch (e) {
+            console.error("Error openDailyScheduleModal:", e);
         }
-        const pickerEl = document.getElementById('scheduleDatePicker');
-        if (pickerEl) pickerEl.value = currentSelectedScheduleDate;
-
-        loadScheduleForSelectedDate(false);
     }
 
     function closeDailyScheduleModal() {
-        const modal = document.getElementById('dailyScheduleModal');
-        if (!modal) return;
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
+        try {
+            const modal = document.getElementById('dailyScheduleModal');
+            if (!modal) return;
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        } catch (e) {
+            console.error("Error closeDailyScheduleModal:", e);
+        }
     }
 
     function onScheduleDateChanged() {
@@ -3800,21 +3811,33 @@ Tanggal: ${getWibDateString()}
     }
 
     function bindDailyRoleListener(dateKey) {
-        if (activeRoleListenerRef) {
-            activeRoleListenerRef.off();
-            activeRoleListenerRef = null;
-        }
-        currentRoleAssignmentsData = {};
-        renderAssignedRolesDisplayGrid();
-
-        activeRoleListenerRef = db.ref(`dailyRoleAssignments/${dateKey}`);
-        activeRoleListenerRef.on('value', (snap) => {
-            currentRoleAssignmentsData = snap.val() || {};
-            renderAssignedRolesDisplayGrid();
-            if (isScheduleRoleUnlocked) {
-                renderAllRoleSelectInputs();
+        try {
+            if (activeRoleListenerRef) {
+                activeRoleListenerRef.off();
+                activeRoleListenerRef = null;
             }
-        });
+            currentRoleAssignmentsData = {};
+            renderAssignedRolesDisplayGrid();
+
+            if (!db) return;
+            activeRoleListenerRef = db.ref(`dailyRoleAssignments/${dateKey}`);
+            activeRoleListenerRef.on('value', (snap) => {
+                try {
+                    currentRoleAssignmentsData = (snap && snap.val()) ? snap.val() : {};
+                    renderAssignedRolesDisplayGrid();
+                    // Jangan timpa dropdown yang sedang dibuka/diedit di perangkat ini jika panel form sedang terbuka
+                    const adminPanel = document.getElementById('scheduleRoleAdminPanel');
+                    const isEditingForm = adminPanel && !adminPanel.classList.contains('hidden') && isScheduleRoleUnlocked;
+                    if (isScheduleRoleUnlocked && !isEditingForm) {
+                        renderAllRoleSelectInputs();
+                    }
+                } catch (innerErr) {
+                    console.error("Error saat sinkronisasi tampilan tugas harian:", innerErr);
+                }
+            });
+        } catch (e) {
+            console.error("Error bindDailyRoleListener:", e);
+        }
     }
 
     function renderAssignedRolesDisplayGrid() {
@@ -3935,46 +3958,184 @@ Tanggal: ${getWibDateString()}
     }
 
     function saveDailyRoleAssignment() {
+        if (isSavingRoleAssignment) return;
+        if (!isFirebaseConnected) {
+            showCustomAlert('Koneksi Terputus', 'Perangkat sedang offline. Periksa jaringan Anda sebelum menyimpan tugas harian.');
+            return;
+        }
+
+        const saveBtn = document.getElementById('btnSaveDailyRoleAssignment');
         const { dateKey } = getDatePartsFromIso(currentSelectedScheduleDate);
-        const payload = {
-            updatedAt: `${getWibDateString()} ${getWibTimeString()} WIB`
-        };
+        const draftValues = {};
 
         DAILY_ROLE_DEFINITIONS.forEach(roleDef => {
             const sel = document.getElementById(`roleSelect_${roleDef.key}`);
-            payload[roleDef.key] = sel ? sel.value.trim() : '';
+            draftValues[roleDef.key] = sel ? sel.value.trim() : '';
         });
 
-        db.ref(`dailyRoleAssignments/${dateKey}`).set(payload).then(() => {
-            showCustomAlert('Tersimpan', `Susunan tugas harian untuk tanggal ${dateKey} berhasil disimpan.`);
-            closeScheduleRoleAdminBox();
-        }).catch((err) => {
-            showCustomAlert('Gagal Menyimpan', 'Terjadi kesalahan saat menyimpan data: ' + err.message);
+        isSavingRoleAssignment = true;
+        if (saveBtn) saveBtn.disabled = true;
+
+        // Menggunakan transaksi terisolasi pada node dailyRoleAssignments/{dateKey} agar tidak bertabrakan antar perangkat maupun menyentuh appState
+        db.ref(`dailyRoleAssignments/${dateKey}`).transaction((remoteObj) => {
+            const nextData = (remoteObj && typeof remoteObj === 'object') ? { ...remoteObj } : {};
+            DAILY_ROLE_DEFINITIONS.forEach(roleDef => {
+                nextData[roleDef.key] = draftValues[roleDef.key];
+            });
+            nextData.updatedAt = `${getWibDateString()} ${getWibTimeString()} WIB`;
+            nextData.updatedBy = DEVICE_CLIENT_ID;
+            return nextData;
+        }, (err, committed, snapshot) => {
+            isSavingRoleAssignment = false;
+            if (saveBtn) saveBtn.disabled = false;
+
+            if (err) {
+                showCustomAlert('Gagal Menyimpan', 'Terjadi kesalahan saat menyimpan data: ' + err.message);
+                return;
+            }
+            if (committed) {
+                if (snapshot && snapshot.exists()) {
+                    currentRoleAssignmentsData = snapshot.val() || {};
+                    renderAssignedRolesDisplayGrid();
+                }
+                showCustomAlert('Tersimpan', `Susunan tugas harian untuk tanggal ${dateKey} berhasil disimpan.`);
+                closeScheduleRoleAdminBox();
+            }
+        }, false);
+    }
+
+    function buildGroupedZoneLinesForShift(membersList) {
+        if (!Array.isArray(membersList) || membersList.length === 0) {
+            return ['_Tidak ada data personel masuk pada shift ini._'];
+        }
+        const grouped = {};
+        membersList.forEach(item => {
+            const zName = (item && item.zone) ? String(item.zone).trim() : 'UMUM';
+            if (!grouped[zName]) grouped[zName] = [];
+            grouped[zName].push(item);
         });
+
+        const outLines = [];
+        Object.entries(grouped).forEach(([zoneName, list]) => {
+            outLines.push(`📍 *${zoneName}* (${list.length} orang)`);
+            list.forEach((m, idx) => {
+                const roleSuffix = m.role ? ` (${m.role})` : '';
+                outLines.push(`${idx + 1}. ${m.name}${roleSuffix}`);
+            });
+            outLines.push('');
+        });
+        while (outLines.length > 0 && outLines[outLines.length - 1] === '') {
+            outLines.pop();
+        }
+        return outLines;
+    }
+
+    function copyTextSafelyToClipboard(text, successTitle, successMessage) {
+        const openWaFallback = () => {
+            try {
+                window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+            } catch (e) {
+                console.error("Fallback WA gagal:", e);
+            }
+        };
+
+        try {
+            if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function' && window.isSecureContext) {
+                navigator.clipboard.writeText(text).then(() => {
+                    showCustomAlert(successTitle, successMessage);
+                }).catch(() => {
+                    legacyExecCommandCopy(text, successTitle, successMessage, openWaFallback);
+                });
+            } else {
+                legacyExecCommandCopy(text, successTitle, successMessage, openWaFallback);
+            }
+        } catch (err) {
+            legacyExecCommandCopy(text, successTitle, successMessage, openWaFallback);
+        }
+    }
+
+    function legacyExecCommandCopy(text, successTitle, successMessage, fallbackFn) {
+        try {
+            const tempArea = document.createElement('textarea');
+            tempArea.value = text;
+            tempArea.setAttribute('readonly', '');
+            tempArea.style.position = 'fixed';
+            tempArea.style.top = '-9999px';
+            tempArea.style.left = '-9999px';
+            document.body.appendChild(tempArea);
+            tempArea.select();
+            tempArea.setSelectionRange(0, tempArea.value.length);
+            const ok = document.execCommand('copy');
+            document.body.removeChild(tempArea);
+            if (ok) {
+                showCustomAlert(successTitle, successMessage);
+            } else if (typeof fallbackFn === 'function') {
+                fallbackFn();
+            }
+        } catch (e) {
+            if (typeof fallbackFn === 'function') fallbackFn();
+        }
     }
 
     function copyDailyRolesToClipboard() {
-        const { readableDate } = getDatePartsFromIso(currentSelectedScheduleDate);
-        let lines = [`📋 *TUGAS HARIAN & PIC*`, `Tanggal: ${readableDate}`, ``];
-        let filledCount = 0;
+        try {
+            const { dateKey, readableDate } = getDatePartsFromIso(currentSelectedScheduleDate);
+            const scheduleList = Array.isArray(scheduleCacheByDate[dateKey]) ? scheduleCacheByDate[dateKey] : [];
 
-        DAILY_ROLE_DEFINITIONS.forEach(roleDef => {
-            const assignedName = (currentRoleAssignmentsData && currentRoleAssignmentsData[roleDef.key])
-                ? String(currentRoleAssignmentsData[roleDef.key]).trim()
-                : '';
-            lines.push(`• *${roleDef.label}:* ${assignedName || '-'}`);
-            if (assignedName) filledCount++;
-        });
+            const pagiRoles = DAILY_ROLE_DEFINITIONS.filter(r => r.shiftPref === 'P');
+            const siangRoles = DAILY_ROLE_DEFINITIONS.filter(r => r.shiftPref === 'S');
 
-        const text = lines.join('\n');
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(text).then(() => {
-                showCustomAlert('Tersalin', `Daftar tugas harian (${filledCount}/16 terisi) berhasil disalin untuk WhatsApp.`);
-            }).catch(() => {
-                window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+            const pagiMembers = scheduleList.filter(m => m && m.shiftType === 'P');
+            const siangMembers = scheduleList.filter(m => m && m.shiftType === 'S');
+
+            let filledCount = 0;
+            const lines = [
+                `📋 *JADWAL SHIFT & TUGAS HARIAN*`,
+                `Tanggal: ${readableDate}`,
+                ``,
+                `☀️ *SHIFT PAGI (P)*`,
+                `*• Penanggung Jawab Tugas Pagi:*`
+            ];
+
+            pagiRoles.forEach(roleDef => {
+                const assignedName = (currentRoleAssignmentsData && currentRoleAssignmentsData[roleDef.key])
+                    ? String(currentRoleAssignmentsData[roleDef.key]).trim()
+                    : '';
+                lines.push(`- *${roleDef.label}:* ${assignedName || '-'}`);
+                if (assignedName) filledCount++;
             });
-        } else {
-            window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+
+            lines.push(``);
+            lines.push(`*• Keseluruhan Team Pagi Per Zona (${pagiMembers.length} orang):*`);
+            lines.push(...buildGroupedZoneLinesForShift(pagiMembers));
+
+            lines.push(``);
+            lines.push(`━━━━━━━━━━━━━━━━━━━━`);
+            lines.push(`🌙 *SHIFT SIANG (X)*`);
+            lines.push(`*• Penanggung Jawab Tugas Siang:*`);
+
+            siangRoles.forEach(roleDef => {
+                const assignedName = (currentRoleAssignmentsData && currentRoleAssignmentsData[roleDef.key])
+                    ? String(currentRoleAssignmentsData[roleDef.key]).trim()
+                    : '';
+                lines.push(`- *${roleDef.label}:* ${assignedName || '-'}`);
+                if (assignedName) filledCount++;
+            });
+
+            lines.push(``);
+            lines.push(`*• Keseluruhan Team Siang Per Zona (${siangMembers.length} orang):*`);
+            lines.push(...buildGroupedZoneLinesForShift(siangMembers));
+
+            const text = lines.join('\n');
+            const totalRoles = DAILY_ROLE_DEFINITIONS.length;
+            copyTextSafelyToClipboard(
+                text,
+                'Tersalin',
+                `Susunan tugas harian (${filledCount}/${totalRoles} terisi) & jadwal lengkap Shift Pagi (${pagiMembers.length} org) + Shift Siang (${siangMembers.length} org) per zona berhasil disalin untuk WhatsApp.`
+            );
+        } catch (e) {
+            console.error("Error copyDailyRolesToClipboard:", e);
+            showCustomAlert('Gagal Menyalin', 'Terjadi kendala saat menyiapkan teks WhatsApp. Silakan coba lagi.');
         }
     }
 
