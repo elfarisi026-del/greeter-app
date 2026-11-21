@@ -26,6 +26,9 @@
 
     <div id="app-container"></div>
 
+    <!-- Datalist Kode Roster Lengkap (Bisa Dipilih atau Diketik Manual) -->
+    <datalist id="rosterCodeDatalist"></datalist>
+
     <!-- Modal Jadwal Shift & Penunjukan Tugas Harian (Terisolasi dari appState) -->
     <div id="dailyScheduleModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden border border-slate-200">
@@ -69,9 +72,9 @@
 
             <!-- Area Scroll Utama Modal (Panel PIN/Form + Daftar Tugas + Daftar Jadwal Shift) -->
             <div class="overflow-y-auto flex-1 divide-y divide-slate-200">
-                <!-- Panel PIN & Pemilihan 18 Peran Tugas Harian (Tersembunyi secara default) -->
-                <div id="scheduleRoleAdminPanel" class="hidden px-5 py-4 bg-amber-50 space-y-3">
-                    <!-- Langkah 1: Verifikasi PIN (Placeholder tanpa membocorkan PIN) -->
+                <!-- Panel PIN & Pemilihan 18 Peran Tugas Harian + Roster + Team Khusus -->
+                <div id="scheduleRoleAdminPanel" class="hidden px-5 py-4 bg-amber-50 space-y-4">
+                    <!-- Langkah 1: Verifikasi PIN -->
                     <div id="scheduleRolePinStep" class="flex flex-wrap items-center gap-2">
                         <span class="text-xs font-bold text-amber-900">Verifikasi Akses:</span>
                         <input type="password" id="scheduleRolePinInput" onkeyup="if(event.key==='Enter') verifyScheduleRolePin()" placeholder="Masukkan kode akses..." class="text-xs border border-amber-300 bg-white rounded-lg px-3 py-1.5 w-44 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium">
@@ -80,35 +83,71 @@
                         <p id="scheduleRolePinError" class="w-full text-[11px] font-semibold text-rose-600 hidden">Kode akses tidak sesuai!</p>
                     </div>
 
-                    <!-- Langkah 2: Form Pemilihan 18 Peran Tugas -->
-                    <div id="scheduleRoleFormStep" class="hidden space-y-3">
+                    <!-- Langkah 2: Form Pengaturan Roster, Team Khusus, & 18 Peran Tugas -->
+                    <div id="scheduleRoleFormStep" class="hidden space-y-4">
                         <div class="flex items-center justify-between border-b border-amber-200 pb-2">
                             <div>
-                                <span class="text-xs font-extrabold text-amber-950">👑 Pengaturan Penanggung Jawab Tugas (<span id="roleTargetDateText">-</span>)</span>
-                                <p class="text-[11px] text-amber-800 mt-0.5">Opsi teratas memprioritaskan personel yang masuk pada shift sesuai tanggal terpilih.</p>
+                                <span class="text-xs font-extrabold text-amber-950">👑 Pengaturan Roster, Team Khusus & Tugas (<span id="roleTargetDateText">-</span>)</span>
+                                <p class="text-[11px] text-amber-800 mt-0.5">Pilih atau ketik kode roster utama, atur team khusus (opsional), dan tentukan penanggung jawab tugas.</p>
                             </div>
                             <button onclick="closeScheduleRoleAdminBox()" class="text-xs font-bold text-slate-600 hover:text-slate-900 bg-white px-2.5 py-1 rounded-lg border border-amber-200">Tutup ✕</button>
                         </div>
 
-                        <div id="roleSelectGridContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5"></div>
+                        <!-- 2A. Pengaturan Kode Roster Utama Shift Pagi & Shift Siang -->
+                        <div class="bg-white border border-amber-200 rounded-xl p-3 space-y-2.5">
+                            <div class="text-xs font-extrabold text-slate-800">🕒 Kode Roster Utama (Tampil di Samping Shift Pagi & Siang pada Salin WA)</div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                <div>
+                                    <label for="rosterSelectPagi" class="block text-[11px] font-bold text-amber-800 mb-1">☀️ Roster Shift Pagi (P) - Pilih / Ketik:</label>
+                                    <input type="text" list="rosterCodeDatalist" id="rosterSelectPagi" placeholder="Pilih atau ketik kode roster pagi..." class="w-full text-xs font-semibold border border-slate-300 bg-white rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
+                                </div>
+                                <div>
+                                    <label for="rosterSelectSiang" class="block text-[11px] font-bold text-indigo-800 mb-1">🌙 Roster Shift Siang (X) - Pilih / Ketik:</label>
+                                    <input type="text" list="rosterCodeDatalist" id="rosterSelectSiang" placeholder="Pilih atau ketik kode roster siang..." class="w-full text-xs font-semibold border border-slate-300 bg-white rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2B. Pengaturan Team Khusus / Roster Berbeda (Tampil Paling Atas di Salin WA) -->
+                        <div class="bg-sky-50/90 border border-sky-200 rounded-xl p-3 space-y-2.5">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <div>
+                                    <div class="text-xs font-extrabold text-sky-950">⚡ Team Khusus / Roster Berbeda (Opsional)</div>
+                                    <p class="text-[11px] text-sky-800">Jika ada tim dengan jam roster berbeda (misal: progress partisi homedecore), tampil paling atas di Salin WA.</p>
+                                </div>
+                                <button type="button" onclick="addSpecialTeamGroupDraft()" class="bg-sky-600 hover:bg-sky-700 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg shadow-2xs transition">
+                                    + Tambah Team Khusus
+                                </button>
+                            </div>
+                            <div id="specialTeamsDraftContainer" class="space-y-3"></div>
+                        </div>
+
+                        <!-- 2C. Grid 18 Peran Tugas Harian -->
+                        <div class="space-y-2">
+                            <div class="text-xs font-extrabold text-amber-950">📌 Penanggung Jawab 18 Tugas Harian</div>
+                            <div id="roleSelectGridContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5"></div>
+                        </div>
 
                         <div class="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-amber-200">
                             <button type="button" onclick="clearAllRoleSelectInputs()" class="text-xs font-semibold text-rose-700 hover:bg-rose-100 px-3 py-2 rounded-lg transition">
                                 Kosongkan Semua
                             </button>
                             <button type="button" id="btnSaveDailyRoleAssignment" onclick="saveDailyRoleAssignment()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 px-5 rounded-lg shadow-sm transition">
-                                💾 Simpan Susunan Tugas
+                                💾 Simpan Susunan & Roster
                             </button>
                         </div>
                     </div>
                 </div>
 
-                <!-- Ringkasan 18 Tugas Harian Terpilih (Tampil Live untuk Semua User) -->
+                <!-- Ringkasan Roster, Team Khusus & 18 Tugas Harian Terpilih (Tampil Live untuk Semua User) -->
                 <div class="px-5 py-3.5 bg-gradient-to-br from-amber-50/80 via-white to-indigo-50/50 space-y-2.5">
                     <div class="flex items-center justify-between">
-                        <span class="text-xs font-extrabold text-slate-800 uppercase tracking-wider">📌 Daftar Penanggung Jawab Tugas</span>
+                        <span class="text-xs font-extrabold text-slate-800 uppercase tracking-wider">📌 Ringkasan Roster, Team Khusus & Tugas Harian</span>
                         <span id="assignedRoleUpdatedMeta" class="text-[10px] text-slate-400"></span>
                     </div>
+                    <!-- Info Roster Aktif & Team Khusus -->
+                    <div id="assignedRosterAndSpecialSummary" class="space-y-2"></div>
+                    <!-- Grid 18 Peran -->
                     <div id="assignedRolesDisplayGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                         <div class="text-slate-400 italic">Memuat penugasan...</div>
                     </div>
@@ -153,14 +192,20 @@
 
     <script>
     // --- VERSI APLIKASI & PENGAMAN ANTI-STALE OVERWRITE (60+ DEVICE GUARD) ---
-    const APP_VERSION = '2026.11.20.3';
-    let isActionLocked = false;
+    const APP_VERSION = '2026.11.21.2';
+    const actionLockMap = {};
     let isFirebaseConnected = true;
     let isSyncingState = false;
     let hasReceivedInitialFirebaseSnapshot = false;
     let lastKnownServerTimestamp = 0;
     let isRunningPreActionRefresh = false;
+    let firebaseServerTimeOffsetMs = 0;
+    let hasReceivedServerTimeOffset = false;
     const DEVICE_CLIENT_ID = 'dev_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now();
+
+    function getServerNowMs() {
+        return Date.now() + (firebaseServerTimeOffsetMs || 0);
+    }
 
     function showPleaseWaitOverlay() {
         const el = document.getElementById('please-wait-overlay');
@@ -192,10 +237,13 @@
         return false;
     }
 
-    function lockAction(durationMs = 1500) {
-        if (isActionLocked) return false;
-        isActionLocked = true;
-        setTimeout(() => { isActionLocked = false; }, durationMs);
+    // Lock per kategori aksi agar tidak saling memblokir antara verifikasi PIN dan tombol konfirmasi
+    function lockAction(durationMs = 1000, actionKey = 'default') {
+        const now = Date.now();
+        if (actionLockMap[actionKey] && now < actionLockMap[actionKey]) {
+            return false;
+        }
+        actionLockMap[actionKey] = now + durationMs;
         return true;
     }
 
@@ -259,10 +307,13 @@
             if (forceHardReloadIfOutdated(vSnap.val())) return;
             return db.ref('appState').once('value').then((snapshot) => {
                 applyRemoteSnapshotToLocal(snapshot.val());
-                hidePleaseWaitOverlay();
-                isRunningPreActionRefresh = false;
-                if (typeof actionCallback === 'function') {
-                    actionCallback();
+                try {
+                    if (typeof actionCallback === 'function') {
+                        actionCallback();
+                    }
+                } finally {
+                    hidePleaseWaitOverlay();
+                    isRunningPreActionRefresh = false;
                 }
             });
         }).catch((err) => {
@@ -318,6 +369,40 @@
     }
     const db = firebase.database();
 
+    // Sinkronisasi Server Time Offset Firebase (/.info/serverTimeOffset) untuk mencegah manipulasi/keliru jam perangkat lokal
+    db.ref('.info/serverTimeOffset').on('value', (snap) => {
+        const offset = snap.val();
+        if (typeof offset === 'number' && !isNaN(offset)) {
+            firebaseServerTimeOffsetMs = offset;
+            hasReceivedServerTimeOffset = true;
+            if (hasReceivedInitialFirebaseSnapshot) {
+                db.ref('appState').once('value').then((s) => {
+                    if (s && s.exists()) {
+                        applyRemoteSnapshotToLocal(s.val());
+                    }
+                }).catch(() => {});
+            }
+        }
+    });
+
+    // Penyimpanan real-time PIN kustom petugas (terisolasi dari appState)
+    let customStaffPins = {};
+    db.ref('staffPins').on('value', (snap) => {
+        customStaffPins = (snap && snap.val()) ? snap.val() : {};
+        if (typeof onAdminPinStaffSelectChange === 'function') {
+            onAdminPinStaffSelectChange();
+        }
+    });
+
+    function getEffectiveStaffPin(nik) {
+        const cleanNik = String(nik || '').trim();
+        if (!cleanNik) return '';
+        const customVal = customStaffPins ? customStaffPins[cleanNik] : null;
+        return (customVal !== undefined && customVal !== null && String(customVal).trim() !== '')
+            ? String(customVal).trim()
+            : cleanNik;
+    }
+
     // Pantau status koneksi Firebase Realtime Database secara langsung
     db.ref('.info/connected').on('value', (snap) => {
         isFirebaseConnected = (snap.val() === true);
@@ -356,18 +441,79 @@
         { nik: "181774", name: "OKTAFIANI SILAWATI RAJABAN" }, { nik: "168208", name: "REGGYTA DWI KINANTY" }
     ];
 
-    let employees = [];
+    let employees = [...defaultEmployees];
     try {
         const storedEmp = JSON.parse(localStorage.getItem('custom_employees_list'));
-        employees = Array.isArray(storedEmp) && storedEmp.length > 0 ? storedEmp : defaultEmployees;
+        if (Array.isArray(storedEmp) && storedEmp.length > 0) {
+            const mergedMap = new Map();
+            defaultEmployees.forEach(e => {
+                if (e && e.nik) mergedMap.set(String(e.nik).trim(), { nik: String(e.nik).trim(), name: String(e.name || '').trim().toUpperCase() });
+            });
+            storedEmp.forEach(e => {
+                if (e && e.nik) mergedMap.set(String(e.nik).trim(), { nik: String(e.nik).trim(), name: String(e.name || '').trim().toUpperCase() });
+            });
+            employees = Array.from(mergedMap.values());
+        }
     } catch (e) {
-        employees = defaultEmployees;
+        employees = [...defaultEmployees];
     }
+
+    function mergeCustomEmployeesFromFirebase(remoteCustomMap) {
+        const mergedMap = new Map();
+        defaultEmployees.forEach(e => {
+            if (e && e.nik) {
+                mergedMap.set(String(e.nik).trim(), { nik: String(e.nik).trim(), name: String(e.name || '').trim().toUpperCase() });
+            }
+        });
+        try {
+            const localStored = JSON.parse(localStorage.getItem('custom_employees_list') || '[]');
+            if (Array.isArray(localStored)) {
+                localStored.forEach(e => {
+                    if (e && e.nik && e.name) {
+                        mergedMap.set(String(e.nik).trim(), { nik: String(e.nik).trim(), name: String(e.name).trim().toUpperCase() });
+                    }
+                });
+            }
+        } catch (err) {}
+
+        if (remoteCustomMap && typeof remoteCustomMap === 'object') {
+            Object.entries(remoteCustomMap).forEach(([keyNik, val]) => {
+                if (!val) return;
+                const cleanNik = String(val.nik || keyNik || '').trim();
+                const cleanName = String(val.name || '').trim().toUpperCase();
+                if (cleanNik && cleanName) {
+                    mergedMap.set(cleanNik, { nik: cleanNik, name: cleanName });
+                }
+            });
+        }
+
+        employees = Array.from(mergedMap.values());
+        try {
+            localStorage.setItem('custom_employees_list', JSON.stringify(employees));
+        } catch (err) {}
+
+        if (typeof populateAdminPinStaffDropdown === 'function') {
+            populateAdminPinStaffDropdown();
+        }
+        if (typeof updateAttendanceStats === 'function') {
+            updateAttendanceStats();
+        }
+        const searchInput = document.getElementById('search-employee');
+        const smtSection = document.getElementById('smt-selection-section');
+        if (smtSection && !smtSection.classList.contains('hidden')) {
+            const kw = searchInput ? searchInput.value.toLowerCase() : '';
+            renderEmployeeList(employees.filter(e => e.name.toLowerCase().includes(kw) || String(e.nik).includes(kw)));
+        }
+    }
+
+    db.ref('customEmployees').on('value', (snap) => {
+        mergeCustomEmployeesFromFirebase(snap ? snap.val() : null);
+    });
 
     let activeQueue = []; 
     let pausedQueue = []; 
-    let currentSpots = [[null, null, null], [null, null], [null, null]]; 
-    let spotShiftOrigin = [[null, null, null], [null, null], [null, null]]; 
+    let currentSpots = [Array(getMaxTitik1Slots()).fill(null), [null, null], [null, null]]; 
+    let spotShiftOrigin = [Array(getMaxTitik1Slots()).fill(null), [null, null], [null, null]]; 
     let shiftMorningQueue = [];
     let shiftAfternoonQueue = [];
     let selectedStaffQueue = [];
@@ -429,9 +575,9 @@
             .replace(/'/g, "&#039;");
     }
 
-    function getWibCurrentTime() {
+    function getWibCurrentTime(customEpochMs) {
         try {
-            const now = new Date();
+            const now = typeof customEpochMs === 'number' ? new Date(customEpochMs) : new Date(getServerNowMs());
             const options = { 
                 timeZone: "Asia/Jakarta", 
                 hour12: false, 
@@ -459,7 +605,7 @@
                 dateString: `${dateObj.year}-${dateObj.month}-${dateObj.day}`
             };
         } catch (e) {
-            const fallback = new Date();
+            const fallback = typeof customEpochMs === 'number' ? new Date(customEpochMs) : new Date(getServerNowMs());
             return {
                 hours: fallback.getHours(),
                 minutes: fallback.getMinutes(),
@@ -476,8 +622,8 @@
         return getWibCurrentTime().dateString;
     }
 
-    function getWibTimeString() {
-        const now = new Date();
+    function getWibTimeString(customEpochMs) {
+        const now = typeof customEpochMs === 'number' ? new Date(customEpochMs) : new Date(getServerNowMs());
         return now.toLocaleTimeString('id-ID', { 
             timeZone: "Asia/Jakarta", 
             hour: '2-digit', 
@@ -495,7 +641,7 @@
     }
 
     function isWeekendToday() {
-        const now = new Date();
+        const now = new Date(getServerNowMs());
         const dayStr = now.toLocaleDateString('en-US', { timeZone: 'Asia/Jakarta', weekday: 'short' });
         return dayStr === 'Sat' || dayStr === 'Sun';
     }
@@ -528,6 +674,8 @@
             Array(2).fill(null),
             Array(2).fill(null)
         ];
+        const rescuedOverflowStaff = [];
+
         if (rawState && rawState.currentSpots) {
             Object.keys(rawState.currentSpots).forEach(sStr => {
                 const s = parseInt(sStr, 10);
@@ -536,8 +684,13 @@
                     Object.keys(spotGroup).forEach(pStr => {
                         const p = parseInt(pStr, 10);
                         const maxP = (s === 0) ? limitSpot1 : 2;
-                        if (!isNaN(p) && p >= 0 && p < maxP && spotGroup[p]) {
-                            normalizedSpots[s][p] = { ...spotGroup[p] };
+                        if (!isNaN(p) && spotGroup[p]) {
+                            if (p >= 0 && p < maxP) {
+                                normalizedSpots[s][p] = { ...spotGroup[p] };
+                            } else {
+                                // Selamatkan petugas jika terjadi transisi Weekend (3 slot) -> Weekday (2 slot)
+                                rescuedOverflowStaff.push({ ...spotGroup[p] });
+                            }
                         }
                     });
                 }
@@ -565,13 +718,18 @@
             });
         }
 
+        const baseQueue = toSafeArray(rawState && rawState.activeQueue).map(x => ({ ...x }));
+        if (rescuedOverflowStaff.length > 0) {
+            baseQueue.unshift(...rescuedOverflowStaff);
+        }
+
         return {
-            timestamp: (rawState && typeof rawState.timestamp === 'number') ? rawState.timestamp : Date.now(),
+            timestamp: (rawState && typeof rawState.timestamp === 'number') ? rawState.timestamp : getServerNowMs(),
             appVersion: APP_VERSION,
             lastUpdatedBy: DEVICE_CLIENT_ID,
             date: todayStr,
             currentSpots: normalizedSpots,
-            activeQueue: toSafeArray(rawState && rawState.activeQueue).map(x => ({ ...x })),
+            activeQueue: baseQueue,
             pausedQueue: toSafeArray(rawState && rawState.pausedQueue).map(x => ({ ...x })),
             shiftMorningQueue: toSafeArray(rawState && rawState.shiftMorningQueue).map(x => ({ ...x })),
             shiftAfternoonQueue: toSafeArray(rawState && rawState.shiftAfternoonQueue).map(x => ({ ...x })),
@@ -699,26 +857,69 @@
         let sideEffects = {};
 
         db.ref('appState').transaction((remoteData) => {
-            // Lindungi server dari timpaan null sementara saat cache lokal SDK belum terisi
             if (!remoteData && lastKnownServerTimestamp > 0) {
                 return;
             }
-            // Tolak menulis di atas data server yang lebih baru daripada snapshot terakhir yang diketahui jika timestamp mundur
             if (remoteData && typeof remoteData.timestamp === 'number' && remoteData.timestamp < lastKnownServerTimestamp) {
                 return;
+            }
+
+            // Jika hari telah berganti (remoteData.date !== todayStr), selamatkan sesi gantung dari hari sebelumnya agar tidak hilang tanpa log AUTO-CLOSE
+            let inheritedOverdueLogs = [];
+            if (remoteData && remoteData.date && remoteData.date !== todayStr) {
+                const staleSessions = toSafeArray(remoteData.activeSessions);
+                if (staleSessions.length > 0) {
+                    const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
+                    const serverNow = getServerNowMs();
+                    const timeNow = getWibTimeString(serverNow);
+                    staleSessions.forEach(sess => {
+                        if (!sess || !sess.staff) return;
+                        const staffName = typeof sess.staff === 'object' ? (sess.staff.name || sess.staff.nama || 'Petugas') : sess.staff;
+                        const diffSec = Math.max(0, Math.floor((serverNow - sess.startTime) / 1000));
+                        const mins = String(Math.floor(diffSec / 60)).padStart(2, '0');
+                        const secs = String(Math.floor(diffSec % 60)).padStart(2, '0');
+                        const origDateStr = normalizeDateString(remoteData.date);
+
+                        inheritedOverdueLogs.push({
+                            logId: `log_autoclose_${sess.id || (origDateStr + '_' + String(sess.staff.nik || ''))}`,
+                            date: origDateStr,
+                            time: timeNow,
+                            staffName: staffName,
+                            spot: spotNames[sess.spotIndex] || "Titik Greeter",
+                            shift: "AUTO-CLOSE",
+                            duration: `${mins}:${secs}`,
+                            reason: `AUTO-CLOSE [Ganti Hari dari ${origDateStr} / Lupa Selesai]`,
+                            photo: "Tanpa Foto",
+                            gps: "-"
+                        });
+                    });
+                }
             }
 
             const baseRaw = (remoteData && remoteData.date === todayStr) ? remoteData : null;
             let workingState = buildNormalizedStateObject(baseRaw, todayStr);
 
-            sideEffects = {};
+            if (inheritedOverdueLogs.length > 0) {
+                inheritedOverdueLogs.forEach(l => {
+                    if (!workingState.activityLogs.some(ex => ex && ex.logId === l.logId)) {
+                        workingState.activityLogs.unshift(l);
+                    }
+                });
+            }
+
+            sideEffects = {
+                autoClosedDayRolloverLogs: inheritedOverdueLogs
+            };
+
             const result = mutatorFn(workingState, sideEffects);
             if (result === false) {
-                return; // Batalkan transaksi jika kondisi di server sudah berubah
+                if (inheritedOverdueLogs.length === 0) {
+                    return;
+                }
             }
 
             sanitizeAndAdvanceStateObject(workingState);
-            workingState.timestamp = Math.max(Date.now(), lastKnownServerTimestamp + 1);
+            workingState.timestamp = Math.max(getServerNowMs(), lastKnownServerTimestamp + 1);
             workingState.appVersion = APP_VERSION;
             workingState.lastUpdatedBy = DEVICE_CLIENT_ID;
             return workingState;
@@ -728,6 +929,9 @@
                 console.error("Transaksi Firebase gagal:", error);
                 showCustomAlert("Gangguan Koneksi", "Gagal menyinkronkan ke server. Silakan coba lagi.");
                 return;
+            }
+            if (committed && sideEffects && Array.isArray(sideEffects.autoClosedDayRolloverLogs)) {
+                sideEffects.autoClosedDayRolloverLogs.forEach(logData => syncLogToSpreadsheet(logData));
             }
             if (snapshot && snapshot.exists()) {
                 applyRemoteSnapshotToLocal(snapshot.val());
@@ -764,47 +968,79 @@
         });
     }
 
-    // --- AUTO-CLOSE SESI BUDDY GANTUNG PADA PUKUL 23:00 WIB ---
-    function checkAndAutoCloseOverdueSessionsAtomic() {
-        if (getWibHour() < 23) return;
-        if (toSafeArray(activeSessions).length === 0) return;
+    // --- AUTO-CLOSE SESI BUDDY GANTUNG PADA PUKUL 23:00 WIB ATAU SAAT PERGANTIAN HARI ---
+    function checkAndAutoCloseOverdueSessionsAtomic(remoteValOverride) {
+        const todayStr = getWibDateString();
+        const remoteDate = remoteValOverride && remoteValOverride.date ? String(remoteValOverride.date) : null;
+        const isDayChangedWithRemoteSessions = Boolean(
+            remoteDate &&
+            remoteDate !== todayStr &&
+            toSafeArray(remoteValOverride.activeSessions).length > 0
+        );
+
+        const localSessions = toSafeArray(activeSessions);
+        const hasPastDayLocalSession = localSessions.some(sess => {
+            if (!sess || !sess.startTime) return false;
+            return getWibCurrentTime(sess.startTime).dateString !== todayStr;
+        });
+
+        const isPast23Wib = getWibHour() >= 23 && localSessions.length > 0;
+
+        if (!isDayChangedWithRemoteSessions && !hasPastDayLocalSession && !isPast23Wib) {
+            return;
+        }
 
         commitAtomicIntent((st, fx) => {
-            if (getWibHour() < 23) return false;
+            const nowServerMs = getServerNowMs();
+            const currentHour = getWibHour();
+            const currentTodayStr = getWibDateString();
             const sessionsArr = toSafeArray(st.activeSessions);
-            if (sessionsArr.length === 0) return false;
-
             const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
-            const currentTime = Date.now();
-            const todayStr = getWibDateString();
-            const timeNow = getWibTimeString();
+            const timeNow = getWibTimeString(nowServerMs);
+
             fx.closedLogs = [];
+            const remainingSessions = [];
 
             sessionsArr.forEach(sess => {
                 if (!sess || !sess.staff) return;
-                const staffName = typeof sess.staff === 'object' ? (sess.staff.name || sess.staff.nama || 'Petugas') : sess.staff;
-                const diffSec = Math.max(0, Math.floor((currentTime - sess.startTime) / 1000));
-                const mins = String(Math.floor(diffSec / 60)).padStart(2, '0');
-                const secs = String(Math.floor(diffSec % 60)).padStart(2, '0');
-                const duration = `${mins}:${secs}`;
+                const sessDateStr = sess.startTime ? getWibCurrentTime(sess.startTime).dateString : currentTodayStr;
+                const isOverdue = (currentHour >= 23) || (sessDateStr !== currentTodayStr);
 
-                const logData = {
-                    date: todayStr,
-                    time: timeNow,
-                    staffName: staffName,
-                    spot: spotNames[sess.spotIndex] || "Titik Greeter",
-                    shift: "AUTO-CLOSE",
-                    duration: duration,
-                    reason: "AUTO-CLOSE [Melebihi Pukul 23:00 WIB / Lupa Selesai]",
-                    photo: "Tanpa Foto",
-                    gps: "-"
-                };
+                if (isOverdue) {
+                    const staffName = typeof sess.staff === 'object' ? (sess.staff.name || sess.staff.nama || 'Petugas') : sess.staff;
+                    const diffSec = Math.max(0, Math.floor((nowServerMs - sess.startTime) / 1000));
+                    const mins = String(Math.floor(diffSec / 60)).padStart(2, '0');
+                    const secs = String(Math.floor(diffSec % 60)).padStart(2, '0');
+                    const duration = `${mins}:${secs}`;
+                    const isCrossDay = sessDateStr !== currentTodayStr;
 
-                st.activityLogs.unshift(logData);
-                fx.closedLogs.push(logData);
+                    const logData = {
+                        logId: `log_autoclose_${sess.id || (sessDateStr + '_' + String(sess.staff.nik || ''))}`,
+                        date: isCrossDay ? sessDateStr : currentTodayStr,
+                        time: timeNow,
+                        staffName: staffName,
+                        spot: spotNames[sess.spotIndex] || "Titik Greeter",
+                        shift: "AUTO-CLOSE",
+                        duration: duration,
+                        reason: isCrossDay
+                            ? `AUTO-CLOSE [Melewati Pergantian Hari ${sessDateStr} / Lupa Selesai]`
+                            : "AUTO-CLOSE [Melebihi Pukul 23:00 WIB / Lupa Selesai]",
+                        photo: "Tanpa Foto",
+                        gps: "-"
+                    };
+
+                    if (!st.activityLogs.some(ex => ex && ex.logId === logData.logId)) {
+                        st.activityLogs.unshift(logData);
+                    }
+                    fx.closedLogs.push(logData);
+                } else {
+                    remainingSessions.push(sess);
+                }
             });
 
-            st.activeSessions = [];
+            st.activeSessions = remainingSessions;
+            const totalClosed = fx.closedLogs.length + ((fx.autoClosedDayRolloverLogs && fx.autoClosedDayRolloverLogs.length) || 0);
+            if (totalClosed === 0) return false;
             return true;
         }, (committed, fx) => {
             if (committed && Array.isArray(fx.closedLogs)) {
@@ -905,9 +1141,9 @@
         <div id="staff-pin-modal" class="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
             <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-100">
                 <h3 class="text-lg font-bold text-slate-900 mb-1">🔐 Verifikasi PIN Petugas</h3>
-                <p id="staff-pin-info" class="text-xs text-slate-500 mb-4">Masukkan NIK petugas yang bersangkutan untuk konfirmasi.</p>
+                <p id="staff-pin-info" class="text-xs text-slate-500 mb-4">Masukkan PIN / NIK petugas yang bersangkutan untuk konfirmasi.</p>
                 <input type="password" id="staff-pin-input" onkeyup="if(event.key==='Enter') verifyStaffPin()" class="border border-slate-300 rounded-xl px-4 py-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium mb-2">
-                <p id="staff-pin-error" class="text-rose-500 text-xs font-medium hidden mb-3">NIK petugas salah!</p>
+                <p id="staff-pin-error" class="text-rose-500 text-xs font-medium hidden mb-3">PIN / NIK petugas salah!</p>
                 <div class="flex justify-end gap-2 pt-2">
                     <button onclick="closeStaffPinModal()" class="border border-slate-300 text-slate-700 px-4 py-2 rounded-xl text-xs font-semibold hover:bg-slate-50 transition">Batal</button>
                     <button onclick="verifyStaffPin()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-sm transition">Konfirmasi</button>
@@ -1023,6 +1259,25 @@
                         <p class="text-xs text-purple-800">Ubah parameter operasional, kelola database karyawan SMT, atau lakukan reset langsung dari sini.</p>
                     </div>
 
+                    <!-- KONTROL PIN PETUGAS (BUDDY & SKIP) -->
+                    <div class="bg-blue-50/80 border border-blue-200 p-4 rounded-xl space-y-3">
+                        <h5 class="font-bold text-blue-950 text-sm">🔑 Pengaturan & Ubah PIN Verifikasi Petugas (Buddy & Skip)</h5>
+                        <p class="text-xs text-blue-800">Default verifikasi tombol Buddy & Skip adalah NIK petugas. Admin dapat mengganti dengan PIN bebas dan langsung sinkron ke semua perangkat.</p>
+                        <div class="space-y-2">
+                            <select id="admin-pin-staff-select" onchange="onAdminPinStaffSelectChange()" class="border border-slate-300 rounded-xl px-3.5 py-2 w-full text-xs bg-white font-semibold text-slate-800">
+                                <option value="">-- Pilih Nama Petugas (SMT) --</option>
+                            </select>
+                            <div id="admin-pin-current-status" class="text-xs bg-white border border-blue-200/80 rounded-xl px-3 py-2 text-slate-700 font-medium">
+                                Status PIN: Pilih petugas terlebih dahulu
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <input type="text" id="admin-pin-new-value" placeholder="Masukkan PIN baru..." autocomplete="off" class="border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono bg-white sm:col-span-1">
+                                <button type="button" onclick="saveAdminCustomStaffPin()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-xl text-xs font-bold transition shadow-xs">💾 Simpan PIN Baru</button>
+                                <button type="button" onclick="resetAdminCustomStaffPin()" class="bg-slate-600 hover:bg-slate-700 text-white px-3 py-2 rounded-xl text-xs font-bold transition shadow-xs">🔄 Reset ke NIK</button>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- KONTROL BARU: PENGHAPUSAN NODE FIREBASE APPSTATE -->
                     <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-3">
                         <h5 class="font-bold text-slate-900 text-sm">🔥 Pengelolaan & Hapus Node Firebase (appState)</h5>
@@ -1098,7 +1353,7 @@
                     <!-- KONTROL 3: TAMBAH KARYAWAN SMT BARU -->
                     <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-2">
                         <h5 class="font-bold text-slate-900 text-sm">➕ Tambah / Daftarkan SMT Baru ke Sistem</h5>
-                        <p class="text-xs text-slate-500">Tambahkan personel baru secara instan.</p>
+                        <p class="text-xs text-slate-500">Tambahkan personel baru secara instan dan sinkronkan ke seluruh perangkat.</p>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             <input type="text" id="admin-new-nik" placeholder="Nomor NIK..." class="border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono bg-white">
                             <input type="text" id="admin-new-name" placeholder="Nama Lengkap SMT..." class="border border-slate-300 rounded-xl px-3 py-2 text-xs uppercase bg-white">
@@ -1118,7 +1373,7 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                         <button onclick="masterResetQueueAndSpots()" class="bg-rose-600 hover:bg-rose-700 text-white p-3 rounded-xl text-xs font-bold transition shadow-xs">🗑️ Reset Seluruh Antrean & Titik</button>
                         <button onclick="masterClearActiveSessions()" class="bg-rose-600 hover:bg-rose-700 text-white p-3 rounded-xl text-xs font-bold transition shadow-xs">⏳ Hapus Sesi Buddy Gantung</button>
-                        <button onclick="localStorage.removeItem('custom_employees_list'); location.reload();" class="bg-amber-600 hover:bg-amber-700 text-white p-3 rounded-xl text-xs font-bold transition shadow-xs">🔄 Reset Daftar SMT ke Default</button>
+                        <button onclick="resetCustomEmployeesToDefault()" class="bg-amber-600 hover:bg-amber-700 text-white p-3 rounded-xl text-xs font-bold transition shadow-xs">🔄 Reset Daftar SMT ke Default</button>
                         <button onclick="masterClearAllCacheAndStorage()" class="bg-red-700 hover:bg-red-800 text-white p-3 rounded-xl text-xs font-bold transition shadow-xs col-span-full">🧹 Hapus Seluruh Cache & Data Basi (Reset Total)</button>
                         <button onclick="location.reload()" class="bg-slate-800 hover:bg-slate-900 text-white p-3 rounded-xl text-xs font-bold transition shadow-xs col-span-full">⚡ Paksa Reload Perangkat Ini</button>
                     </div>
@@ -1461,7 +1716,7 @@
         </div>
     `;
 
-        const nowWibText = new Date().toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        const nowWibText = new Date(getServerNowMs()).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
         const dateEl = document.getElementById('current-date');
         if (dateEl) dateEl.innerText = nowWibText;
     }
@@ -1470,7 +1725,17 @@
         try {
             const todayStr = getWibDateString();
 
-            // Jika snapshot dari server kosong (val === null) padahal perangkat ini sudah terhubung dengan data hari ini, abaikan agar tidak memuat backup lokal lama
+            const dateEl = document.getElementById('current-date');
+            if (dateEl) {
+                dateEl.innerText = new Date(getServerNowMs()).toLocaleDateString('id-ID', {
+                    timeZone: 'Asia/Jakarta',
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+            }
+
             if (!val) {
                 if (hasReceivedInitialFirebaseSnapshot && lastKnownServerTimestamp > 0) {
                     return;
@@ -1484,6 +1749,13 @@
                         return;
                     }
                     lastKnownServerTimestamp = val.timestamp;
+                }
+            }
+
+            // Jika hari telah berganti (val.date !== todayStr) dan masih ada activeSessions gantung di server, langsung jalankan AUTO-CLOSE atomik sebelum reset
+            if (val && val.date && val.date !== todayStr && toSafeArray(val.activeSessions).length > 0) {
+                if (!isSyncingState && isFirebaseConnected) {
+                    checkAndAutoCloseOverdueSessionsAtomic(val);
                 }
             }
 
@@ -1553,6 +1825,7 @@
 
     document.addEventListener("DOMContentLoaded", () => {
         renderAppTemplate();
+        populateRosterCodeDatalist();
         updateAttendanceStats();
         updateActiveBuddyButtonBadge();
 
@@ -1608,11 +1881,10 @@
                             emptySlotStreakSec = 0;
                         }
 
-                        // Tunggu 3 detik berturut-turut agar aksi normal (Buddy/Skip/Rotasi) selesai dulu
                         if (timeSanitized || emptySlotStreakSec >= 3) {
                             emptySlotStreakSec = 0;
                             commitAtomicIntent((st) => {
-                                return true; // sanitizeAndAdvanceStateObject dijalankan otomatis di dalam transaksi
+                                return true;
                             });
                         }
                     }
@@ -1692,12 +1964,12 @@
             try {
                 if (isSyncingState || !isFirebaseConnected || !hasReceivedInitialFirebaseSnapshot) return;
                 const safePaused = toSafeArray(pausedQueue);
-                const currentTime = Date.now();
+                const currentTime = getServerNowMs();
                 const hasDueResume = safePaused.some(item => item && item.staff && currentTime >= item.resumeTime);
 
                 if (hasDueResume) {
                     commitAtomicIntent((st) => {
-                        const nowMs = Date.now();
+                        const nowMs = getServerNowMs();
                         const currentPaused = toSafeArray(st.pausedQueue);
                         let updatedPaused = [];
                         let anyChanged = false;
@@ -1794,7 +2066,7 @@
             pendingStaffAction = { action, spotIndex, staffPositionIndex, staff };
             document.getElementById('staff-pin-input').value = '';
             document.getElementById('staff-pin-error').classList.add('hidden');
-            document.getElementById('staff-pin-info').innerText = `Masukkan NIK petugas ${staffName} untuk konfirmasi (${action === 'mulai' ? 'Buddy' : 'Skip Giliran'}):`;
+            document.getElementById('staff-pin-info').innerText = `Masukkan PIN / NIK petugas ${staffName} untuk konfirmasi (${action === 'mulai' ? 'Buddy' : 'Skip Giliran'}):`;
             document.getElementById('staff-pin-modal').classList.remove('hidden');
             setTimeout(() => document.getElementById('staff-pin-input').focus(), 100);
         } catch (e) {
@@ -1808,11 +2080,12 @@
     }
 
     function verifyStaffPin() {
-        if (!lockAction()) return;
+        if (!lockAction(800, 'verify_staff_pin')) return;
         try {
             if (!pendingStaffAction) return;
-            const enteredNik = document.getElementById('staff-pin-input').value.trim();
-            if (enteredNik === String(pendingStaffAction.staff.nik).trim()) {
+            const enteredPin = document.getElementById('staff-pin-input').value.trim();
+            const expectedPin = getEffectiveStaffPin(pendingStaffAction.staff.nik);
+            if (enteredPin === expectedPin) {
                 const { action, spotIndex, staffPositionIndex, staff } = pendingStaffAction;
                 closeStaffPinModal();
 
@@ -1906,6 +2179,89 @@
         }, 300);
     }
 
+    function populateAdminPinStaffDropdown() {
+        const selectEl = document.getElementById('admin-pin-staff-select');
+        if (!selectEl) return;
+        const prevVal = selectEl.value;
+        selectEl.innerHTML = '<option value="">-- Pilih Nama Petugas (SMT) --</option>';
+
+        const sortedEmps = [...employees].sort((a, b) => String(a.name).localeCompare(String(b.name)));
+        sortedEmps.forEach(emp => {
+            if (!emp || !emp.nik) return;
+            const nikStr = String(emp.nik).trim();
+            const hasCustom = customStaffPins && customStaffPins[nikStr];
+            const opt = document.createElement('option');
+            opt.value = nikStr;
+            opt.textContent = `${emp.name} (${nikStr})${hasCustom ? ' [PIN Kustom Aktif]' : ''}`;
+            selectEl.appendChild(opt);
+        });
+
+        if (prevVal) selectEl.value = prevVal;
+        onAdminPinStaffSelectChange();
+    }
+
+    function onAdminPinStaffSelectChange() {
+        const selectEl = document.getElementById('admin-pin-staff-select');
+        const statusEl = document.getElementById('admin-pin-current-status');
+        if (!selectEl || !statusEl) return;
+        const nik = selectEl.value;
+        if (!nik) {
+            statusEl.innerHTML = 'Status PIN: Pilih petugas terlebih dahulu';
+            return;
+        }
+        const customVal = customStaffPins ? customStaffPins[nik] : null;
+        if (customVal !== undefined && customVal !== null && String(customVal).trim() !== '') {
+            statusEl.innerHTML = `Status PIN: <span class="text-blue-700 font-bold">PIN Kustom Aktif (${escapeHtml(customVal)})</span>`;
+        } else {
+            statusEl.innerHTML = `Status PIN: <span class="text-slate-700 font-bold">Default NIK (${escapeHtml(nik)})</span>`;
+        }
+    }
+
+    function saveAdminCustomStaffPin() {
+        const selectEl = document.getElementById('admin-pin-staff-select');
+        const inputEl = document.getElementById('admin-pin-new-value');
+        if (!selectEl || !inputEl) return;
+
+        const nik = selectEl.value.trim();
+        const newPin = inputEl.value.trim();
+        if (!nik) {
+            showCustomAlert('Perhatian', 'Silakan pilih nama petugas terlebih dahulu.');
+            return;
+        }
+        if (!newPin) {
+            showCustomAlert('Perhatian', 'Masukkan PIN baru terlebih dahulu.');
+            return;
+        }
+
+        db.ref(`staffPins/${nik}`).set(newPin).then(() => {
+            inputEl.value = '';
+            populateAdminPinStaffDropdown();
+            showCustomAlert('Berhasil', 'PIN verifikasi petugas berhasil diperbarui dan langsung berlaku di seluruh perangkat.');
+        }).catch(err => {
+            showCustomAlert('Gagal', 'Gagal menyimpan PIN petugas: ' + err.message);
+        });
+    }
+
+    function resetAdminCustomStaffPin() {
+        const selectEl = document.getElementById('admin-pin-staff-select');
+        const inputEl = document.getElementById('admin-pin-new-value');
+        if (!selectEl) return;
+
+        const nik = selectEl.value.trim();
+        if (!nik) {
+            showCustomAlert('Perhatian', 'Silakan pilih nama petugas terlebih dahulu.');
+            return;
+        }
+
+        db.ref(`staffPins/${nik}`).remove().then(() => {
+            if (inputEl) inputEl.value = '';
+            populateAdminPinStaffDropdown();
+            showCustomAlert('Berhasil', `PIN verifikasi petugas dikembalikan ke NIK bawaan (${nik}).`);
+        }).catch(err => {
+            showCustomAlert('Gagal', 'Gagal mereset PIN petugas: ' + err.message);
+        });
+    }
+
     function openMasterControlModal() {
         document.getElementById('master-pin-input').value = '';
         document.getElementById('master-pin-error').classList.add('hidden');
@@ -1913,6 +2269,9 @@
         document.getElementById('master-step-content').classList.add('hidden');
         document.getElementById('admin-script-url-input').value = SCRIPT_URL;
         document.getElementById('admin-custom-css').value = localStorage.getItem('custom_admin_css') || '';
+        const newPinInput = document.getElementById('admin-pin-new-value');
+        if (newPinInput) newPinInput.value = '';
+        populateAdminPinStaffDropdown();
         document.getElementById('master-control-modal').classList.remove('hidden');
         setTimeout(() => document.getElementById('master-pin-input').focus(), 100);
     }
@@ -1926,6 +2285,7 @@
         if (pin === '08121989') {
             document.getElementById('master-step-pin').classList.add('hidden');
             document.getElementById('master-step-content').classList.remove('hidden');
+            populateAdminPinStaffDropdown();
         } else {
             document.getElementById('master-pin-error').classList.remove('hidden');
         }
@@ -2045,7 +2405,7 @@
             setTimeout(() => {
                 Promise.all([
                     db.ref('systemCommand/appVersion').set(APP_VERSION),
-                    db.ref('systemCommand/reloadSignal').set(Date.now())
+                    db.ref('systemCommand/reloadSignal').set(getServerNowMs())
                 ]).then(() => {
                     closeMasterControlModal();
                 }).catch(err => {
@@ -2058,7 +2418,7 @@
     function exportStateJson() {
         try {
             const exportData = {
-                timestamp: Date.now(),
+                timestamp: getServerNowMs(),
                 appVersion: APP_VERSION,
                 date: getWibDateString(),
                 currentSpots: currentSpots,
@@ -2098,14 +2458,32 @@
                 }
 
                 if (confirm(`Impor data dari tanggal ${importedData.date}? Tindakan ini akan menimpa data sistem saat ini dan menyegarkan semua perangkat.`)) {
+                    const customUpdates = {};
                     if (Array.isArray(importedData.employees) && importedData.employees.length > 0) {
+                        const defaultNikSet = new Set(defaultEmployees.map(d => String(d.nik).trim()));
+                        importedData.employees.forEach(emp => {
+                            if (emp && emp.nik && emp.name) {
+                                const cNik = String(emp.nik).trim();
+                                const cName = String(emp.name).trim().toUpperCase();
+                                if (!defaultNikSet.has(cNik)) {
+                                    customUpdates[cNik] = { nik: cNik, name: cName };
+                                }
+                            }
+                        });
                         employees = importedData.employees;
                         localStorage.setItem('custom_employees_list', JSON.stringify(employees));
                     }
 
+                    const syncCustomPromise = Object.keys(customUpdates).length > 0
+                        ? db.ref('customEmployees').update(customUpdates)
+                        : Promise.resolve();
+
                     const normalizedImport = buildNormalizedStateObject(importedData, importedData.date);
-                    normalizedImport.timestamp = Math.max(Date.now(), lastKnownServerTimestamp + 1);
-                    db.ref('appState').set(normalizedImport).then(() => {
+                    normalizedImport.timestamp = Math.max(getServerNowMs(), lastKnownServerTimestamp + 1);
+                    Promise.all([
+                        syncCustomPromise,
+                        db.ref('appState').set(normalizedImport)
+                    ]).then(() => {
                         broadcastRefreshAllDevices();
                     });
                 }
@@ -2136,16 +2514,44 @@
             showCustomAlert('Perhatian', 'NIK dan Nama SMT wajib diisi.');
             return;
         }
-        if (employees.some(e => String(e.nik) === String(nik))) {
+        if (employees.some(e => String(e.nik).trim() === String(nik))) {
             showCustomAlert('Perhatian', 'NIK tersebut sudah terdaftar di sistem.');
             return;
         }
-        employees.push({ nik, name });
-        localStorage.setItem('custom_employees_list', JSON.stringify(employees));
-        document.getElementById('admin-new-nik').value = '';
-        document.getElementById('admin-new-name').value = '';
-        updateAttendanceStats();
-        showCustomAlert('Berhasil', `Pegawai ${name} (${nik}) berhasil ditambahkan ke daftar SMT!`);
+        if (!isFirebaseConnected) {
+            showCustomAlert('Koneksi Terputus', 'Perangkat sedang offline. Periksa jaringan sebelum mendaftarkan karyawan baru agar tersinkron ke semua perangkat.');
+            return;
+        }
+
+        const newEmpObj = { nik, name };
+        db.ref(`customEmployees/${nik}`).set(newEmpObj).then(() => {
+            if (!employees.some(e => String(e.nik).trim() === String(nik))) {
+                employees.push(newEmpObj);
+            }
+            localStorage.setItem('custom_employees_list', JSON.stringify(employees));
+            document.getElementById('admin-new-nik').value = '';
+            document.getElementById('admin-new-name').value = '';
+            populateAdminPinStaffDropdown();
+            updateAttendanceStats();
+            showCustomAlert('Berhasil', `Pegawai ${name} (${nik}) berhasil ditambahkan dan disinkronkan ke seluruh perangkat!`);
+        }).catch(err => {
+            showCustomAlert('Gagal', 'Gagal menyimpan karyawan baru ke server: ' + err.message);
+        });
+    }
+
+    function resetCustomEmployeesToDefault() {
+        if (!confirm("Yakin ingin mereset daftar karyawan SMT kembali ke daftar bawaan (menghapus semua karyawan tambahan di seluruh perangkat)?")) {
+            return;
+        }
+        db.ref('customEmployees').remove().then(() => {
+            localStorage.removeItem('custom_employees_list');
+            employees = [...defaultEmployees];
+            populateAdminPinStaffDropdown();
+            updateAttendanceStats();
+            showCustomAlert('Berhasil', 'Daftar karyawan SMT berhasil dikembalikan ke default di seluruh perangkat.');
+        }).catch(err => {
+            showCustomAlert('Gagal', 'Gagal mereset daftar karyawan: ' + err.message);
+        });
     }
 
     function applyCustomCss() {
@@ -2337,7 +2743,7 @@
         const count = sessionsArr.length;
         label.innerText = count > 0 ? `⏳ Sesi Buddy Aktif (${count})` : `⏳ Sesi Buddy Aktif`;
 
-        const currentTime = Date.now();
+        const currentTime = getServerNowMs();
         const hasOver80MinSession = sessionsArr.some(sess => {
             if (!sess || !sess.startTime) return false;
             const diffSec = Math.max(0, Math.floor((currentTime - sess.startTime) / 1000));
@@ -2363,7 +2769,7 @@
         }
 
         const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
-        const currentTime = Date.now();
+        const currentTime = getServerNowMs();
 
         container.innerHTML = '';
         sessionsArr.forEach((sess) => {
@@ -2405,7 +2811,7 @@
     }
 
     function executeCancelBuddySession() {
-        if (!lockAction()) return;
+        if (!lockAction(1000, 'cancel_buddy')) return;
         try {
             if (!pendingCancelSessionId) return;
             if (!ensureFreshTabBeforeAction()) return;
@@ -2476,6 +2882,7 @@
 
                 const timeNow = getWibTimeString();
                 const logData = {
+                    logId: `log_cancel_${sessionId}`,
                     date: getWibDateString(),
                     time: timeNow,
                     staffName: staffName,
@@ -2510,7 +2917,7 @@
     function updateActiveSessionsTimersUI() {
         const sessionsArr = toSafeArray(activeSessions);
         if (sessionsArr.length === 0) return;
-        const currentTime = Date.now();
+        const currentTime = getServerNowMs();
         sessionsArr.forEach(sess => {
             if (!sess) return;
             const timerEl = document.getElementById(`active-item-timer-${sess.id}`);
@@ -2539,7 +2946,7 @@
         const staffName = typeof sess.staff === 'object' ? (sess.staff.name || sess.staff.nama || 'Petugas') : sess.staff;
         document.getElementById('buddy-info-text').innerText = `Titik: ${spotNames[sess.spotIndex] || 'Titik Greeter'} | Petugas: ${staffName}`;
 
-        const diffSec = Math.max(0, Math.floor((Date.now() - sess.startTime) / 1000));
+        const diffSec = Math.max(0, Math.floor((getServerNowMs() - sess.startTime) / 1000));
         const mins = String(Math.floor(diffSec / 60)).padStart(2, '0');
         const secs = String(Math.floor(diffSec % 60)).padStart(2, '0');
         document.getElementById('timer-display').innerText = `${mins}:${secs}`;
@@ -2622,13 +3029,11 @@
             const targetName = typeof targetStaff === 'object' ? (targetStaff.name || targetStaff.nama || 'Petugas') : targetStaff;
 
             commitAtomicIntent((st, fx) => {
-                // Pastikan petugas yang sama belum aktif di sesi buddy lain
                 if (st.activeSessions.some(s => s && s.staff && String(s.staff.nik) === targetNik)) {
                     fx.errorMsg = `${targetName} sudah memiliki sesi buddy yang sedang aktif.`;
                     return false;
                 }
 
-                // Cari petugas di titik yang diklik (atau jika sudah bergeser slot karena device lain klik duluan, tetap temukan posisinya)
                 let foundS = -1;
                 let foundP = -1;
                 let foundStaffObj = null;
@@ -2658,11 +3063,11 @@
                 }
 
                 const newSession = {
-                    id: 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+                    id: 'sess_' + getServerNowMs() + '_' + Math.random().toString(36).substring(2, 7),
                     spotIndex: Number(foundS),
                     spotPositionIndex: Number(foundP),
                     staff: foundStaffObj,
-                    startTime: Date.now()
+                    startTime: getServerNowMs()
                 };
 
                 st.activeSessions.push(newSession);
@@ -2729,13 +3134,15 @@
                 const sess = st.activeSessions.splice(sessIdx, 1)[0];
                 const staff = sess.staff;
                 const staffName = typeof staff === 'object' ? (staff.name || staff.nama || 'Petugas') : staff;
+                const staffNik = staff && staff.nik ? String(staff.nik).trim() : '';
 
-                const diffSec = Math.max(0, Math.floor((Date.now() - sess.startTime) / 1000));
+                const diffSec = Math.max(0, Math.floor((getServerNowMs() - sess.startTime) / 1000));
                 const mins = String(Math.floor(diffSec / 60)).padStart(2, '0');
                 const secs = String(Math.floor(diffSec % 60)).padStart(2, '0');
                 const duration = `${mins}:${secs}`;
 
                 const logData = {
+                    logId: `log_finish_${finishedSessId}`,
                     date: getWibDateString(),
                     time: timeNow,
                     staffName: staffName,
@@ -2748,9 +3155,19 @@
                 };
 
                 st.activityLogs.unshift(logData);
-                st.activeQueue.push(staff);
+
+                // Hanya kembalikan ke activeQueue jika petugas masih terdaftar di shift hari ini (belum dihapus admin saat sesi aktif)
+                const isStillInShift = Boolean(staffNik) && (
+                    toSafeArray(st.shiftMorningQueue).some(e => e && String(e.nik).trim() === staffNik) ||
+                    toSafeArray(st.shiftAfternoonQueue).some(e => e && String(e.nik).trim() === staffNik)
+                );
+                if (isStillInShift) {
+                    st.activeQueue.push(staff);
+                }
+
                 fx.logData = logData;
                 fx.staffName = staffName;
+                fx.removedByAdmin = !isStillInShift;
                 return true;
             }, (committed, fx) => {
                 if (finishBtn) finishBtn.disabled = false;
@@ -2763,7 +3180,11 @@
                 }
                 if (committed && fx.logData) {
                     syncLogToSpreadsheet(fx.logData);
-                    showCustomAlert('Laporan Selesai', `Sesi buddy ${fx.staffName} selesai.`);
+                    if (fx.removedByAdmin) {
+                        showCustomAlert('Laporan Selesai', `Sesi buddy ${fx.staffName} selesai (petugas tidak dikembalikan ke antrean karena telah dihapus dari sistem hari ini oleh admin).`);
+                    } else {
+                        showCustomAlert('Laporan Selesai', `Sesi buddy ${fx.staffName} selesai.`);
+                    }
                 }
             });
         } catch (e) {
@@ -2829,7 +3250,6 @@
             const chosenSnapshot = selectedStaffQueue.map(s => ({ ...s }));
 
             commitAtomicIntent((st, fx) => {
-                // Akumulasikan daftar shift tanpa menghapus petugas shift yang sudah diinput perangkat lain
                 const targetShiftKey = mode === 'pagi' ? 'shiftMorningQueue' : 'shiftAfternoonQueue';
                 const currentShiftList = toSafeArray(st[targetShiftKey]);
                 const existingShiftNiks = new Set(currentShiftList.map(e => e && e.nik ? String(e.nik) : null).filter(Boolean));
@@ -2842,7 +3262,6 @@
                 });
                 st[targetShiftKey] = currentShiftList;
 
-                // Kumpulkan semua NIK yang sudah aktif di spot, buddy, paused, atau queue
                 const existingNiks = new Set();
                 st.currentSpots.forEach(group => {
                     if (Array.isArray(group)) group.forEach(staff => { if (staff && staff.nik) existingNiks.add(String(staff.nik)); });
@@ -2857,22 +3276,34 @@
                     if (staff && staff.nik) existingNiks.add(String(staff.nik));
                 });
 
-                let addedCount = 0;
+                const newlyAddedList = [];
                 chosenSnapshot.forEach(staff => {
                     if (staff && staff.nik && !existingNiks.has(String(staff.nik))) {
-                        st.activeQueue.push(staff);
+                        newlyAddedList.push(staff);
                         existingNiks.add(String(staff.nik));
-                        addedCount++;
                     }
                 });
 
-                fx.addedCount = addedCount;
+                // Jika Shift Pagi susulan diinput setelah Shift Siang masuk antrean, sisipkan sebelum kelompok Shift Siang
+                if (mode === 'pagi' && newlyAddedList.length > 0) {
+                    const morningNiksSet = new Set(toSafeArray(st.shiftMorningQueue).map(e => e && e.nik ? String(e.nik) : null).filter(Boolean));
+                    const firstAfternoonIdx = st.activeQueue.findIndex(qStaff => qStaff && qStaff.nik && !morningNiksSet.has(String(qStaff.nik)));
+                    if (firstAfternoonIdx !== -1) {
+                        st.activeQueue.splice(firstAfternoonIdx, 0, ...newlyAddedList);
+                    } else {
+                        st.activeQueue.push(...newlyAddedList);
+                    }
+                } else {
+                    st.activeQueue.push(...newlyAddedList);
+                }
+
+                fx.addedCount = newlyAddedList.length;
                 return true;
             }, (committed, fx) => {
                 if (saveBtn) saveBtn.disabled = false;
                 if (committed) {
                     closeSmtModal();
-                    showCustomAlert("Berhasil", `Data SMT Shift ${mode.toUpperCase()} berhasil disimpan. ${fx.addedCount} petugas baru ditambahkan ke antrean paling bawah tanpa menimpa data yang sedang berjalan.`);
+                    showCustomAlert("Berhasil", `Data SMT Shift ${mode.toUpperCase()} berhasil disimpan. ${fx.addedCount} petugas baru ditambahkan sesuai urutan prioritas shift tanpa menimpa data yang sedang berjalan.`);
                 }
             });
         } catch (e) {
@@ -3032,16 +3463,20 @@
             selectEl.innerHTML = '';
 
             let allAvailableStaff = [];
+            const seenNiks = new Set();
             
             sanitizeStateForTime();
             cleanupActiveQueue();
             
             const activeQueueArr = toSafeArray(activeQueue);
             activeQueueArr.forEach((staff, idx) => {
+                if (!staff || !staff.nik) return;
+                const nikStr = String(staff.nik).trim();
+                seenNiks.add(nikStr);
                 let staffName = typeof staff === 'object' ? (staff.name || staff.nama || 'Petugas') : staff;
                 allAvailableStaff.push({
                     name: staffName,
-                    nik: staff.nik,
+                    nik: nikStr,
                     source: 'queue',
                     index: idx,
                     label: `[Antrean Cadangan] ${staffName}`
@@ -3052,11 +3487,13 @@
                 const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
                 if (Array.isArray(spotGroup)) {
                     spotGroup.forEach((staff, pIdx) => {
-                        if (staff) {
+                        if (staff && staff.nik) {
+                            const nikStr = String(staff.nik).trim();
+                            seenNiks.add(nikStr);
                             let staffName = typeof staff === 'object' ? (staff.name || staff.nama || 'Petugas') : staff;
                             allAvailableStaff.push({
                                 name: staffName,
-                                nik: staff.nik,
+                                nik: nikStr,
                                 source: 'spot',
                                 sIdx: sIdx,
                                 pIdx: pIdx,
@@ -3070,11 +3507,13 @@
             const pausedArr = toSafeArray(pausedQueue);
             if (pausedArr.length > 0) {
                 pausedArr.forEach((item, idx) => {
-                    if (item && item.staff) {
+                    if (item && item.staff && item.staff.nik) {
+                        const nikStr = String(item.staff.nik).trim();
+                        seenNiks.add(nikStr);
                         let staffName = typeof item.staff === 'object' ? (item.staff.name || item.staff.nama || 'Petugas') : item.staff;
                         allAvailableStaff.push({
                             name: staffName,
-                            nik: item.staff.nik,
+                            nik: nikStr,
                             source: 'paused',
                             index: idx,
                             label: `[Sedang di Luar / Izin] ${staffName}`
@@ -3082,6 +3521,42 @@
                     }
                 });
             }
+
+            const sessionsArr = toSafeArray(activeSessions);
+            if (sessionsArr.length > 0) {
+                sessionsArr.forEach((sess, idx) => {
+                    if (sess && sess.staff && sess.staff.nik) {
+                        const nikStr = String(sess.staff.nik).trim();
+                        seenNiks.add(nikStr);
+                        let staffName = typeof sess.staff === 'object' ? (sess.staff.name || sess.staff.nama || 'Petugas') : sess.staff;
+                        allAvailableStaff.push({
+                            name: staffName,
+                            nik: nikStr,
+                            source: 'buddy',
+                            index: idx,
+                            label: `[Sedang Buddy Aktif] ${staffName}`
+                        });
+                    }
+                });
+            }
+
+            // Sertakan petugas yang masih tercatat hadir di shift hari ini meskipun sedang tidak berada di slot/antrean
+            [...toSafeArray(shiftMorningQueue), ...toSafeArray(shiftAfternoonQueue)].forEach((emp, idx) => {
+                if (emp && emp.nik) {
+                    const nikStr = String(emp.nik).trim();
+                    if (!seenNiks.has(nikStr)) {
+                        seenNiks.add(nikStr);
+                        let staffName = typeof emp === 'object' ? (emp.name || emp.nama || 'Petugas') : emp;
+                        allAvailableStaff.push({
+                            name: staffName,
+                            nik: nikStr,
+                            source: 'shift',
+                            index: idx,
+                            label: `[Terdaftar Shift Hari Ini] ${staffName}`
+                        });
+                    }
+                }
+            });
 
             if (allAvailableStaff.length === 0) {
                 selectEl.innerHTML = '<option value="">Tidak ada petugas tersedia</option>';
@@ -3141,7 +3616,7 @@
     }
 
     function executeManualRotationCustom() {
-        if (!lockAction()) return;
+        if (!lockAction(1000, 'manual_rotation')) return;
         try {
             const selectEl = document.getElementById('rotasi-target-select');
             const spotSelectEl = document.getElementById('rotasi-spot-select');
@@ -3158,10 +3633,10 @@
             const spotNames = ["Main Entrance", "CarPark / CP", "HomeGallery / HG"];
 
             commitAtomicIntent((st, fx) => {
+                const targetNikStr = String(chosenItem.nik).trim();
                 let staffObj = null;
 
-                // Cari petugas berdasarkan NIK di seluruh sumber aktif server
-                const qIdx = st.activeQueue.findIndex(s => s && String(s.nik) === String(chosenItem.nik));
+                const qIdx = st.activeQueue.findIndex(s => s && String(s.nik).trim() === targetNikStr);
                 if (qIdx !== -1) {
                     staffObj = st.activeQueue.splice(qIdx, 1)[0];
                 }
@@ -3170,7 +3645,7 @@
                     for (let s = 0; s < st.currentSpots.length; s++) {
                         if (!Array.isArray(st.currentSpots[s])) continue;
                         for (let p = 0; p < st.currentSpots[s].length; p++) {
-                            if (st.currentSpots[s][p] && String(st.currentSpots[s][p].nik) === String(chosenItem.nik)) {
+                            if (st.currentSpots[s][p] && String(st.currentSpots[s][p].nik).trim() === targetNikStr) {
                                 staffObj = st.currentSpots[s][p];
                                 st.currentSpots[s][p] = null;
                                 if (st.spotShiftOrigin[s]) st.spotShiftOrigin[s][p] = null;
@@ -3182,10 +3657,21 @@
                 }
 
                 if (!staffObj) {
-                    const pIdx = st.pausedQueue.findIndex(item => item && item.staff && String(item.staff.nik) === String(chosenItem.nik));
+                    const pIdx = st.pausedQueue.findIndex(item => item && item.staff && String(item.staff.nik).trim() === targetNikStr);
                     if (pIdx !== -1) {
                         staffObj = st.pausedQueue.splice(pIdx, 1)[0].staff;
                     }
+                }
+
+                const activeSessIdx = st.activeSessions.findIndex(sess => sess && sess.staff && String(sess.staff.nik).trim() === targetNikStr);
+                if (!staffObj && activeSessIdx !== -1) {
+                    staffObj = st.activeSessions[activeSessIdx].staff;
+                }
+
+                if (!staffObj) {
+                    const mEmp = toSafeArray(st.shiftMorningQueue).find(e => e && String(e.nik).trim() === targetNikStr);
+                    const aEmp = toSafeArray(st.shiftAfternoonQueue).find(e => e && String(e.nik).trim() === targetNikStr);
+                    staffObj = mEmp || aEmp || employees.find(e => e && String(e.nik).trim() === targetNikStr);
                 }
 
                 if (!staffObj) {
@@ -3197,14 +3683,52 @@
                 fx.staffName = staffName;
 
                 if (destinationType === 'delete') {
-                    st.shiftMorningQueue = toSafeArray(st.shiftMorningQueue).filter(e => e && String(e.nik) !== String(staffObj.nik));
-                    st.shiftAfternoonQueue = toSafeArray(st.shiftAfternoonQueue).filter(e => e && String(e.nik) !== String(staffObj.nik));
+                    st.activeQueue = toSafeArray(st.activeQueue).filter(s => s && String(s.nik).trim() !== targetNikStr);
+                    st.pausedQueue = toSafeArray(st.pausedQueue).filter(item => !(item && item.staff && String(item.staff.nik).trim() === targetNikStr));
+                    st.shiftMorningQueue = toSafeArray(st.shiftMorningQueue).filter(e => e && String(e.nik).trim() !== targetNikStr);
+                    st.shiftAfternoonQueue = toSafeArray(st.shiftAfternoonQueue).filter(e => e && String(e.nik).trim() !== targetNikStr);
+                    for (let s = 0; s < st.currentSpots.length; s++) {
+                        if (!Array.isArray(st.currentSpots[s])) continue;
+                        for (let p = 0; p < st.currentSpots[s].length; p++) {
+                            if (st.currentSpots[s][p] && String(st.currentSpots[s][p].nik).trim() === targetNikStr) {
+                                st.currentSpots[s][p] = null;
+                                if (st.spotShiftOrigin[s]) st.spotShiftOrigin[s][p] = null;
+                            }
+                        }
+                    }
+
+                    if (activeSessIdx !== -1) {
+                        const removedSess = st.activeSessions.splice(activeSessIdx, 1)[0];
+                        const diffSec = Math.max(0, Math.floor((getServerNowMs() - removedSess.startTime) / 1000));
+                        const mins = String(Math.floor(diffSec / 60)).padStart(2, '0');
+                        const secs = String(Math.floor(diffSec % 60)).padStart(2, '0');
+                        const logData = {
+                            logId: `log_admin_remove_${removedSess.id || getServerNowMs()}`,
+                            date: getWibDateString(),
+                            time: getWibTimeString(),
+                            staffName: staffName,
+                            spot: spotNames[removedSess.spotIndex] || "Titik Greeter",
+                            shift: "DIHAPUS ADMIN",
+                            duration: `${mins}:${secs}`,
+                            reason: "DIHAPUS ADMIN [Dikeluarkan dari Sistem Hari Ini saat Buddy Aktif]",
+                            photo: "Tanpa Foto",
+                            gps: "-"
+                        };
+                        st.activityLogs.unshift(logData);
+                        fx.removedActiveBuddyLog = logData;
+                    }
+
                     fx.actionType = 'delete';
                     return true;
                 }
 
+                if (activeSessIdx !== -1) {
+                    fx.busyInBuddy = true;
+                    return false;
+                }
+
                 const morningArr = toSafeArray(st.shiftMorningQueue);
-                const isMorningStaff = morningArr.some(emp => emp && String(emp.nik) === String(staffObj.nik));
+                const isMorningStaff = morningArr.some(emp => emp && String(emp.nik).trim() === targetNikStr);
                 const staffOrigin = isMorningStaff ? 'pagi' : 'siang';
 
                 if (destinationType.startsWith('spot_')) {
@@ -3234,10 +3758,18 @@
                     showCustomAlert('Informasi', 'Posisi petugas sudah berubah sebelumnya. Silakan ulangi pengaturan.');
                     return;
                 }
+                if (fx.busyInBuddy) {
+                    showCustomAlert('Sedang Buddy Aktif', `${fx.staffName} sedang dalam sesi Buddy aktif. Selesaikan sesi Buddy terlebih dahulu sebelum memindahkan posisinya.`);
+                    return;
+                }
                 if (!committed) return;
 
+                if (fx.removedActiveBuddyLog) {
+                    syncLogToSpreadsheet(fx.removedActiveBuddyLog);
+                }
+
                 if (fx.actionType === 'delete') {
-                    showCustomAlert('Berhasil Dihapus', `Petugas ${fx.staffName} berhasil dihapus/dikeluarkan dari perputaran sistem hari ini.`);
+                    showCustomAlert('Berhasil Dihapus', `Petugas ${fx.staffName} berhasil dihapus/dikeluarkan dari seluruh antrean, sesi aktif, dan perputaran sistem hari ini.`);
                 } else if (fx.actionType === 'spot') {
                     triggerNextGreeterNotification(fx.staffName, fx.targetSpotName);
                     showCustomAlert('Berhasil', `Petugas ${fx.staffName} berhasil ditempatkan di ${fx.targetSpotName} (Urutan/Slot ke-${fx.targetPosNum}).`);
@@ -3274,7 +3806,7 @@
     }
 
     function confirmSkipAction() {
-        if (!lockAction()) return;
+        if (!lockAction(1000, 'confirm_skip')) return;
         try {
             const targetStaff = currentSpots[skipSpotIndex] && currentSpots[skipSpotIndex][skipStaffIndexInSpot];
             if (!targetStaff) {
@@ -3298,6 +3830,7 @@
 
             const capturedSpotIndex = skipSpotIndex;
             const capturedPosIndex = skipStaffIndexInSpot;
+            const skipLogUniqueId = `log_skip_${targetNik}_${getServerNowMs()}`;
 
             commitAtomicIntent((st, fx) => {
                 let foundS = -1;
@@ -3332,10 +3865,11 @@
                 let logData = null;
 
                 if (hoursToAdd > 0) {
-                    const resumeTime = Date.now() + (hoursToAdd * 60 * 60 * 1000);
+                    const resumeTime = getServerNowMs() + (hoursToAdd * 60 * 60 * 1000);
                     st.pausedQueue.push({ staff: foundStaffObj, resumeTime: resumeTime });
 
                     logData = {
+                        logId: skipLogUniqueId,
                         date: getWibDateString(),
                         time: timeNow,
                         staffName: staffName,
@@ -3348,6 +3882,7 @@
                     };
                 } else {
                     logData = {
+                        logId: skipLogUniqueId,
                         date: getWibDateString(),
                         time: timeNow,
                         staffName: staffName,
@@ -3384,51 +3919,103 @@
         }
     }
 
-    // --- PENANGANAN ERROR PENGIRIMAN SPREADSHEET (OFFLINE RETRY QUEUE) ---
+    // --- PENANGANAN PENGIRIMAN SPREADSHEET DENGAN QUEUE PERSISTEN ANTI-DUPLIKASI ---
+    let inFlightSheetLogIds = new Set();
+
     function syncLogToSpreadsheet(log) {
-        if (!SCRIPT_URL) return;
+        if (!SCRIPT_URL || !log) return;
+        const logId = log.logId || `log_${getServerNowMs()}_${Math.random().toString(36).substring(2, 6)}`;
+        if (inFlightSheetLogIds.has(logId)) return;
+
         const payload = {
+            logId: logId,
             timestamp: `${log.date} ${log.time}`,
             nama: log.staffName,
             point: log.spot,
-            status: `Durasi: ${log.duration} | ${log.reason} | GPS: ${log.gps} | Foto: ${log.photo}`
+            status: `Durasi: ${log.duration} | ${log.reason} | GPS: ${log.gps} | Foto: ${log.photo} | RefID: ${logId}`
         };
 
+        try {
+            const sentLogIds = JSON.parse(localStorage.getItem('sent_sheet_log_ids') || '[]');
+            if (Array.isArray(sentLogIds) && sentLogIds.includes(logId)) {
+                return;
+            }
+            const pendingLogs = JSON.parse(localStorage.getItem('pending_sheet_logs') || '[]');
+            if (!pendingLogs.some(item => item && item.logId === logId)) {
+                pendingLogs.push({ ...payload, queuedAt: Date.now() });
+                localStorage.setItem('pending_sheet_logs', JSON.stringify(pendingLogs));
+            }
+        } catch (storageErr) {
+            console.error("Gagal simpan pending log:", storageErr);
+        }
+
+        inFlightSheetLogIds.add(logId);
         fetch(SCRIPT_URL, {
             method: "POST",
             mode: "no-cors",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
-        }).catch(err => {
-            console.warn("Gagal sync sheet, menyimpan ke antrean retry:", err);
+        }).then(() => {
             try {
-                const pendingLogs = JSON.parse(localStorage.getItem('pending_sheet_logs') || '[]');
-                pendingLogs.push(payload);
-                localStorage.setItem('pending_sheet_logs', JSON.stringify(pendingLogs));
-            } catch (storageErr) {
-                console.error("Gagal simpan pending log:", storageErr);
-            }
+                const sentIds = JSON.parse(localStorage.getItem('sent_sheet_log_ids') || '[]');
+                if (!sentIds.includes(logId)) {
+                    sentIds.push(logId);
+                    localStorage.setItem('sent_sheet_log_ids', JSON.stringify(sentIds.slice(-300)));
+                }
+                const currentPending = JSON.parse(localStorage.getItem('pending_sheet_logs') || '[]');
+                const filtered = currentPending.filter(item => item && item.logId !== logId);
+                localStorage.setItem('pending_sheet_logs', JSON.stringify(filtered));
+            } catch (e) {}
+        }).catch(err => {
+            console.warn("Gagal sync sheet, tetap tersimpan di antrean retry:", err);
+        }).finally(() => {
+            inFlightSheetLogIds.delete(logId);
         });
     }
 
     function flushPendingSpreadsheetLogs() {
         if (!SCRIPT_URL || !isFirebaseConnected) return;
         try {
+            const sentIds = JSON.parse(localStorage.getItem('sent_sheet_log_ids') || '[]');
+            const sentSet = new Set(Array.isArray(sentIds) ? sentIds : []);
             const pendingLogs = JSON.parse(localStorage.getItem('pending_sheet_logs') || '[]');
             if (!Array.isArray(pendingLogs) || pendingLogs.length === 0) return;
 
-            const remaining = [];
+            const remainingUnexpired = [];
             pendingLogs.forEach((payload) => {
+                if (!payload || !payload.logId || sentSet.has(payload.logId)) return;
+                if (inFlightSheetLogIds.has(payload.logId)) {
+                    remainingUnexpired.push(payload);
+                    return;
+                }
+                if (payload.queuedAt && (Date.now() - payload.queuedAt) > (24 * 60 * 60 * 1000)) {
+                    return;
+                }
+                remainingUnexpired.push(payload);
+
+                inFlightSheetLogIds.add(payload.logId);
                 fetch(SCRIPT_URL, {
                     method: "POST",
                     mode: "no-cors",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(payload)
-                }).catch(() => {
-                    remaining.push(payload);
+                }).then(() => {
+                    try {
+                        const latestSent = JSON.parse(localStorage.getItem('sent_sheet_log_ids') || '[]');
+                        if (!latestSent.includes(payload.logId)) {
+                            latestSent.push(payload.logId);
+                            localStorage.setItem('sent_sheet_log_ids', JSON.stringify(latestSent.slice(-300)));
+                        }
+                        const latestPending = JSON.parse(localStorage.getItem('pending_sheet_logs') || '[]');
+                        const nextPending = latestPending.filter(item => item && item.logId !== payload.logId);
+                        localStorage.setItem('pending_sheet_logs', JSON.stringify(nextPending));
+                    } catch (e) {}
+                }).catch(() => {}).finally(() => {
+                    inFlightSheetLogIds.delete(payload.logId);
                 });
             });
-            localStorage.setItem('pending_sheet_logs', JSON.stringify(remaining));
+
+            localStorage.setItem('pending_sheet_logs', JSON.stringify(remainingUnexpired));
         } catch (e) {
             console.error("Error flushPendingSpreadsheetLogs:", e);
         }
@@ -3481,32 +4068,30 @@
     }
 
     async function fetchSpreadsheetLogs() {
-        let allLogs = [];
-        
-        const localLogs = toSafeArray(activityLogs);
-        if (localLogs.length > 0) {
-            allLogs = localLogs.map((item, idx) => ({
-                No: idx + 1,
-                date: normalizeDateString(item.date),
-                time: item.time || "00:00",
-                staffName: item.staffName || "",
-                spot: item.spot || "",
-                shift: item.shift || "AKTIF",
-                duration: item.duration || "-",
-                reason: `${item.reason || ''} (Foto: ${item.photo || '-'}, GPS: ${item.gps || '-'})`,
-                gps: item.gps || "-",
-                photo: item.photo || "-"
-            }));
-        }
+        const localLogs = toSafeArray(activityLogs).map((item, idx) => ({
+            No: idx + 1,
+            logId: item.logId || '',
+            date: normalizeDateString(item.date),
+            time: item.time || "00:00",
+            staffName: item.staffName || "",
+            spot: item.spot || "",
+            shift: item.shift || "AKTIF",
+            duration: item.duration || "-",
+            reason: `${item.reason || ''} (Foto: ${item.photo || '-'}, GPS: ${item.gps || '-'})`,
+            gps: item.gps || "-",
+            photo: item.photo || "-"
+        }));
 
+        let sheetLogs = [];
         if (SCRIPT_URL) {
             try {
-                const response = await fetch(SCRIPT_URL);
+                const separator = SCRIPT_URL.includes('?') ? '&' : '?';
+                const response = await fetch(`${SCRIPT_URL}${separator}_t=${Date.now()}`);
                 const result = await response.json();
                 const rawData = Array.isArray(result) ? result : (result.data || []);
 
-                const sheetLogs = rawData.map((item, idx) => {
-                    let timestampStr = item.timestamp || "";
+                sheetLogs = rawData.map((item, idx) => {
+                    let timestampStr = String(item.timestamp || "").trim();
                     let datePart = getWibDateString();
                     let timePart = "00:00";
 
@@ -3516,29 +4101,64 @@
                         timePart = parts[1];
                     }
 
+                    const statusRaw = String(item.status || "");
+                    const refMatch = statusRaw.match(/RefID:\s*([^\s|]+)/);
+                    const extractedLogId = item.logId || (refMatch ? refMatch[1].trim() : '');
+
                     return {
-                        No: allLogs.length + idx + 1,
+                        No: idx + 1,
+                        logId: extractedLogId,
                         date: normalizeDateString(datePart),
                         time: timePart,
                         staffName: item.nama || "",
                         spot: item.point || "",
                         shift: "SPREADSHEET",
                         duration: "-",
-                        reason: item.status || "",
+                        reason: statusRaw,
                         gps: "-",
                         photo: "-"
                     };
                 });
-                
-                if (sheetLogs.length > 0 && allLogs.length === 0) {
-                    allLogs = sheetLogs;
-                }
             } catch (err) {
                 console.warn("Menggunakan data lokal karena fetch Spreadsheet gagal:", err);
             }
         }
 
-        return allLogs;
+        const mergedLogs = [];
+        const seenLogIds = new Set();
+        const seenSignatures = new Set();
+
+        const buildSignature = (l) => {
+            const normDate = normalizeDateString(l.date);
+            const normTime = String(l.time || '').trim().substring(0, 5);
+            const normName = String(l.staffName || '').trim().toUpperCase();
+            const normSpot = String(l.spot || '').trim().toUpperCase();
+            return `${normDate}|${normTime}|${normName}|${normSpot}`;
+        };
+
+        // Prioritaskan data lokal untuk hari berjalan, lalu gabungkan seluruh riwayat historis dari Spreadsheet
+        localLogs.forEach(l => {
+            if (l.logId) seenLogIds.add(l.logId);
+            seenSignatures.add(buildSignature(l));
+            mergedLogs.push(l);
+        });
+
+        sheetLogs.forEach(sLog => {
+            if (sLog.logId && seenLogIds.has(sLog.logId)) return;
+            const sig = buildSignature(sLog);
+            if (seenSignatures.has(sig)) return;
+            if (sLog.logId) seenLogIds.add(sLog.logId);
+            seenSignatures.add(sig);
+            mergedLogs.push(sLog);
+        });
+
+        mergedLogs.sort((a, b) => {
+            const keyA = `${a.date} ${a.time}`;
+            const keyB = `${b.date} ${b.time}`;
+            return keyB.localeCompare(keyA);
+        });
+
+        return mergedLogs.map((item, idx) => ({ ...item, No: idx + 1 }));
     }
 
     function filterLogsByPeriod(logs, period) {
@@ -3546,9 +4166,9 @@
         if (period === 'daily') {
             return logs.filter(l => l.date === todayStr);
         } else if (period === 'weekly') {
-            const d = new Date();
+            const d = new Date(getServerNowMs());
             d.setDate(d.getDate() - 7);
-            const limitDateStr = d.toISOString().split('T')[0];
+            const limitDateStr = getWibCurrentTime(d.getTime()).dateString;
             return logs.filter(l => l.date >= limitDateStr);
         } else {
             return logs.filter(l => l.date && l.date.startsWith(todayStr.substring(0, 7)));
@@ -3601,15 +4221,9 @@
             return;
         }
 
-        let text = `📋 *REKAP SESI BUDDY & SMT* (${period.toUpperCase()})
-Tanggal: ${getWibDateString()}
-
-`;
+        let text = `📋 *REKAP SESI BUDDY & SMT* (${period.toUpperCase()})\nTanggal: ${getWibDateString()}\n\n`;
         filtered.forEach((l, i) => {
-            text += `${i+1}. [${l.date} ${l.time}] *${l.staffName}* di *${l.spot}*
-📝 ${l.reason}
-
-`;
+            text += `${i+1}. [${l.date} ${l.time}] *${l.staffName}* di *${l.spot}*\n📝 ${l.reason}\n\n`;
         });
 
         window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
@@ -3617,12 +4231,62 @@ Tanggal: ${getWibDateString()}
     }
 
     // =========================================================================
-    // FITUR JADWAL SHIFT & PENUNJUKAN 18 PERAN HARIAN (TERISOLASI DARI appState)
+    // FITUR JADWAL SHIFT, KODE ROSTER, TEAM KHUSUS & 18 PERAN HARIAN (TERISOLASI)
     // =========================================================================
     const SCHEDULE_SHEET_ID = '1ex4ysOcpy945ndUJYacvY_ijd8fAiS_QP2w4dFNep30';
     const MONTH_SHEET_NAMES_ID = [
         'JANUARI', 'FEBRUARI', 'MARET', 'APRIL', 'MEI', 'JUNI',
         'JULI', 'AGUSTUS', 'SEPTEMBER', 'OKTOBER', 'NOVEMBER', 'DESEMBER'
+    ];
+
+    const ROSTER_OPTIONS_LIST = [
+        'Subuh VII (05:00 - 14:00) D0007',
+        'CM HO Rep (07:00 - 17:00) H59',
+        'Pagi XI (07:00 - 16:00) M0011',
+        'Pagi XI (07:00 - 16:00) M0011X',
+        'Pagi XIII (07:00 - 18:00) M0013',
+        'Pagi LXXVII (07:00 - 19:00) M0077',
+        'Pagi XXV (08:00 - 15:40) M0025',
+        'Pagi XXVII (08:00 - 17:00) M0027',
+        'Pagi XXVIII (08:00 - 17:30) M0028',
+        'Pagi XXIX (08:00 - 18:00) M0029',
+        'Pagi XXX (08:00 - 20:00) M0030',
+        'Pagi XXXVII (08:30 - 15:00) M0037',
+        'Pagi XXXVIII (08:30 - 16:10) M0038',
+        'Pagi XLI (08:30 - 16:40) M0041',
+        'Pagi XLV (08:30 - 18:30) M0045',
+        'Pagi LIII (09:00 - 16:40) M0053',
+        'Pagi LIV (09:00 - 17:00) M0054',
+        'Pagi LVI (09:00 - 18:00) M0056',
+        'Pagi LVI (09:00 - 18:00) M0056X',
+        'Pagi LVIII (09:00 - 19:00) M0058',
+        'Pagi XCII (10:00 - 16:00) M0092',
+        'Pagi LXVI (10:00 - 17:40) M0066',
+        'Pagi LXXXVII (10:00 - 19:00) M0087',
+        'Pagi LXXXVII (10:00 - 19:00) M0087X',
+        'Sls W.end Mid (10:00 - 20:00) H44',
+        'Pagi LXVIII (10:00 - 22:00) M0068',
+        'Pagi - CXVI (10:20 - 18:00) M0116',
+        'VM (Mobile Store) (11:00 - 17:00) VM01',
+        'Siang I (12:00 - 19:40) A0001',
+        'Full_Par Time 18 (12:00 - 20:00) F43',
+        'Siang II (12:00 - 20:00) A0002',
+        'Siang XXVIII (12:00 - 21:00) A0028',
+        'Siang III (12:00 - 22:00) A0003',
+        'Siang V (13:00 - 20:40) A0005',
+        'Siang VI (13:00 - 21:00) A0006',
+        'Siang VII (13:00 - 22:00) A0007',
+        'Long Shift VIII (13:00 - 23:00) L008',
+        'Siang XII (14:00 - 22:00) A0012',
+        'Full_Part Time 07 (14:00 - 22:00) F32',
+        'Siang XIII (14:00 - 23:00) A0013',
+        'Siang XIII (14:00 - 23:00) A0013X',
+        'Siang XI (14:00 - 00:00) A0011',
+        'Lebaran Khusus 002 (16:00 - 20:00) LBR002',
+        'Siang (16:00 - 22:00) H09',
+        'FO (8) (21:00 - 06:00) L53',
+        'Malam III (22:00 - 06:00) N0003',
+        'OFF SHOFF'
     ];
 
     const DAILY_ROLE_DEFINITIONS = [
@@ -3653,6 +4317,13 @@ Tanggal: ${getWibDateString()}
     let activeRoleListenerRef = null;
     let currentRoleAssignmentsData = {};
     let isSavingRoleAssignment = false;
+    let draftSpecialTeamsList = [];
+
+    function populateRosterCodeDatalist() {
+        const dl = document.getElementById('rosterCodeDatalist');
+        if (!dl) return;
+        dl.innerHTML = ROSTER_OPTIONS_LIST.map(code => `<option value="${escapeHtml(code)}"></option>`).join('');
+    }
 
     function getDatePartsFromIso(isoDateStr) {
         const fallbackIso = getWibDateString();
@@ -3825,7 +4496,6 @@ Tanggal: ${getWibDateString()}
                 try {
                     currentRoleAssignmentsData = (snap && snap.val()) ? snap.val() : {};
                     renderAssignedRolesDisplayGrid();
-                    // Jangan timpa dropdown yang sedang dibuka/diedit di perangkat ini jika panel form sedang terbuka
                     const adminPanel = document.getElementById('scheduleRoleAdminPanel');
                     const isEditingForm = adminPanel && !adminPanel.classList.contains('hidden') && isScheduleRoleUnlocked;
                     if (isScheduleRoleUnlocked && !isEditingForm) {
@@ -3843,12 +4513,54 @@ Tanggal: ${getWibDateString()}
     function renderAssignedRolesDisplayGrid() {
         const gridEl = document.getElementById('assignedRolesDisplayGrid');
         const metaEl = document.getElementById('assignedRoleUpdatedMeta');
+        const rosterSummaryEl = document.getElementById('assignedRosterAndSpecialSummary');
         if (!gridEl) return;
 
         if (metaEl) {
             metaEl.textContent = currentRoleAssignmentsData && currentRoleAssignmentsData.updatedAt
                 ? `Update: ${currentRoleAssignmentsData.updatedAt}`
                 : '';
+        }
+
+        if (rosterSummaryEl) {
+            const rosterPagi = (currentRoleAssignmentsData && currentRoleAssignmentsData.rosterPagi) ? String(currentRoleAssignmentsData.rosterPagi).trim() : '';
+            const rosterSiang = (currentRoleAssignmentsData && currentRoleAssignmentsData.rosterSiang) ? String(currentRoleAssignmentsData.rosterSiang).trim() : '';
+            const specialTeams = toSafeArray(currentRoleAssignmentsData && currentRoleAssignmentsData.specialTeams);
+
+            let summaryHtml = `
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <div class="bg-amber-100/70 border border-amber-200 rounded-xl px-3 py-2 flex items-center justify-between gap-2">
+                        <span class="font-bold text-amber-900">☀️ Roster Pagi:</span>
+                        <span class="font-extrabold text-amber-950 truncate">${escapeHtml(rosterPagi || 'Belum diatur')}</span>
+                    </div>
+                    <div class="bg-indigo-100/70 border border-indigo-200 rounded-xl px-3 py-2 flex items-center justify-between gap-2">
+                        <span class="font-bold text-indigo-900">🌙 Roster Siang:</span>
+                        <span class="font-extrabold text-indigo-950 truncate">${escapeHtml(rosterSiang || 'Belum diatur')}</span>
+                    </div>
+                </div>
+            `;
+
+            if (specialTeams.length > 0) {
+                summaryHtml += `<div class="space-y-1.5 pt-1">`;
+                specialTeams.forEach((stItem, idx) => {
+                    const shiftLabel = stItem.shift === 'S' ? '🌙 Shift Siang' : '☀️ Shift Pagi';
+                    const membersArr = toSafeArray(stItem.members);
+                    summaryHtml += `
+                        <div class="bg-sky-50 border border-sky-200 rounded-xl px-3 py-2 text-xs">
+                            <div class="flex flex-wrap items-center justify-between gap-1 font-bold text-sky-950">
+                                <span>⚡ Team Khusus #${idx + 1} (${shiftLabel}${stItem.roster ? ' • ' + escapeHtml(stItem.roster) : ''})</span>
+                                ${stItem.note ? `<span class="bg-sky-200/80 text-sky-900 px-2 py-0.5 rounded-md text-[11px]">${escapeHtml(stItem.note)}</span>` : ''}
+                            </div>
+                            <div class="text-[11px] text-slate-700 mt-1">
+                                ${membersArr.length > 0 ? membersArr.map((m, i) => `${i + 1}. ${escapeHtml(m)}`).join(', ') : '<span class="italic text-slate-400">Belum ada personel dipilih</span>'}
+                            </div>
+                        </div>
+                    `;
+                });
+                summaryHtml += `</div>`;
+            }
+
+            rosterSummaryEl.innerHTML = summaryHtml;
         }
 
         gridEl.innerHTML = DAILY_ROLE_DEFINITIONS.map(roleDef => {
@@ -3868,6 +4580,114 @@ Tanggal: ${getWibDateString()}
         }).join('');
     }
 
+    // --- HELPER PENGELOLAAN TEAM KHUSUS (ROSTER BERBEDA) DI FORM ADMIN ---
+    function syncSpecialTeamsFromDomInputs() {
+        const cards = document.querySelectorAll('.special-team-draft-card');
+        if (!cards || cards.length === 0) return;
+
+        draftSpecialTeamsList = Array.from(cards).map((card, idx) => {
+            const shiftSel = card.querySelector('.st-shift-select');
+            const rosterInput = card.querySelector('.st-roster-select');
+            const noteInput = card.querySelector('.st-note-input');
+            const checkedBoxes = card.querySelectorAll('.st-member-checkbox:checked');
+            const members = Array.from(checkedBoxes).map(cb => cb.value);
+
+            return {
+                id: card.getAttribute('data-team-id') || ('st_' + idx + '_' + getServerNowMs()),
+                shift: shiftSel ? shiftSel.value : 'P',
+                roster: rosterInput ? rosterInput.value.trim() : '',
+                note: noteInput ? noteInput.value.trim() : '',
+                members
+            };
+        });
+    }
+
+    function addSpecialTeamGroupDraft() {
+        syncSpecialTeamsFromDomInputs();
+        draftSpecialTeamsList.push({
+            id: 'st_' + getServerNowMs() + '_' + Math.random().toString(36).substring(2, 6),
+            shift: 'P',
+            roster: 'Pagi XXIX (08:00 - 18:00) M0029',
+            note: '',
+            members: []
+        });
+        renderSpecialTeamsDraftContainer();
+    }
+
+    function removeSpecialTeamGroupDraft(index) {
+        syncSpecialTeamsFromDomInputs();
+        draftSpecialTeamsList.splice(index, 1);
+        renderSpecialTeamsDraftContainer();
+    }
+
+    function onSpecialTeamShiftChanged(index) {
+        syncSpecialTeamsFromDomInputs();
+        renderSpecialTeamsDraftContainer();
+    }
+
+    function renderSpecialTeamsDraftContainer() {
+        const container = document.getElementById('specialTeamsDraftContainer');
+        if (!container) return;
+
+        if (!Array.isArray(draftSpecialTeamsList) || draftSpecialTeamsList.length === 0) {
+            container.innerHTML = `<div class="text-[11px] text-sky-800/80 italic bg-white/70 border border-sky-200/70 rounded-lg px-3 py-2">Belum ada team khusus. Klik "+ Tambah Team Khusus" jika ada personel dengan jam roster berbeda.</div>`;
+            return;
+        }
+
+        const { dateKey } = getDatePartsFromIso(currentSelectedScheduleDate);
+        const scheduleList = Array.isArray(scheduleCacheByDate[dateKey]) ? scheduleCacheByDate[dateKey] : [];
+
+        container.innerHTML = draftSpecialTeamsList.map((teamObj, idx) => {
+            const shiftType = teamObj.shift === 'S' ? 'S' : 'P';
+            const shiftMembers = scheduleList.filter(m => m && m.shiftType === shiftType);
+            const fallbackList = shiftMembers.length > 0 ? shiftMembers : employees.map(e => ({ name: e.name, zone: 'SMT', role: e.nik }));
+            const selectedSet = new Set(toSafeArray(teamObj.members));
+
+            const checkboxesHtml = fallbackList.map(m => {
+                const isChecked = selectedSet.has(m.name) ? 'checked' : '';
+                return `
+                    <label class="flex items-center gap-1.5 bg-slate-50 hover:bg-sky-50 border border-slate-200 rounded-lg px-2 py-1.5 cursor-pointer text-[11px]">
+                        <input type="checkbox" class="st-member-checkbox rounded text-sky-600 focus:ring-sky-500" value="${escapeHtml(m.name)}" ${isChecked}>
+                        <span class="font-semibold text-slate-800 truncate">${escapeHtml(m.name)}</span>
+                        <span class="text-[10px] text-slate-400 shrink-0">(${escapeHtml(m.zone || '')})</span>
+                    </label>
+                `;
+            }).join('');
+
+            return `
+                <div class="special-team-draft-card bg-white border border-sky-300 rounded-xl p-3 space-y-2.5 shadow-2xs" data-team-id="${escapeHtml(teamObj.id || idx)}">
+                    <div class="flex items-center justify-between border-b border-sky-100 pb-1.5">
+                        <span class="text-xs font-extrabold text-sky-900">⚡ Team Khusus #${idx + 1}</span>
+                        <button type="button" onclick="removeSpecialTeamGroupDraft(${idx})" class="text-[11px] font-bold text-rose-600 hover:bg-rose-50 px-2 py-0.5 rounded-md transition">🗑️ Hapus</button>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-600 mb-1">Shift:</label>
+                            <select onchange="onSpecialTeamShiftChanged(${idx})" class="st-shift-select w-full text-xs font-semibold border border-slate-300 bg-white rounded-lg px-2 py-1.5 text-slate-800">
+                                <option value="P" ${shiftType === 'P' ? 'selected' : ''}>☀️ Shift Pagi (P)</option>
+                                <option value="S" ${shiftType === 'S' ? 'selected' : ''}>🌙 Shift Siang (X)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-600 mb-1">Kode Roster (Pilih/Ketik):</label>
+                            <input type="text" list="rosterCodeDatalist" class="st-roster-select w-full text-xs font-semibold border border-slate-300 bg-white rounded-lg px-2 py-1.5 text-slate-800" value="${escapeHtml(teamObj.roster || '')}" placeholder="Pilih atau ketik roster...">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-600 mb-1">Keterangan / Pekerjaan:</label>
+                            <input type="text" class="st-note-input w-full text-xs font-semibold border border-slate-300 bg-white rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500" value="${escapeHtml(teamObj.note || '')}" placeholder="Misal: progress partisi homedecore">
+                        </div>
+                    </div>
+                    <div>
+                        <div class="text-[10px] font-bold text-slate-600 mb-1">Pilih Personel (${shiftType === 'P' ? 'Shift Pagi' : 'Shift Siang'}):</div>
+                        <div class="max-h-36 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-1.5 p-1.5 border border-slate-200 rounded-lg bg-slate-50/50">
+                            ${checkboxesHtml}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
     function buildOptionsHtmlForShiftPreference(shiftPref, selectedValue) {
         const { dateKey } = getDatePartsFromIso(currentSelectedScheduleDate);
         const scheduleList = scheduleCacheByDate[dateKey] || [];
@@ -3882,39 +4702,41 @@ Tanggal: ${getWibDateString()}
             ? { label: '🌙 Masuk Shift Siang (X) - Tanggal Ini', list: siangStaff }
             : { label: '☀️ Masuk Shift Pagi (P) - Tanggal Ini', list: pagiStaff };
 
-        let html = `<option value="">-- Belum Dipilih --</option>`;
+        let html = `<option value="">-- Belum Dipilih / Kosongkan --</option>`;
+        const listedNames = new Set();
 
         if (primaryGroup.list.length > 0) {
-            html += `<optgroup label="${primaryGroup.label}">`;
-            primaryGroup.list.forEach(m => {
-                const label = `${m.name} (${m.zone}${m.role ? ' - ' + m.role : ''})`;
-                html += `<option value="${escapeHtml(m.name)}">${escapeHtml(label)}</option>`;
+            html += `<optgroup label="${escapeHtml(primaryGroup.label)}">`;
+            primaryGroup.list.forEach(item => {
+                listedNames.add(item.name);
+                const sel = selectedValue === item.name ? 'selected' : '';
+                html += `<option value="${escapeHtml(item.name)}" ${sel}>${escapeHtml(item.name)} (${escapeHtml(item.zone)})</option>`;
             });
             html += `</optgroup>`;
         }
 
         if (secondaryGroup.list.length > 0) {
-            html += `<optgroup label="${secondaryGroup.label}">`;
-            secondaryGroup.list.forEach(m => {
-                const label = `${m.name} (${m.zone}${m.role ? ' - ' + m.role : ''})`;
-                html += `<option value="${escapeHtml(m.name)}">${escapeHtml(label)}</option>`;
+            html += `<optgroup label="${escapeHtml(secondaryGroup.label)}">`;
+            secondaryGroup.list.forEach(item => {
+                listedNames.add(item.name);
+                const sel = selectedValue === item.name ? 'selected' : '';
+                html += `<option value="${escapeHtml(item.name)}" ${sel}>${escapeHtml(item.name)} (${escapeHtml(item.zone)})</option>`;
             });
             html += `</optgroup>`;
         }
 
-        html += `<optgroup label="📋 Daftar Seluruh SMT">`;
-        employees.forEach(emp => {
-            html += `<option value="${escapeHtml(emp.name)}">${escapeHtml(emp.name)} (${escapeHtml(emp.nik)})</option>`;
-        });
-        html += `</optgroup>`;
+        const otherEmps = employees.filter(e => !listedNames.has(e.name));
+        if (otherEmps.length > 0) {
+            html += `<optgroup label="📋 Daftar SMT Lainnya (Di Luar Jadwal / Off)">`;
+            otherEmps.forEach(emp => {
+                const sel = selectedValue === emp.name ? 'selected' : '';
+                html += `<option value="${escapeHtml(emp.name)}" ${sel}>${escapeHtml(emp.name)} (${escapeHtml(emp.nik)})</option>`;
+            });
+            html += `</optgroup>`;
+        }
 
-        if (selectedValue) {
-            const existsInRoster =
-                scheduleList.some(m => m.name === selectedValue) ||
-                employees.some(e => e.name === selectedValue);
-            if (!existsInRoster) {
-                html += `<option value="${escapeHtml(selectedValue)}">${escapeHtml(selectedValue)} (Tersimpan)</option>`;
-            }
+        if (selectedValue && !listedNames.has(selectedValue) && !employees.some(e => e.name === selectedValue)) {
+            html += `<option value="${escapeHtml(selectedValue)}" selected>${escapeHtml(selectedValue)}</option>`;
         }
 
         return html;
@@ -3922,380 +4744,319 @@ Tanggal: ${getWibDateString()}
 
     function renderAllRoleSelectInputs() {
         const container = document.getElementById('roleSelectGridContainer');
-        const dateTextEl = document.getElementById('roleTargetDateText');
+        const targetTextEl = document.getElementById('roleTargetDateText');
+        const { readableDate } = getDatePartsFromIso(currentSelectedScheduleDate);
+        if (targetTextEl) targetTextEl.textContent = readableDate;
+
+        const rosterPagiEl = document.getElementById('rosterSelectPagi');
+        const rosterSiangEl = document.getElementById('rosterSelectSiang');
+        if (rosterPagiEl) {
+            const savedPagi = (currentRoleAssignmentsData && currentRoleAssignmentsData.rosterPagi) ? String(currentRoleAssignmentsData.rosterPagi) : '';
+            rosterPagiEl.value = savedPagi;
+        }
+        if (rosterSiangEl) {
+            const savedSiang = (currentRoleAssignmentsData && currentRoleAssignmentsData.rosterSiang) ? String(currentRoleAssignmentsData.rosterSiang) : '';
+            rosterSiangEl.value = savedSiang;
+        }
+
+        const savedSpecialTeams = toSafeArray(currentRoleAssignmentsData && currentRoleAssignmentsData.specialTeams);
+        draftSpecialTeamsList = savedSpecialTeams.map(st => ({
+            id: st.id || ('st_' + Math.random().toString(36).substring(2, 7)),
+            shift: st.shift === 'S' ? 'S' : 'P',
+            roster: st.roster || '',
+            note: st.note || '',
+            members: toSafeArray(st.members)
+        }));
+        renderSpecialTeamsDraftContainer();
+
         if (!container) return;
 
-        const { readableDate } = getDatePartsFromIso(currentSelectedScheduleDate);
-        if (dateTextEl) dateTextEl.textContent = readableDate;
-
         container.innerHTML = DAILY_ROLE_DEFINITIONS.map(roleDef => {
-            const currentVal = (currentRoleAssignmentsData && currentRoleAssignmentsData[roleDef.key]) || '';
+            const currentVal = (currentRoleAssignmentsData && currentRoleAssignmentsData[roleDef.key])
+                ? String(currentRoleAssignmentsData[roleDef.key]).trim()
+                : '';
             const optionsHtml = buildOptionsHtmlForShiftPreference(roleDef.shiftPref, currentVal);
             return `
-                <div class="bg-white border border-amber-200 rounded-xl p-2.5">
-                    <label for="roleSelect_${roleDef.key}" class="block text-[11px] font-bold text-slate-700 mb-1">
+                <div class="bg-white border border-amber-200/80 rounded-xl p-2.5">
+                    <label for="role-select-${roleDef.key}" class="block text-xs font-extrabold text-slate-800 mb-1">
                         ${escapeHtml(roleDef.label)}
                     </label>
-                    <select id="roleSelect_${roleDef.key}" class="w-full text-xs font-semibold border border-slate-300 bg-white rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    <select id="role-select-${roleDef.key}" class="w-full text-xs font-semibold border border-slate-300 bg-white rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
                         ${optionsHtml}
                     </select>
                 </div>
             `;
         }).join('');
-
-        DAILY_ROLE_DEFINITIONS.forEach(roleDef => {
-            const sel = document.getElementById(`roleSelect_${roleDef.key}`);
-            const currentVal = (currentRoleAssignmentsData && currentRoleAssignmentsData[roleDef.key]) || '';
-            if (sel) sel.value = currentVal;
-        });
     }
 
     function clearAllRoleSelectInputs() {
+        const rosterPagiEl = document.getElementById('rosterSelectPagi');
+        const rosterSiangEl = document.getElementById('rosterSelectSiang');
+        if (rosterPagiEl) rosterPagiEl.value = '';
+        if (rosterSiangEl) rosterSiangEl.value = '';
+        draftSpecialTeamsList = [];
+        renderSpecialTeamsDraftContainer();
+
         DAILY_ROLE_DEFINITIONS.forEach(roleDef => {
-            const sel = document.getElementById(`roleSelect_${roleDef.key}`);
+            const sel = document.getElementById(`role-select-${roleDef.key}`);
             if (sel) sel.value = '';
         });
     }
 
     function saveDailyRoleAssignment() {
         if (isSavingRoleAssignment) return;
-        if (!isFirebaseConnected) {
-            showCustomAlert('Koneksi Terputus', 'Perangkat sedang offline. Periksa jaringan Anda sebelum menyimpan tugas harian.');
+        if (!db) {
+            showCustomAlert('Error', 'Koneksi Firebase belum tersedia.');
             return;
         }
-
         const saveBtn = document.getElementById('btnSaveDailyRoleAssignment');
         const { dateKey } = getDatePartsFromIso(currentSelectedScheduleDate);
-        const draftValues = {};
 
+        syncSpecialTeamsFromDomInputs();
+        const cleanedSpecialTeams = draftSpecialTeamsList
+            .filter(st => (st.members && st.members.length > 0) || st.note || st.roster)
+            .map(st => ({
+                id: st.id || ('st_' + getServerNowMs()),
+                shift: st.shift === 'S' ? 'S' : 'P',
+                roster: st.roster || '',
+                note: st.note || '',
+                members: Array.isArray(st.members) ? st.members : []
+            }));
+
+        const rosterPagiEl = document.getElementById('rosterSelectPagi');
+        const rosterSiangEl = document.getElementById('rosterSelectSiang');
+
+        const payload = {
+            dateKey,
+            rosterPagi: rosterPagiEl ? rosterPagiEl.value.trim() : '',
+            rosterSiang: rosterSiangEl ? rosterSiangEl.value.trim() : '',
+            specialTeams: cleanedSpecialTeams,
+            updatedAt: `${getWibDateString()} ${getWibTimeString()} WIB`
+        };
         DAILY_ROLE_DEFINITIONS.forEach(roleDef => {
-            const sel = document.getElementById(`roleSelect_${roleDef.key}`);
-            draftValues[roleDef.key] = sel ? sel.value.trim() : '';
+            const sel = document.getElementById(`role-select-${roleDef.key}`);
+            payload[roleDef.key] = sel ? sel.value.trim() : '';
         });
 
         isSavingRoleAssignment = true;
-        if (saveBtn) saveBtn.disabled = true;
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.textContent = '⏳ Menyimpan...';
+        }
 
-        // Menggunakan transaksi terisolasi pada node dailyRoleAssignments/{dateKey} agar tidak bertabrakan antar perangkat maupun menyentuh appState
-        db.ref(`dailyRoleAssignments/${dateKey}`).transaction((remoteObj) => {
-            const nextData = (remoteObj && typeof remoteObj === 'object') ? { ...remoteObj } : {};
-            DAILY_ROLE_DEFINITIONS.forEach(roleDef => {
-                nextData[roleDef.key] = draftValues[roleDef.key];
-            });
-            nextData.updatedAt = `${getWibDateString()} ${getWibTimeString()} WIB`;
-            nextData.updatedBy = DEVICE_CLIENT_ID;
-            return nextData;
-        }, (err, committed, snapshot) => {
-            isSavingRoleAssignment = false;
-            if (saveBtn) saveBtn.disabled = false;
-
-            if (err) {
-                showCustomAlert('Gagal Menyimpan', 'Terjadi kesalahan saat menyimpan data: ' + err.message);
-                return;
-            }
-            if (committed) {
-                if (snapshot && snapshot.exists()) {
-                    currentRoleAssignmentsData = snapshot.val() || {};
-                    renderAssignedRolesDisplayGrid();
-                }
-                showCustomAlert('Tersimpan', `Susunan tugas harian untuk tanggal ${dateKey} berhasil disimpan.`);
+        db.ref(`dailyRoleAssignments/${dateKey}`).set(payload)
+            .then(() => {
+                currentRoleAssignmentsData = payload;
+                renderAssignedRolesDisplayGrid();
                 closeScheduleRoleAdminBox();
-            }
-        }, false);
-    }
-
-    function buildGroupedZoneLinesForShift(membersList) {
-        if (!Array.isArray(membersList) || membersList.length === 0) {
-            return ['_Tidak ada data personel masuk pada shift ini._'];
-        }
-        const grouped = {};
-        membersList.forEach(item => {
-            const zName = (item && item.zone) ? String(item.zone).trim() : 'UMUM';
-            if (!grouped[zName]) grouped[zName] = [];
-            grouped[zName].push(item);
-        });
-
-        const outLines = [];
-        Object.entries(grouped).forEach(([zoneName, list]) => {
-            outLines.push(`📍 *${zoneName}* (${list.length} orang)`);
-            list.forEach((m, idx) => {
-                const roleSuffix = m.role ? ` (${m.role})` : '';
-                outLines.push(`${idx + 1}. ${m.name}${roleSuffix}`);
+                showCustomAlert('Tersimpan', 'Susunan roster, team khusus & 18 tugas harian berhasil disimpan.');
+            })
+            .catch(err => {
+                showCustomAlert('Gagal Menyimpan', 'Terjadi kesalahan: ' + (err && err.message ? err.message : err));
+            })
+            .finally(() => {
+                isSavingRoleAssignment = false;
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = '💾 Simpan Susunan & Roster';
+                }
             });
-            outLines.push('');
-        });
-        while (outLines.length > 0 && outLines[outLines.length - 1] === '') {
-            outLines.pop();
-        }
-        return outLines;
-    }
-
-    function copyTextSafelyToClipboard(text, successTitle, successMessage) {
-        const openWaFallback = () => {
-            try {
-                window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
-            } catch (e) {
-                console.error("Fallback WA gagal:", e);
-            }
-        };
-
-        try {
-            if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function' && window.isSecureContext) {
-                navigator.clipboard.writeText(text).then(() => {
-                    showCustomAlert(successTitle, successMessage);
-                }).catch(() => {
-                    legacyExecCommandCopy(text, successTitle, successMessage, openWaFallback);
-                });
-            } else {
-                legacyExecCommandCopy(text, successTitle, successMessage, openWaFallback);
-            }
-        } catch (err) {
-            legacyExecCommandCopy(text, successTitle, successMessage, openWaFallback);
-        }
-    }
-
-    function legacyExecCommandCopy(text, successTitle, successMessage, fallbackFn) {
-        try {
-            const tempArea = document.createElement('textarea');
-            tempArea.value = text;
-            tempArea.setAttribute('readonly', '');
-            tempArea.style.position = 'fixed';
-            tempArea.style.top = '-9999px';
-            tempArea.style.left = '-9999px';
-            document.body.appendChild(tempArea);
-            tempArea.select();
-            tempArea.setSelectionRange(0, tempArea.value.length);
-            const ok = document.execCommand('copy');
-            document.body.removeChild(tempArea);
-            if (ok) {
-                showCustomAlert(successTitle, successMessage);
-            } else if (typeof fallbackFn === 'function') {
-                fallbackFn();
-            }
-        } catch (e) {
-            if (typeof fallbackFn === 'function') fallbackFn();
-        }
     }
 
     function copyDailyRolesToClipboard() {
-        try {
-            const { dateKey, readableDate } = getDatePartsFromIso(currentSelectedScheduleDate);
-            const scheduleList = Array.isArray(scheduleCacheByDate[dateKey]) ? scheduleCacheByDate[dateKey] : [];
+        const { dateKey, readableDate } = getDatePartsFromIso(currentSelectedScheduleDate);
+        const scheduleList = Array.isArray(scheduleCacheByDate[dateKey]) ? scheduleCacheByDate[dateKey] : [];
+        const pagiList = scheduleList.filter(x => x && x.shiftType === 'P');
+        const siangList = scheduleList.filter(x => x && x.shiftType === 'S');
 
-            const pagiRoles = DAILY_ROLE_DEFINITIONS.filter(r => r.shiftPref === 'P');
-            const siangRoles = DAILY_ROLE_DEFINITIONS.filter(r => r.shiftPref === 'S');
+        const rosterPagi = (currentRoleAssignmentsData && currentRoleAssignmentsData.rosterPagi) ? String(currentRoleAssignmentsData.rosterPagi).trim() : '';
+        const rosterSiang = (currentRoleAssignmentsData && currentRoleAssignmentsData.rosterSiang) ? String(currentRoleAssignmentsData.rosterSiang).trim() : '';
+        const specialTeams = toSafeArray(currentRoleAssignmentsData && currentRoleAssignmentsData.specialTeams);
 
-            const pagiMembers = scheduleList.filter(m => m && m.shiftType === 'P');
-            const siangMembers = scheduleList.filter(m => m && m.shiftType === 'S');
+        let lines = [
+            `📅 *JADWAL SHIFT & SUSUNAN TUGAS HARIAN*`,
+            `🗓️ Tanggal: *${readableDate}*`,
+            ``
+        ];
 
-            let filledCount = 0;
-            const lines = [
-                `📋 *JADWAL SHIFT & TUGAS HARIAN*`,
-                `Tanggal: ${readableDate}`,
-                ``,
-                `☀️ *SHIFT PAGI (P)*`,
-                `*• Penanggung Jawab Tugas Pagi:*`
-            ];
-
-            pagiRoles.forEach(roleDef => {
-                const assignedName = (currentRoleAssignmentsData && currentRoleAssignmentsData[roleDef.key])
-                    ? String(currentRoleAssignmentsData[roleDef.key]).trim()
-                    : '';
-                lines.push(`- *${roleDef.label}:* ${assignedName || '-'}`);
-                if (assignedName) filledCount++;
+        // 1. BAGIAN TEAM KHUSUS / ROSTER BERBEDA (PALING ATAS JIKA ADA)
+        if (specialTeams.length > 0) {
+            lines.push(`⚡ *TEAM KHUSUS / ROSTER BERBEDA:*`);
+            specialTeams.forEach((stItem, idx) => {
+                const shiftText = stItem.shift === 'S' ? 'Shift Siang (X)' : 'Shift Pagi (P)';
+                const rosterText = stItem.roster ? ` | Roster: *${stItem.roster}*` : '';
+                const noteText = stItem.note ? ` (${stItem.note})` : '';
+                lines.push(`*${idx + 1}. ${shiftText}${rosterText}${noteText}*`);
+                const membersArr = toSafeArray(stItem.members);
+                if (membersArr.length > 0) {
+                    membersArr.forEach((mName, mIdx) => {
+                        lines.push(`   ${mIdx + 1}. ${mName}`);
+                    });
+                } else {
+                    lines.push(`   - (Belum ada personel)`);
+                }
             });
-
             lines.push(``);
-            lines.push(`*• Keseluruhan Team Pagi Per Zona (${pagiMembers.length} orang):*`);
-            lines.push(...buildGroupedZoneLinesForShift(pagiMembers));
+        }
 
-            lines.push(``);
-            lines.push(`━━━━━━━━━━━━━━━━━━━━`);
-            lines.push(`🌙 *SHIFT SIANG (X)*`);
-            lines.push(`*• Penanggung Jawab Tugas Siang:*`);
+        // 2. SUSUNAN 18 TUGAS HARIAN
+        lines.push(`📌 *SUSUNAN TUGAS HARIAN:*`);
+        DAILY_ROLE_DEFINITIONS.forEach((roleDef, idx) => {
+            const val = (currentRoleAssignmentsData && currentRoleAssignmentsData[roleDef.key])
+                ? String(currentRoleAssignmentsData[roleDef.key]).trim()
+                : '-';
+            lines.push(`${idx + 1}. ${roleDef.label}: *${val || '-'}*`);
+        });
 
-            siangRoles.forEach(roleDef => {
-                const assignedName = (currentRoleAssignmentsData && currentRoleAssignmentsData[roleDef.key])
-                    ? String(currentRoleAssignmentsData[roleDef.key]).trim()
-                    : '';
-                lines.push(`- *${roleDef.label}:* ${assignedName || '-'}`);
-                if (assignedName) filledCount++;
+        // 3. DAFTAR PERSONEL SHIFT PAGI + KODE ROSTER
+        lines.push(``);
+        const pagiHeader = rosterPagi
+            ? `☀️ *SHIFT PAGI (P) - ${rosterPagi} (${pagiList.length} Personel):*`
+            : `☀️ *SHIFT PAGI (P) (${pagiList.length} Personel):*`;
+        lines.push(pagiHeader);
+        if (pagiList.length === 0) {
+            lines.push(`- Tidak ada jadwal Shift Pagi`);
+        } else {
+            pagiList.forEach((item, idx) => {
+                const roleTag = item.role && item.role !== '-' ? ` - ${item.role}` : '';
+                lines.push(`${idx + 1}. ${item.name} (${item.zone}${roleTag})`);
             });
+        }
 
-            lines.push(``);
-            lines.push(`*• Keseluruhan Team Siang Per Zona (${siangMembers.length} orang):*`);
-            lines.push(...buildGroupedZoneLinesForShift(siangMembers));
+        // 4. DAFTAR PERSONEL SHIFT SIANG + KODE ROSTER
+        lines.push(``);
+        const siangHeader = rosterSiang
+            ? `🌙 *SHIFT SIANG (X) - ${rosterSiang} (${siangList.length} Personel):*`
+            : `🌙 *SHIFT SIANG (X) (${siangList.length} Personel):*`;
+        lines.push(siangHeader);
+        if (siangList.length === 0) {
+            lines.push(`- Tidak ada jadwal Shift Siang`);
+        } else {
+            siangList.forEach((item, idx) => {
+                const roleTag = item.role && item.role !== '-' ? ` - ${item.role}` : '';
+                lines.push(`${idx + 1}. ${item.name} (${item.zone}${roleTag})`);
+            });
+        }
 
-            const text = lines.join('\n');
-            const totalRoles = DAILY_ROLE_DEFINITIONS.length;
-            copyTextSafelyToClipboard(
-                text,
-                'Tersalin',
-                `Susunan tugas harian (${filledCount}/${totalRoles} terisi) & jadwal lengkap Shift Pagi (${pagiMembers.length} org) + Shift Siang (${siangMembers.length} org) per zona berhasil disalin untuk WhatsApp.`
-            );
-        } catch (e) {
-            console.error("Error copyDailyRolesToClipboard:", e);
-            showCustomAlert('Gagal Menyalin', 'Terjadi kendala saat menyiapkan teks WhatsApp. Silakan coba lagi.');
+        const text = lines.join('\n');
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+                showCustomAlert('Tersalin', 'Jadwal shift, roster, team khusus & susunan tugas lengkap berhasil disalin untuk WhatsApp.');
+            }).catch(() => {
+                showCustomAlert('Info', 'Gagal menyalin otomatis. Silakan salin manual.');
+            });
+        } else {
+            showCustomAlert('Info', 'Browser tidak mendukung salin otomatis.');
         }
     }
 
     function setScheduleShiftFilter(filterCode) {
         currentScheduleShiftFilter = filterCode;
         document.querySelectorAll('.sched-filter-btn').forEach(btn => {
-            btn.classList.remove('bg-indigo-600', 'text-white');
-            btn.classList.add('bg-white', 'text-slate-600', 'border', 'border-slate-200');
+            btn.className = 'sched-filter-btn px-3 py-1.5 rounded-lg bg-white text-slate-600 border border-slate-200';
         });
         const activeBtn = document.getElementById(`schedFilter-${filterCode}`);
         if (activeBtn) {
-            activeBtn.classList.remove('bg-white', 'text-slate-600', 'border', 'border-slate-200');
-            activeBtn.classList.add('bg-indigo-600', 'text-white');
+            activeBtn.className = 'sched-filter-btn px-3 py-1.5 rounded-lg bg-indigo-600 text-white';
         }
         renderDailyScheduleContent();
     }
 
-    async function fetchSheetCsvByName(sheetName) {
-        const csvUrl = `https://docs.google.com/spreadsheets/d/${SCHEDULE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}&_=${Date.now()}`;
-        const res = await fetch(csvUrl);
-        if (!res.ok) {
-            throw new Error('Gagal mengakses Google Sheets (pastikan akses Lihat Saja aktif).');
-        }
-        return await res.text();
-    }
-
-    async function loadScheduleForSelectedDate(forceReload = false) {
+    async function loadScheduleForSelectedDate(forceRefresh = false) {
         const bodyEl = document.getElementById('dailyScheduleBody');
-        const labelEl = document.getElementById('dailyScheduleDateLabel');
-        const { dayNum, monthIdx, dateKey, sheetName, readableDate } = getDatePartsFromIso(currentSelectedScheduleDate);
+        const dateLabelEl = document.getElementById('dailyScheduleDateLabel');
+        const { dayNum, dateKey, sheetName, readableDate } = getDatePartsFromIso(currentSelectedScheduleDate);
 
-        if (labelEl) {
-            labelEl.textContent = `${readableDate} • Tab: ${sheetName}`;
+        if (dateLabelEl) {
+            dateLabelEl.textContent = `${readableDate} • Sheet: ${sheetName} (Tgl ${dayNum})`;
         }
 
         bindDailyRoleListener(dateKey);
 
-        if (!forceReload && Array.isArray(scheduleCacheByDate[dateKey])) {
-            if (isScheduleRoleUnlocked) renderAllRoleSelectInputs();
+        if (!forceRefresh && Array.isArray(scheduleCacheByDate[dateKey])) {
             renderDailyScheduleContent();
+            if (isScheduleRoleUnlocked) renderAllRoleSelectInputs();
             return;
         }
 
         if (bodyEl) {
-            bodyEl.innerHTML = `<div class="text-center py-10 text-slate-400">⏳ Mengambil jadwal tanggal <b>${escapeHtml(readableDate)}</b> dari tab <b>${escapeHtml(sheetName)}</b>...</div>`;
+            bodyEl.innerHTML = `<div class="text-center py-10 text-slate-500 animate-pulse">⏳ Mengambil data jadwal tanggal ${dayNum} ${sheetName}...</div>`;
         }
 
         try {
-            let csvText = await fetchSheetCsvByName(sheetName);
-            let rows = parseScheduleCsvRows(csvText);
+            const url = `https://docs.google.com/spreadsheets/d/${SCHEDULE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}&_t=${Date.now()}`;
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const csvText = await response.text();
+            const rows = parseScheduleCsvRows(csvText);
 
-            // Validasi apakah tab yang dikembalikan benar-benar milik bulan yang dipilih
-            const topText = rows.slice(0, 6).flat().join(' ').toUpperCase();
-            const altMonthKeyword = monthIdx === 1 ? 'FEBUARI' : sheetName;
-            const isCorrectMonthSheet = topText.includes(sheetName) || topText.includes(altMonthKeyword);
+            let headerRowIdx = -1;
+            let targetDateColIdx = -1;
 
-            if (!isCorrectMonthSheet && monthIdx === 1) {
-                csvText = await fetchSheetCsvByName('FEBUARI');
-                rows = parseScheduleCsvRows(csvText);
-            } else if (!isCorrectMonthSheet && monthIdx !== 0) {
-                throw new Error(`Tab "${sheetName}" belum tersedia atau belum diberi judul bulan di Spreadsheet.`);
-            }
-
-            // 1. Cari baris header tanggal (1..31) & kolom DEPT / JABATAN
-            let dateHeaderRowIdx = -1;
-            let targetDayColIdx = -1;
-            let deptColIdx = -1;
-            let roleColIdx = -1;
-            let nameColIdx = -1;
-            let nikColIdx = -1;
-
-            for (let r = 0; r < Math.min(rows.length, 20); r++) {
+            for (let r = 0; r < Math.min(rows.length, 15); r++) {
                 const row = rows[r];
-                const foundDayIdx = row.findIndex(c => parseInt(c, 10) === dayNum && String(parseInt(c, 10)) === c.trim());
-                const foundDeptIdx = row.findIndex(c => /^DEPT(\s*\/?\s*JABATAN)?$/i.test(c.trim()));
-
-                if (foundDayIdx !== -1 && foundDeptIdx !== -1) {
-                    dateHeaderRowIdx = r;
-                    targetDayColIdx = foundDayIdx;
-                    deptColIdx = foundDeptIdx;
-
-                    row.forEach((cell, idx) => {
-                        if (idx < foundDayIdx) {
-                            const label = cell.trim().toUpperCase();
-                            if (label === 'JABATAN') roleColIdx = idx;
-                            if (label === 'NAMA') nameColIdx = idx;
-                            if (label === 'NIK' || label === 'NIP') nikColIdx = idx;
-                        }
-                    });
-
-                    if (nameColIdx === -1) nameColIdx = Math.max(0, deptColIdx - 1);
-                    if (nikColIdx === -1) nikColIdx = Math.max(0, nameColIdx - 1);
+                const colIdx = row.findIndex(cell => String(cell).trim() === String(dayNum));
+                const hasZoneOrName = row.some(cell => /NAMA|ZONA|AREA|NIK/i.test(String(cell)));
+                if (colIdx !== -1 && (hasZoneOrName || colIdx >= 3)) {
+                    headerRowIdx = r;
+                    targetDateColIdx = colIdx;
                     break;
                 }
             }
 
-            if (dateHeaderRowIdx === -1 || targetDayColIdx === -1) {
+            if (headerRowIdx === -1 || targetDateColIdx === -1) {
                 throw new Error(`Kolom tanggal ${dayNum} tidak ditemukan pada tab ${sheetName}.`);
             }
 
-            // 2. Ekstrak personel masuk pada tanggal terpilih dengan meneruskan sel DEPT yang di-merge
-            const results = [];
-            let lastActiveDept = 'UMUM';
-            const summaryRowPattern = /^(PS PAGI|SMT PAGI|PS SIANG|SMT SIANG|TOTAL ALL|OFF|RO|AL|SAKIT|IZIN|KETERANGAN)$/i;
+            const headerRow = rows[headerRowIdx];
+            let zoneColIdx = headerRow.findIndex(c => /ZONA|AREA|DEPT|SECTION/i.test(String(c)));
+            let roleColIdx = headerRow.findIndex(c => /JABATAN|ROLE|POSISI|LEVEL/i.test(String(c)));
+            let nameColIdx = headerRow.findIndex(c => /NAMA|KARYAWAN|SMT|PERSONEL/i.test(String(c)));
 
-            for (let r = dateHeaderRowIdx + 1; r < rows.length; r++) {
+            if (zoneColIdx === -1) zoneColIdx = 0;
+            if (roleColIdx === -1) roleColIdx = 1;
+            if (nameColIdx === -1) nameColIdx = 2;
+
+            let activeZone = 'UMUM / STORE';
+            const parsedSchedule = [];
+
+            for (let r = headerRowIdx + 1; r < rows.length; r++) {
                 const row = rows[r];
-                const rawNo = (row[0] || '').trim();
-                const rawNik = (row[nikColIdx] || '').trim();
+                if (!row || row.length === 0) continue;
+
+                const rawZone = (row[zoneColIdx] || '').trim();
+                const rawRole = (row[roleColIdx] || '').trim();
                 const rawName = (row[nameColIdx] || '').trim();
-                const rawDept = (row[deptColIdx] || '').trim();
-                const rawRole = roleColIdx !== -1 ? (row[roleColIdx] || '').trim() : '';
-                const shiftCode = (row[targetDayColIdx] || '').trim().toUpperCase();
+                const rawCode = (row[targetDateColIdx] || '').trim().toUpperCase();
 
-                if (summaryRowPattern.test(rawNo) || summaryRowPattern.test(rawName) || summaryRowPattern.test(rawDept)) {
-                    continue;
+                if (rawZone && !/TOTAL|GRAND|JUMLAH|KETERANGAN|NOTE/i.test(rawZone)) {
+                    activeZone = rawZone;
                 }
 
-                if (!rawName && rawNo && !/^\d+$/.test(rawNo)) {
-                    lastActiveDept = rawNo.toUpperCase();
-                    continue;
+                if (!rawName || /TOTAL|GRAND|JUMLAH|NAMA/i.test(rawName)) continue;
+
+                if (rawCode === 'P' || rawCode === 'X') {
+                    parsedSchedule.push({
+                        zone: activeZone,
+                        role: rawRole || '-',
+                        name: rawName,
+                        code: rawCode,
+                        shiftType: rawCode === 'P' ? 'P' : 'S'
+                    });
                 }
-
-                if (rawDept) {
-                    lastActiveDept = rawDept.includes('/')
-                        ? rawDept.split('/')[0].trim().toUpperCase()
-                        : rawDept.toUpperCase();
-                }
-
-                if (!rawName || /^(NAMA|DEPT)$/i.test(rawName)) continue;
-
-                // Hanya ambil yang benar-benar masuk kerja: P (Pagi) atau X (Siang)
-                if (shiftCode !== 'P' && shiftCode !== 'X') continue;
-
-                const roleLabel = rawRole || (rawDept.includes('/') ? rawDept.split('/')[1].trim() : 'STAFF');
-                const shiftType = shiftCode === 'P' ? 'P' : 'S';
-                const shiftLabel = shiftCode === 'P' ? 'Pagi (P)' : 'Siang (X)';
-
-                results.push({
-                    nik: rawNik,
-                    name: rawName,
-                    zone: lastActiveDept,
-                    role: roleLabel.toUpperCase(),
-                    shiftCode,
-                    shiftType,
-                    shiftLabel
-                });
             }
 
-            scheduleCacheByDate[dateKey] = results;
-            if (isScheduleRoleUnlocked) renderAllRoleSelectInputs();
+            scheduleCacheByDate[dateKey] = parsedSchedule;
             renderDailyScheduleContent();
-        } catch (err) {
-            scheduleCacheByDate[dateKey] = [];
             if (isScheduleRoleUnlocked) renderAllRoleSelectInputs();
+        } catch (err) {
+            console.error('Gagal memuat jadwal shift:', err);
             if (bodyEl) {
                 bodyEl.innerHTML = `
-                    <div class="bg-rose-50 border border-rose-200 text-rose-700 rounded-xl p-4 text-xs space-y-1">
-                        <div class="font-bold">⚠️ Tidak dapat memuat jadwal otomatis</div>
-                        <div>${escapeHtml(err.message)}</div>
+                    <div class="bg-rose-50 border border-rose-200 text-rose-700 rounded-xl p-4 text-center space-y-2">
+                        <div class="font-bold">Gagal memuat jadwal shift dari Spreadsheet</div>
+                        <div class="text-xs">${escapeHtml(err.message)}</div>
+                        <button onclick="loadScheduleForSelectedDate(true)" class="mt-2 px-3 py-1.5 bg-rose-600 text-white rounded-lg text-xs font-semibold">Coba Lagi</button>
                     </div>
                 `;
             }
@@ -4305,26 +5066,32 @@ Tanggal: ${getWibDateString()}
     function renderDailyScheduleContent() {
         const bodyEl = document.getElementById('dailyScheduleBody');
         const summaryEl = document.getElementById('dailyScheduleSummary');
-        const keyword = (document.getElementById('dailyScheduleSearch')?.value || '').trim().toLowerCase();
+        const searchInput = document.getElementById('dailyScheduleSearch');
         if (!bodyEl) return;
 
         const { dateKey } = getDatePartsFromIso(currentSelectedScheduleDate);
-        const listForDate = scheduleCacheByDate[dateKey] || [];
+        const scheduleList = Array.isArray(scheduleCacheByDate[dateKey]) ? scheduleCacheByDate[dateKey] : [];
+        const keyword = searchInput ? searchInput.value.trim().toLowerCase() : '';
 
-        const filtered = listForDate.filter(item => {
-            if (currentScheduleShiftFilter !== 'ALL' && item.shiftType !== currentScheduleShiftFilter) return false;
-            if (keyword && !item.name.toLowerCase().includes(keyword) && !item.zone.toLowerCase().includes(keyword)) return false;
-            return true;
+        const filtered = scheduleList.filter(item => {
+            if (!item) return false;
+            const matchShift = currentScheduleShiftFilter === 'ALL' || item.shiftType === currentScheduleShiftFilter;
+            const matchQuery = !keyword ||
+                item.name.toLowerCase().includes(keyword) ||
+                item.zone.toLowerCase().includes(keyword) ||
+                item.role.toLowerCase().includes(keyword);
+            return matchShift && matchQuery;
         });
 
+        const totalPagi = scheduleList.filter(x => x && x.shiftType === 'P').length;
+        const totalSiang = scheduleList.filter(x => x && x.shiftType === 'S').length;
+
         if (summaryEl) {
-            const pagiCount = filtered.filter(x => x.shiftType === 'P').length;
-            const siangCount = filtered.filter(x => x.shiftType === 'S').length;
-            summaryEl.textContent = `Total Masuk: ${filtered.length} personel (Pagi: ${pagiCount} • Siang: ${siangCount})`;
+            summaryEl.textContent = `Masuk: ${scheduleList.length} personel (☀️ Pagi: ${totalPagi} • 🌙 Siang: ${totalSiang})`;
         }
 
         if (filtered.length === 0) {
-            bodyEl.innerHTML = `<div class="text-center py-8 text-slate-400 text-xs">Tidak ada jadwal personel yang cocok untuk filter/tanggal ini.</div>`;
+            bodyEl.innerHTML = `<div class="text-center py-8 text-slate-400">Tidak ada personel jadwal (P/X) pada filter atau tanggal ini.</div>`;
             return;
         }
 
@@ -4334,31 +5101,38 @@ Tanggal: ${getWibDateString()}
             groupedByZone[item.zone].push(item);
         });
 
-        bodyEl.innerHTML = Object.entries(groupedByZone).map(([zone, members]) => `
-            <div class="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                <div class="bg-slate-100 px-3.5 py-2 flex items-center justify-between border-b border-slate-200">
-                    <span class="font-bold text-slate-800 text-xs tracking-wide">📍 ${escapeHtml(zone)}</span>
-                    <span class="text-[11px] font-semibold bg-white text-slate-600 px-2 py-0.5 rounded-full border border-slate-200">${members.length} orang</span>
+        let html = '';
+        Object.keys(groupedByZone).forEach(zoneName => {
+            const members = groupedByZone[zoneName];
+            html += `
+                <div class="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
+                    <div class="px-4 py-2.5 bg-slate-100 border-b border-slate-200 flex items-center justify-between">
+                        <span class="font-bold text-slate-800 text-xs uppercase tracking-wider">📍 ${escapeHtml(zoneName)}</span>
+                        <span class="text-xs font-semibold text-slate-500">${members.length} personel</span>
+                    </div>
+                    <div class="divide-y divide-slate-100">
+                        ${members.map(m => {
+                            const isPagi = m.shiftType === 'P';
+                            const badgeClass = isPagi
+                                ? 'bg-amber-100 text-amber-800 border-amber-200'
+                                : 'bg-indigo-100 text-indigo-800 border-indigo-200';
+                            const badgeText = isPagi ? '☀️ Pagi (P)' : '🌙 Siang (X)';
+                            return `
+                                <div class="px-4 py-2.5 flex items-center justify-between gap-2 hover:bg-slate-50">
+                                    <div>
+                                        <div class="font-semibold text-slate-800 text-sm">${escapeHtml(m.name)}</div>
+                                        <div class="text-xs text-slate-500">${escapeHtml(m.role)}</div>
+                                    </div>
+                                    <span class="px-2.5 py-1 rounded-full text-xs font-bold border ${badgeClass} whitespace-nowrap">${badgeText}</span>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
                 </div>
-                <div class="divide-y divide-slate-100 bg-white">
-                    ${members.map(m => `
-                        <div class="px-3.5 py-2 flex items-center justify-between gap-2">
-                            <div>
-                                <div class="font-semibold text-slate-800 text-xs">${escapeHtml(m.name)}</div>
-                                <div class="text-[11px] text-slate-400">${escapeHtml(m.role || 'STAFF')}${m.nik ? ' • ' + escapeHtml(m.nik) : ''}</div>
-                            </div>
-                            <span class="text-[11px] font-bold px-2.5 py-1 rounded-full ${
-                                m.shiftType === 'P'
-                                    ? 'bg-amber-100 text-amber-800'
-                                    : 'bg-indigo-100 text-indigo-800'
-                            }">
-                                ${escapeHtml(m.shiftLabel)}
-                            </span>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        `).join('');
+            `;
+        });
+
+        bodyEl.innerHTML = html;
     }
     </script>
 </body>
