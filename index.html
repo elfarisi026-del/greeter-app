@@ -18,7 +18,7 @@
     <!-- Leaflet CSS & JS for Interactive Map -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- SheetJS for Excel Export -->
+    <!-- SheetJS for Excel / OpenCalc Export & Import -->
     <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
     <style id="dynamic-custom-styles"></style>
 </head>
@@ -28,6 +28,232 @@
 
     <!-- Datalist Kode Roster Lengkap (Bisa Dipilih atau Diketik Manual) -->
     <datalist id="rosterCodeDatalist"></datalist>
+
+    <!-- Modal Mekanisme Promo, Data Lock & Kalkulator Simulasi (Terisolasi dari appState) -->
+    <div id="promoPortalModal" class="fixed inset-0 bg-slate-900/65 backdrop-blur-sm hidden items-center justify-center z-50 p-3 sm:p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[93vh] flex flex-col overflow-hidden border border-slate-200">
+            <!-- Header -->
+            <div class="px-5 py-4 bg-gradient-to-r from-rose-600 via-pink-600 to-orange-500 text-white flex items-center justify-between gap-2 shrink-0">
+                <div>
+                    <h3 class="text-base sm:text-lg font-extrabold flex items-center gap-2">
+                        <span>🎁</span>
+                        <span>Mekanisme Promo, Data Lock & Simulasi</span>
+                    </h3>
+                    <p id="promoPortalLastUpdated" class="text-xs text-rose-100 mt-0.5">Panduan promo aktif, pencarian item data lock, dan kalkulator keuntungan customer</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="togglePromoAdminPanel()" class="bg-white/20 hover:bg-white/30 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition flex items-center gap-1.5">
+                        <span>🔐 Update Promo (Admin)</span>
+                    </button>
+                    <button onclick="closePromoPortalModal()" class="bg-white/20 hover:bg-white/30 text-white w-8 h-8 rounded-lg flex items-center justify-center font-bold transition">
+                        ✕
+                    </button>
+                </div>
+            </div>
+
+            <!-- Panel Admin Upload Mekanisme Promo (JPG) & Data Lock (XLS/ODS/CSV) -->
+            <div id="promoAdminPanel" class="hidden px-5 py-4 bg-amber-50 border-b border-amber-200 space-y-3 shrink-0 max-h-[45vh] overflow-y-auto">
+                <!-- Langkah 1: PIN Admin -->
+                <div id="promoAdminPinStep" class="flex flex-wrap items-center gap-2">
+                    <span class="text-xs font-bold text-amber-950">Verifikasi Admin Promo:</span>
+                    <input type="password" id="promoAdminPinInput" onkeyup="if(event.key==='Enter') verifyPromoAdminPin()" placeholder="Masukkan PIN Admin..." class="text-xs border border-amber-300 bg-white rounded-lg px-3 py-1.5 w-44 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium">
+                    <button onclick="verifyPromoAdminPin()" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-3.5 py-1.5 rounded-lg transition">Buka</button>
+                    <button onclick="closePromoAdminPanel()" class="text-xs text-slate-500 hover:text-slate-700 px-2 py-1">Batal</button>
+                    <p id="promoAdminPinError" class="w-full text-[11px] font-semibold text-rose-600 hidden">PIN Admin tidak sesuai!</p>
+                </div>
+
+                <!-- Langkah 2: Form Upload Materi Promo & Data Lock -->
+                <div id="promoAdminFormStep" class="hidden space-y-3">
+                    <div class="flex items-center justify-between border-b border-amber-200 pb-2">
+                        <span class="text-xs font-extrabold text-amber-950">🛠️ Kelola & Perbarui Materi Promo (Sinkron Live ke Semua Perangkat)</span>
+                        <button onclick="closePromoAdminPanel()" class="text-xs font-bold text-slate-600 hover:text-slate-900 bg-white px-2.5 py-1 rounded-lg border border-amber-200">Tutup ✕</button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <!-- Upload Poster Mekanisme Promo (JPG/PNG) -->
+                        <div class="bg-white border border-amber-200 rounded-xl p-3 space-y-2">
+                            <div class="text-xs font-extrabold text-slate-800">🖼️ 1. Upload Gambar Mekanisme Promo (JPG / PNG)</div>
+                            <p class="text-[11px] text-slate-500">Bisa pilih beberapa gambar sekaligus. Gambar otomatis dioptimalkan agar cepat tampil di HP staf.</p>
+                            <input type="text" id="promoBannerTitleInput" placeholder="Judul / Keterangan Banner (Opsional)..." class="w-full text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-rose-500">
+                            <input type="file" id="promoBannerFileInput" accept="image/jpeg,image/jpg,image/png,image/webp" multiple class="w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-rose-50 file:text-rose-700 hover:file:bg-rose-100 border border-slate-200 rounded-lg">
+                            <div class="flex items-center justify-between gap-2 pt-1">
+                                <button type="button" onclick="clearAllPromoBanners()" class="text-[11px] font-bold text-rose-600 hover:bg-rose-50 px-2.5 py-1.5 rounded-lg transition">🗑️ Hapus Semua Poster</button>
+                                <button type="button" id="btnUploadPromoBanners" onclick="handleUploadPromoBanners()" class="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-3.5 py-1.5 rounded-lg shadow-2xs transition">⬆️ Upload Poster Promo</button>
+                            </div>
+                        </div>
+
+                        <!-- Upload File Data Lock (OpenCalc .ods / Excel .xls, .xlsx / .csv) -->
+                        <div class="bg-white border border-amber-200 rounded-xl p-3 space-y-2">
+                            <div class="text-xs font-extrabold text-slate-800">📊 2. Upload File Data Lock (.ods, .xlsx, .xls, .csv)</div>
+                            <p class="text-[11px] text-slate-500">Mendukung file OpenCalc (.ods) & Excel (.xls/.xlsx). Semua sheet otomatis terbaca dan bisa dicari.</p>
+                            <input type="text" id="promoDataLockNoteInput" placeholder="Periode / Catatan Data Lock (misal: Promo Weekend Nov)..." class="w-full text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <input type="file" id="promoDataLockFileInput" accept=".ods,.xlsx,.xls,.csv,application/vnd.oasis.opendocument.spreadsheet,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 border border-slate-200 rounded-lg">
+                            <div class="flex items-center justify-between gap-2 pt-1">
+                                <button type="button" onclick="clearPromoDataLock()" class="text-[11px] font-bold text-rose-600 hover:bg-rose-50 px-2.5 py-1.5 rounded-lg transition">🗑️ Hapus Data Lock</button>
+                                <button type="button" id="btnUploadPromoDataLock" onclick="handleUploadPromoDataLock()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3.5 py-1.5 rounded-lg shadow-2xs transition">⬆️ Upload Data Lock</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigasi Tab Utama -->
+            <div class="px-5 pt-3 bg-slate-100 border-b border-slate-200 flex flex-wrap gap-1.5 shrink-0">
+                <button type="button" onclick="switchPromoTab('mekanisme')" id="promoTabBtn-mekanisme" class="promo-tab-btn px-4 py-2 rounded-t-xl text-xs sm:text-sm font-extrabold bg-white text-rose-700 border-t border-x border-slate-200 shadow-2xs">
+                    🖼️ Mekanisme Promo
+                </button>
+                <button type="button" onclick="switchPromoTab('datalock')" id="promoTabBtn-datalock" class="promo-tab-btn px-4 py-2 rounded-t-xl text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 bg-slate-200/70">
+                    🔒 Data Lock (Spreadsheet)
+                </button>
+                <button type="button" onclick="switchPromoTab('kalkulator')" id="promoTabBtn-kalkulator" class="promo-tab-btn px-4 py-2 rounded-t-xl text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 bg-slate-200/70">
+                    🧮 Kalkulator Simulasi Promo
+                </button>
+            </div>
+
+            <!-- Konten Scrollable -->
+            <div class="overflow-y-auto flex-1 p-5 bg-white">
+                <!-- TAB 1: MEKANISME PROMO (JPG/PNG GALLERY) -->
+                <div id="promoTabContent-mekanisme" class="space-y-4">
+                    <div class="flex flex-wrap items-center justify-between gap-2 bg-rose-50 border border-rose-200/80 rounded-xl px-4 py-2.5">
+                        <span class="text-xs font-bold text-rose-900">📌 Klik gambar untuk memperbesar (Zoom) agar detail syarat & ketentuan promo terlihat jelas.</span>
+                        <span id="promoBannerCountBadge" class="text-[11px] font-extrabold bg-rose-600 text-white px-2.5 py-0.5 rounded-full">0 Poster</span>
+                    </div>
+                    <div id="promoBannersGallery" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="col-span-full text-center py-12 text-slate-400 italic text-sm border-2 border-dashed border-slate-200 rounded-2xl">
+                            Belum ada gambar mekanisme promo yang diunggah. Klik "Update Promo (Admin)" di kanan atas untuk mengunggah JPG/PNG.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 2: DATA LOCK (OPENCALC / XLS / XLSX / CSV VIEWER) -->
+                <div id="promoTabContent-datalock" class="hidden space-y-3">
+                    <div class="bg-indigo-50/80 border border-indigo-200 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                        <div>
+                            <div class="text-xs font-extrabold text-indigo-950" id="promoDataLockFileName">📄 Belum ada file Data Lock aktif</div>
+                            <div class="text-[11px] text-indigo-700" id="promoDataLockMeta">Unggah file .ods (OpenCalc), .xlsx, .xls, atau .csv melalui tombol Update Promo (Admin).</div>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <select id="promoDataLockSheetSelect" onchange="renderPromoDataLockTable()" class="hidden text-xs font-bold border border-indigo-300 bg-white rounded-lg px-2.5 py-1.5 text-slate-800"></select>
+                            <input type="text" id="promoDataLockSearchInput" oninput="renderPromoDataLockTable()" placeholder="Cari artikel, SKU, nama barang..." class="text-xs border border-slate-300 bg-white rounded-lg px-3 py-1.5 w-full sm:w-60 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                    </div>
+
+                    <div id="promoDataLockTableWrapper" class="border border-slate-200 rounded-xl overflow-hidden">
+                        <div class="text-center py-12 text-slate-400 italic text-sm">
+                            Belum ada data spreadsheet Data Lock yang dimuat.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 3: KALKULATOR SIMULASI KEUNTUNGAN CUSTOMER -->
+                <div id="promoTabContent-kalkulator" class="hidden space-y-5">
+                    <div class="bg-gradient-to-br from-emerald-50 via-teal-50/70 to-blue-50/70 border border-emerald-200 rounded-2xl p-4 sm:p-5 space-y-4">
+                        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-200/70 pb-2.5">
+                            <div>
+                                <h4 class="text-sm sm:text-base font-extrabold text-emerald-950">🧮 Simulasi Perhitungan Keuntungan Customer</h4>
+                                <p class="text-xs text-emerald-800">Hitung otomatis selisih bayar, potongan diskon, nominal cashback, dan total benefit customer.</p>
+                            </div>
+                            <button type="button" onclick="resetPromoCalculator()" class="text-xs font-bold bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 px-3 py-1.5 rounded-lg transition">
+                                🔄 Reset Hitungan
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- Kolom Input -->
+                            <div class="bg-white border border-slate-200 rounded-xl p-4 space-y-3 shadow-2xs">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 mb-1">1. Total Belanja Customer (Rp)</label>
+                                    <input type="text" id="calcTotalBelanja" onkeyup="formatRupiahInput(this); calculatePromoSimulation();" placeholder="Contoh: 15.000.000" class="w-full text-sm font-extrabold border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 mb-1">2. Jenis Skema Promo</label>
+                                    <select id="calcPromoType" onchange="onCalcPromoTypeChange(); calculatePromoSimulation();" class="w-full text-xs sm:text-sm font-bold border border-slate-300 bg-white rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                                        <option value="cashback_rp">💰 Cashback Nominal (Rp)</option>
+                                        <option value="cashback_pct">💰 Cashback Persentase (%)</option>
+                                        <option value="discount_pct">🏷️ Direct Discount Persentase (%)</option>
+                                        <option value="discount_rp">🏷️ Direct Discount Nominal (Rp)</option>
+                                        <option value="combo_disc_cb">🔥 Kombinasi: Discount (%) + Cashback (Rp)</option>
+                                    </select>
+                                </div>
+
+                                <!-- Input Dinamis Berdasarkan Skema Promo -->
+                                <div id="calcDynamicInputsContainer" class="space-y-2.5 pt-1"></div>
+
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 mb-1">3. Minimal Belanja Syarat Promo (Opsional, Rp)</label>
+                                    <input type="text" id="calcMinSpend" onkeyup="formatRupiahInput(this); calculatePromoSimulation();" placeholder="0 (Kosongkan jika tanpa minimal)" class="w-full text-xs font-semibold border border-slate-300 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                                </div>
+                            </div>
+
+                            <!-- Kolom Hasil Simulasi -->
+                            <div class="bg-slate-900 text-white rounded-xl p-4 sm:p-5 flex flex-col justify-between space-y-4 shadow-md">
+                                <div class="space-y-3">
+                                    <div class="flex items-center justify-between border-b border-slate-700 pb-2">
+                                        <span class="text-xs font-extrabold uppercase tracking-wider text-emerald-400">📊 Hasil Simulasi Benefit</span>
+                                        <span id="calcBadgeMode" class="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">CASHBACK</span>
+                                    </div>
+
+                                    <div id="calcEligibilityAlert" class="hidden bg-amber-500/20 border border-amber-400/50 text-amber-200 text-xs rounded-lg px-3 py-2 font-semibold"></div>
+
+                                    <div class="space-y-2 text-xs sm:text-sm">
+                                        <div class="flex justify-between text-slate-300">
+                                            <span>Total Belanja Awal:</span>
+                                            <span id="resBelanjaAwal" class="font-mono font-bold text-white">Rp 0</span>
+                                        </div>
+                                        <div class="flex justify-between text-rose-300">
+                                            <span>Potongan Direct Discount:</span>
+                                            <span id="resDiscountVal" class="font-mono font-bold">- Rp 0</span>
+                                        </div>
+                                        <div class="flex justify-between border-t border-slate-700 pt-2 text-slate-200 font-bold">
+                                            <span>Total Bayar di Kasir (Netto):</span>
+                                            <span id="resNettoBayar" class="font-mono text-base text-sky-300">Rp 0</span>
+                                        </div>
+                                        <div class="flex justify-between text-amber-300 pt-1">
+                                            <span>Voucher / Nominal Cashback:</span>
+                                            <span id="resCashbackVal" class="font-mono font-bold">+ Rp 0</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-xl p-3.5 mt-3 border border-emerald-400/40">
+                                        <div class="text-[11px] font-bold uppercase tracking-wider text-emerald-100">✨ Total Keuntungan Didapat Customer</div>
+                                        <div class="flex items-baseline justify-between gap-2 mt-1">
+                                            <div id="resTotalBenefit" class="text-xl sm:text-2xl font-black font-mono text-white">Rp 0</div>
+                                            <div id="resBenefitPercent" class="text-xs font-extrabold bg-black/25 px-2.5 py-1 rounded-lg text-emerald-200">Hemat 0%</div>
+                                        </div>
+                                        <p id="resExplanationText" class="text-[11px] text-emerald-100 mt-1.5 leading-relaxed">
+                                            Masukkan nominal belanja dan parameter promo untuk melihat simulasi lengkap.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <button type="button" onclick="copyPromoSimulationToClipboard()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs py-2.5 px-4 rounded-xl transition shadow-sm flex items-center justify-center gap-1.5">
+                                    <span>📋 Salin Rincian Simulasi untuk Customer</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Modal -->
+            <div class="px-5 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500 shrink-0">
+                <span id="promoPortalFooterStatus">Siap membantu closing penjualan dengan info promo akurat</span>
+                <button onclick="closePromoPortalModal()" class="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-lg transition">Tutup</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Lightbox Zoom Gambar Poster Promo -->
+    <div id="promoImageLightboxModal" onclick="if(event.target.id==='promoImageLightboxModal') closePromoImageLightbox()" class="fixed inset-0 bg-black/85 backdrop-blur-xs hidden items-center justify-center z-[60] p-3">
+        <div class="relative max-w-5xl w-full max-h-[94vh] flex flex-col items-center">
+            <div class="w-full flex items-center justify-between text-white mb-2 px-1">
+                <span id="promoLightboxCaption" class="text-xs sm:text-sm font-bold truncate">Poster Mekanisme Promo</span>
+                <button onclick="closePromoImageLightbox()" class="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded-lg text-xs font-bold">Tutup ✕</button>
+            </div>
+            <img id="promoLightboxImg" src="" alt="Preview Poster Promo" class="max-h-[85vh] w-auto object-contain rounded-xl shadow-2xl border border-white/20 bg-slate-900">
+        </div>
+    </div>
 
     <!-- Modal Jadwal Shift & Penunjukan Tugas Harian (Terisolasi dari appState) -->
     <div id="dailyScheduleModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
@@ -192,7 +418,7 @@
 
     <script>
     // --- VERSI APLIKASI & PENGAMAN ANTI-STALE OVERWRITE (60+ DEVICE GUARD) ---
-    const APP_VERSION = '2026.11.21.3';
+    const APP_VERSION = '2026.11.21.4';
     const actionLockMap = {};
     let isFirebaseConnected = true;
     let isSyncingState = false;
@@ -1411,6 +1637,9 @@
                     <p class="text-sm text-slate-500 mt-0.5 font-medium" id="current-date"></p>
                 </div>
                 <div class="flex flex-wrap gap-2.5">
+                    <button onclick="openPromoPortalModal()" class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2">
+                        <span>🎁 Mekanisme Promo & Simulasi</span>
+                    </button>
                     <button onclick="openDailyScheduleModal()" class="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm transition text-sm flex items-center gap-2">
                         <span>📅 Jadwal Shift & Tugas</span>
                     </button>
@@ -1845,6 +2074,7 @@
     document.addEventListener("DOMContentLoaded", () => {
         renderAppTemplate();
         populateRosterCodeDatalist();
+        initPromoPortalModule();
         updateAttendanceStats();
         updateActiveBuddyButtonBadge();
 
@@ -4291,96 +4521,172 @@
         'Siang I (12:00 - 19:40) A0001',
         'Full_Par Time 18 (12:00 - 20:00) F43',
         'Siang II (12:00 - 20:00) A0002',
-        'Siang XXVIII (12:00 - 21:00) A0028',
-        'Siang III (12:00 - 22:00) A0003',
-        'Siang V (13:00 - 20:40) A0005',
-        'Siang VI (13:00 - 21:00) A0006',
-        'Siang VII (13:00 - 22:00) A0007',
-        'Long Shift VIII (13:00 - 23:00) L008',
-        'Siang XII (14:00 - 22:00) A0012',
-        'Full_Part Time 07 (14:00 - 22:00) F32',
-        'Siang XIII (14:00 - 23:00) A0013',
-        'Siang XIII (14:00 - 23:00) A0013X',
-        'Siang XI (14:00 - 00:00) A0011',
-        'Lebaran Khusus 002 (16:00 - 20:00) LBR002',
-        'Siang (16:00 - 22:00) H09',
-        'FO (8) (21:00 - 06:00) L53',
-        'Malam III (22:00 - 06:00) N0003',
-        'OFF SHOFF'
+        'Siang IV (12:00 - 21:00) A0004',
+        'Siang IV (12:00 - 21:00) A0004X',
+        'Siang XXXV (12:00 - 22:00) A0035',
+        'Siang X (13:00 - 22:00) A0010',
+        'Siang X (13:00 - 22:00) A0010X',
+        'Siang XLVIII (13:00 - 23:00) A0048',
+        'Siang XI (13:00 - 00:00) A0011',
+        'Siang XII (13:10 - 20:50) A0012',
+        'Siang XIV (13:20 - 21:00) A0014',
+        'Siang XVI (13:30 - 22:30) A0016',
+        'Siang XXI (14:00 - 22:00) A0021',
+        'Siang XXI (14:00 - 22:00) A0021X',
+        'Siang XXII (14:00 - 23:00) A0022',
+        'Siang XXIV (14:10 - 21:50) A0024',
+        'Siang XXVI (14:20 - 22:00) A0026',
+        'Siang XXVIII (15:00 - 23:00) A0028',
+        'Siang XXIX (15:00 - 00:00) A0029',
+        'Siang XXXI (16:00 - 00:00) A0031',
+        'Malam IX (18:00 - 03:00) N0009',
+        'Malam V (20:00 - 05:00) N0005',
+        'Malam VI (21:00 - 06:00) N0006',
+        'Malam VII (22:00 - 07:00) N0007',
+        'Malam VIII (23:00 - 08:00) N0008'
     ];
 
     const DAILY_ROLE_DEFINITIONS = [
-        { key: 'kaptenPagi', label: 'Kapten Pagi', shiftPref: 'P', badgeColor: 'bg-amber-100 text-amber-800' },
-        { key: 'kaptenSiang', label: 'Kapten Siang', shiftPref: 'S', badgeColor: 'bg-indigo-100 text-indigo-800' },
-        { key: 'lpPagi', label: 'LP Pagi', shiftPref: 'P', badgeColor: 'bg-amber-100 text-amber-800' },
-        { key: 'lpSiang', label: 'LP Siang', shiftPref: 'S', badgeColor: 'bg-indigo-100 text-indigo-800' },
-        { key: 'psPameranAccsPagi', label: 'PS Pameran Accs Pagi', shiftPref: 'P', badgeColor: 'bg-amber-100 text-amber-800' },
-        { key: 'pameranAccsPagi1', label: 'Pameran Accs Pagi 1', shiftPref: 'P', badgeColor: 'bg-amber-100 text-amber-800' },
-        { key: 'pameranAccsPagi2', label: 'Pameran Accs Pagi 2', shiftPref: 'P', badgeColor: 'bg-amber-100 text-amber-800' },
-        { key: 'psPameranAccsSiang', label: 'PS Pameran Accs Siang', shiftPref: 'S', badgeColor: 'bg-indigo-100 text-indigo-800' },
-        { key: 'pameranAccsSiang1', label: 'Pameran Accs Siang 1', shiftPref: 'S', badgeColor: 'bg-indigo-100 text-indigo-800' },
-        { key: 'pameranAccsSiang2', label: 'Pameran Accs Siang 2', shiftPref: 'S', badgeColor: 'bg-indigo-100 text-indigo-800' },
-        { key: 'pameranMattrasPagi1', label: 'Pameran Mattras Pagi 1', shiftPref: 'P', badgeColor: 'bg-amber-100 text-amber-800' },
-        { key: 'pameranMattrasPagi2', label: 'Pameran Mattras Pagi 2', shiftPref: 'P', badgeColor: 'bg-amber-100 text-amber-800' },
-        { key: 'pameranMattrasSiang1', label: 'Pameran Mattras Siang 1', shiftPref: 'S', badgeColor: 'bg-indigo-100 text-indigo-800' },
-        { key: 'pameranMattrasSiang2', label: 'Pameran Mattras Siang 2', shiftPref: 'S', badgeColor: 'bg-indigo-100 text-indigo-800' },
-        { key: 'canvasingPagi1', label: 'Canvasing Pagi 1', shiftPref: 'P', badgeColor: 'bg-amber-100 text-amber-800' },
-        { key: 'canvasingPagi2', label: 'Canvasing Pagi 2', shiftPref: 'P', badgeColor: 'bg-amber-100 text-amber-800' },
-        { key: 'canvasingSiang1', label: 'Canvasing Siang 1', shiftPref: 'S', badgeColor: 'bg-indigo-100 text-indigo-800' },
-        { key: 'canvasingSiang2', label: 'Canvasing Siang 2', shiftPref: 'S', badgeColor: 'bg-indigo-100 text-indigo-800' }
+        { key: 'kapten_floor_pagi', label: '1. Kapten Floor Pagi' },
+        { key: 'kapten_floor_siang', label: '2. Kapten Floor Siang' },
+        { key: 'kapten_hg_pagi', label: '3. Kapten HG Pagi' },
+        { key: 'kapten_hg_siang', label: '4. Kapten HG Siang' },
+        { key: 'pic_lp_pagi', label: '5. PIC LP Pagi' },
+        { key: 'pic_lp_siang', label: '6. PIC LP Siang' },
+        { key: 'pic_pameran_mattress_pagi', label: '7. PIC Pameran Mattress Pagi' },
+        { key: 'pic_pameran_mattress_siang', label: '8. PIC Pameran Mattress Siang' },
+        { key: 'pic_pameran_accs_pagi', label: '9. PIC Pameran Accs Pagi' },
+        { key: 'pic_pameran_accs_siang', label: '10. PIC Pameran Accs Siang' },
+        { key: 'pic_kasir_pagi', label: '11. PIC Kasir Pagi' },
+        { key: 'pic_kasir_siang', label: '12. PIC Kasir Siang' },
+        { key: 'pic_kels_pagi', label: '13. PIC KELS Pagi' },
+        { key: 'pic_kels_siang', label: '14. PIC KELS Siang' },
+        { key: 'pic_cs_pagi', label: '15. PIC CS Pagi' },
+        { key: 'pic_cs_siang', label: '16. PIC CS Siang' },
+        { key: 'pic_canvassing_1', label: '17. PIC Canvassing 1' },
+        { key: 'pic_canvassing_2', label: '18. PIC Canvassing 2' }
     ];
 
-    let scheduleCacheByDate = {};
-    let currentSelectedScheduleDate = '';
+    let scheduleSheetCacheByMonth = {};
+    let currentScheduleRecords = [];
     let currentScheduleShiftFilter = 'ALL';
-    let isScheduleRoleUnlocked = false;
-    let activeRoleListenerRef = null;
-    let currentRoleAssignmentsData = {};
-    let isSavingRoleAssignment = false;
-    let draftSpecialTeamsList = [];
+    let currentSelectedScheduleDate = '';
+    let activeDailyRoleListenerRef = null;
+    let currentDailyRolesData = null;
+    let draftSpecialTeams = [];
 
     function populateRosterCodeDatalist() {
         const dl = document.getElementById('rosterCodeDatalist');
         if (!dl) return;
-        dl.innerHTML = ROSTER_OPTIONS_LIST.map(code => `<option value="${escapeHtml(code)}"></option>`).join('');
+        dl.innerHTML = '';
+        ROSTER_OPTIONS_LIST.forEach(item => {
+            const opt = document.createElement('option');
+            opt.value = item;
+            dl.appendChild(opt);
+        });
     }
 
-    function getDatePartsFromIso(isoDateStr) {
-        const fallbackIso = getWibDateString();
-        const targetIso = /^\d{4}-\d{2}-\d{2}$/.test(isoDateStr || '') ? isoDateStr : fallbackIso;
-        const [yStr, mStr, dStr] = targetIso.split('-');
-        const yearNum = parseInt(yStr, 10);
-        const monthIdx = parseInt(mStr, 10) - 1;
-        const dayNum = parseInt(dStr, 10);
-        const dateObj = new Date(Date.UTC(yearNum, monthIdx, dayNum, 5, 0, 0));
-        const readableDate = new Intl.DateTimeFormat('id-ID', {
-            timeZone: 'Asia/Jakarta',
-            weekday: 'long',
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric'
-        }).format(dateObj);
+    function openDailyScheduleModal() {
+        const modal = document.getElementById('dailyScheduleModal');
+        if (!modal) return;
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
 
-        return {
-            dayNum,
-            monthIdx,
-            yearStr: yStr,
-            dateKey: targetIso,
-            sheetName: MONTH_SHEET_NAMES_ID[monthIdx] || 'NOVEMBER',
-            readableDate
-        };
+        populateRosterCodeDatalist();
+        closeScheduleRoleAdminBox();
+        currentScheduleShiftFilter = 'ALL';
+        const searchInput = document.getElementById('dailyScheduleSearch');
+        if (searchInput) searchInput.value = '';
+
+        const datePicker = document.getElementById('scheduleDatePicker');
+        if (!currentSelectedScheduleDate) {
+            currentSelectedScheduleDate = getWibDateString();
+        }
+        if (datePicker) {
+            datePicker.value = currentSelectedScheduleDate;
+        }
+        updateScheduleFilterButtonsUI();
+        loadScheduleForSelectedDate(false);
     }
 
-    function parseScheduleCsvRows(csvText) {
+    function closeDailyScheduleModal() {
+        const modal = document.getElementById('dailyScheduleModal');
+        if (!modal) return;
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        closeScheduleRoleAdminBox();
+    }
+
+    function onScheduleDateChanged() {
+        const datePicker = document.getElementById('scheduleDatePicker');
+        if (!datePicker || !datePicker.value) return;
+        currentSelectedScheduleDate = datePicker.value;
+        closeScheduleRoleAdminBox();
+        loadScheduleForSelectedDate(false);
+    }
+
+    function resetScheduleDateToToday() {
+        currentSelectedScheduleDate = getWibDateString();
+        const datePicker = document.getElementById('scheduleDatePicker');
+        if (datePicker) datePicker.value = currentSelectedScheduleDate;
+        closeScheduleRoleAdminBox();
+        loadScheduleForSelectedDate(false);
+    }
+
+    function setScheduleShiftFilter(filterCode) {
+        currentScheduleShiftFilter = filterCode;
+        updateScheduleFilterButtonsUI();
+        renderDailyScheduleContent();
+    }
+
+    function updateScheduleFilterButtonsUI() {
+        ['ALL', 'P', 'S'].forEach(code => {
+            const btn = document.getElementById(`schedFilter-${code}`);
+            if (!btn) return;
+            if (code === currentScheduleShiftFilter) {
+                btn.className = 'sched-filter-btn px-3 py-1.5 rounded-lg bg-indigo-600 text-white';
+            } else {
+                btn.className = 'sched-filter-btn px-3 py-1.5 rounded-lg bg-white text-slate-600 border border-slate-200';
+            }
+        });
+    }
+
+    function parseSelectedDateParts(dateStr) {
+        const parts = String(dateStr || getWibDateString()).split('-');
+        const year = parseInt(parts[0], 10) || 2026;
+        const month = parseInt(parts[1], 10) || 11;
+        const day = parseInt(parts[2], 10) || 1;
+        return { year, month, day };
+    }
+
+    function formatIndonesianLongDate(dateStr) {
+        try {
+            const { year, month, day } = parseSelectedDateParts(dateStr);
+            const dt = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+            return dt.toLocaleDateString('id-ID', {
+                timeZone: 'Asia/Jakarta',
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            });
+        } catch (e) {
+            return dateStr;
+        }
+    }
+
+    function parseCsvMatrix(csvText) {
         const rows = [];
         let row = [];
         let cell = '';
         let inQuotes = false;
+
         for (let i = 0; i < csvText.length; i++) {
             const ch = csvText[i];
-            const next = csvText[i + 1];
+            const nextCh = csvText[i + 1];
+
             if (inQuotes) {
-                if (ch === '"' && next === '"') {
+                if (ch === '"' && nextCh === '"') {
                     cell += '"';
                     i++;
                 } else if (ch === '"') {
@@ -4392,11 +4698,16 @@
                 if (ch === '"') {
                     inQuotes = true;
                 } else if (ch === ',') {
-                    row.push(cell.trim());
+                    row.push(cell);
                     cell = '';
-                } else if (ch === '\n' || (ch === '\r' && next === '\n')) {
-                    if (ch === '\r') i++;
-                    row.push(cell.trim());
+                } else if (ch === '\r' && nextCh === '\n') {
+                    row.push(cell);
+                    rows.push(row);
+                    row = [];
+                    cell = '';
+                    i++;
+                } else if (ch === '\n' || ch === '\r') {
+                    row.push(cell);
                     rows.push(row);
                     row = [];
                     cell = '';
@@ -4406,77 +4717,374 @@
             }
         }
         if (cell.length > 0 || row.length > 0) {
-            row.push(cell.trim());
+            row.push(cell);
             rows.push(row);
         }
         return rows;
     }
 
-    function openDailyScheduleModal() {
-        try {
-            const modal = document.getElementById('dailyScheduleModal');
-            if (!modal) return;
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
+    async function fetchMonthSheetMatrix(sheetName, forceRefresh) {
+        if (!forceRefresh && scheduleSheetCacheByMonth[sheetName]) {
+            return scheduleSheetCacheByMonth[sheetName];
+        }
+        const url = `https://docs.google.com/spreadsheets/d/${SCHEDULE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}&_t=${Date.now()}`;
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        const csvText = await response.text();
+        if (csvText.trim().startsWith('<!DOCTYPE') || csvText.trim().startsWith('<html')) {
+            throw new Error(`Sheet "${sheetName}" belum dipublikasikan atau tidak ditemukan.`);
+        }
+        const matrix = parseCsvMatrix(csvText);
+        scheduleSheetCacheByMonth[sheetName] = matrix;
+        return matrix;
+    }
 
-            if (!currentSelectedScheduleDate) {
-                currentSelectedScheduleDate = getWibDateString();
+    function extractScheduleForDayFromMatrix(matrix, dayNumber) {
+        if (!Array.isArray(matrix) || matrix.length === 0) return [];
+
+        let dateHeaderRowIdx = -1;
+        let targetColIdx = -1;
+
+        for (let r = 0; r < Math.min(matrix.length, 15); r++) {
+            const row = matrix[r] || [];
+            let numericCount = 0;
+            let foundCol = -1;
+
+            for (let c = 0; c < row.length; c++) {
+                const rawVal = String(row[c] || '').trim();
+                if (/^\d{1,2}$/.test(rawVal)) {
+                    const num = parseInt(rawVal, 10);
+                    if (num >= 1 && num <= 31) {
+                        numericCount++;
+                        if (num === dayNumber) {
+                            foundCol = c;
+                        }
+                    }
+                }
             }
-            const pickerEl = document.getElementById('scheduleDatePicker');
-            if (pickerEl) pickerEl.value = currentSelectedScheduleDate;
 
-            loadScheduleForSelectedDate(false);
-        } catch (e) {
-            console.error("Error openDailyScheduleModal:", e);
+            if (numericCount >= 5 && foundCol !== -1) {
+                dateHeaderRowIdx = r;
+                targetColIdx = foundCol;
+                break;
+            }
         }
+
+        if (dateHeaderRowIdx === -1 || targetColIdx === -1) {
+            throw new Error(`Kolom tanggal ${dayNumber} tidak ditemukan pada header sheet.`);
+        }
+
+        const headerRow = matrix[dateHeaderRowIdx] || [];
+        let nameColIdx = -1;
+        let zonaColIdx = -1;
+        let roleColIdx = -1;
+
+        for (let c = 0; c < targetColIdx; c++) {
+            const hText = String(headerRow[c] || '').trim().toUpperCase();
+            if (hText.includes('NAMA')) nameColIdx = c;
+            else if (hText.includes('ZONA') || hText.includes('AREA') || hText.includes('DEPT')) zonaColIdx = c;
+            else if (hText.includes('JABATAN') || hText.includes('POSISI') || hText.includes('ROLE')) roleColIdx = c;
+        }
+
+        if (nameColIdx === -1) {
+            nameColIdx = targetColIdx >= 3 ? 2 : Math.max(0, targetColIdx - 1);
+        }
+
+        const records = [];
+        let currentZonaGroup = 'UMUM';
+
+        for (let r = dateHeaderRowIdx + 1; r < matrix.length; r++) {
+            const row = matrix[r] || [];
+            const rawName = String(row[nameColIdx] || '').trim();
+            const rawShift = String(row[targetColIdx] || '').trim().toUpperCase();
+
+            if (!rawName && !rawShift) continue;
+
+            const upperName = rawName.toUpperCase();
+            if (
+                upperName.startsWith('TOTAL') ||
+                upperName.startsWith('JUMLAH') ||
+                upperName.startsWith('SHIFT PAGI') ||
+                upperName.startsWith('SHIFT SIANG') ||
+                upperName.startsWith('OFF /') ||
+                upperName === 'KETERANGAN'
+            ) {
+                continue;
+            }
+
+            if (zonaColIdx !== -1) {
+                const zVal = String(row[zonaColIdx] || '').trim();
+                if (zVal) currentZonaGroup = zVal.toUpperCase();
+            } else if (!rawShift && rawName && !/^\d+$/.test(rawName)) {
+                currentZonaGroup = upperName;
+                continue;
+            }
+
+            if (!rawName || /^\d+$/.test(rawName)) continue;
+
+            const roleText = roleColIdx !== -1 ? String(row[roleColIdx] || '').trim() : '';
+
+            let shiftType = 'OTHER';
+            let shiftLabel = rawShift || '-';
+            if (rawShift === 'P' || rawShift.startsWith('PAGI')) {
+                shiftType = 'P';
+                shiftLabel = 'P (Pagi)';
+            } else if (rawShift === 'X' || rawShift === 'S' || rawShift.startsWith('SIANG')) {
+                shiftType = 'S';
+                shiftLabel = rawShift === 'X' ? 'X (Siang)' : 'S (Siang)';
+            } else if (rawShift === 'OFF' || rawShift === 'O' || rawShift === 'L') {
+                shiftType = 'OFF';
+                shiftLabel = 'OFF';
+            } else if (rawShift === 'CT' || rawShift === 'CUTI' || rawShift === 'C') {
+                shiftType = 'CUTI';
+                shiftLabel = 'CUTI';
+            } else if (rawShift === 'T' || rawShift === 'TRAINING') {
+                shiftType = 'TRAINING';
+                shiftLabel = 'TRAINING';
+            }
+
+            records.push({
+                name: rawName,
+                zona: currentZonaGroup || 'UMUM',
+                role: roleText,
+                rawShift: rawShift || '-',
+                shiftType,
+                shiftLabel
+            });
+        }
+
+        return records;
     }
 
-    function closeDailyScheduleModal() {
+    async function loadScheduleForSelectedDate(forceRefresh) {
+        const selectedDate = currentSelectedScheduleDate || getWibDateString();
+        const { month, day } = parseSelectedDateParts(selectedDate);
+        const monthSheetName = MONTH_SHEET_NAMES_ID[month - 1] || 'NOVEMBER';
+        const formattedDate = formatIndonesianLongDate(selectedDate);
+
+        const dateLabelEl = document.getElementById('dailyScheduleDateLabel');
+        if (dateLabelEl) {
+            dateLabelEl.textContent = `${formattedDate} • Sheet: ${monthSheetName} (Tgl ${day})`;
+        }
+
+        const roleTargetEl = document.getElementById('roleTargetDateText');
+        if (roleTargetEl) {
+            roleTargetEl.textContent = formattedDate;
+        }
+
+        const bodyEl = document.getElementById('dailyScheduleBody');
+        if (bodyEl) {
+            bodyEl.innerHTML = `<div class="text-center py-10 text-slate-400">⏳ Memuat jadwal tanggal ${day} ${monthSheetName}...</div>`;
+        }
+
+        bindDailyRoleAssignmentListener(selectedDate);
+
         try {
-            const modal = document.getElementById('dailyScheduleModal');
-            if (!modal) return;
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-        } catch (e) {
-            console.error("Error closeDailyScheduleModal:", e);
+            const matrix = await fetchMonthSheetMatrix(monthSheetName, forceRefresh);
+            currentScheduleRecords = extractScheduleForDayFromMatrix(matrix, day);
+            populateRoleDropdownOptions();
+            renderDailyScheduleContent();
+        } catch (err) {
+            console.error('Gagal memuat jadwal shift:', err);
+            currentScheduleRecords = [];
+            populateRoleDropdownOptions();
+            if (bodyEl) {
+                bodyEl.innerHTML = `
+                    <div class="bg-rose-50 border border-rose-200 rounded-xl p-4 text-center space-y-2">
+                        <p class="text-rose-700 font-bold text-sm">Gagal memuat jadwal dari Spreadsheet</p>
+                        <p class="text-xs text-rose-600">${escapeHtml(err.message)}</p>
+                        <button onclick="loadScheduleForSelectedDate(true)" class="mt-2 px-4 py-1.5 bg-rose-600 text-white text-xs font-semibold rounded-lg hover:bg-rose-700">Coba Lagi</button>
+                    </div>
+                `;
+            }
+            const summaryEl = document.getElementById('dailyScheduleSummary');
+            if (summaryEl) summaryEl.textContent = 'Gagal memuat data';
         }
     }
 
-    function onScheduleDateChanged() {
-        const pickerEl = document.getElementById('scheduleDatePicker');
-        if (!pickerEl || !pickerEl.value) return;
-        currentSelectedScheduleDate = pickerEl.value;
-        loadScheduleForSelectedDate(false);
+    function renderDailyScheduleContent() {
+        const bodyEl = document.getElementById('dailyScheduleBody');
+        const summaryEl = document.getElementById('dailyScheduleSummary');
+        const searchInput = document.getElementById('dailyScheduleSearch');
+        if (!bodyEl) return;
+
+        const keyword = searchInput ? searchInput.value.trim().toLowerCase() : '';
+
+        const filtered = currentScheduleRecords.filter(rec => {
+            if (currentScheduleShiftFilter === 'P' && rec.shiftType !== 'P') return false;
+            if (currentScheduleShiftFilter === 'S' && rec.shiftType !== 'S') return false;
+            if (keyword) {
+                const matchName = rec.name.toLowerCase().includes(keyword);
+                const matchZona = rec.zona.toLowerCase().includes(keyword);
+                const matchRole = rec.role.toLowerCase().includes(keyword);
+                if (!matchName && !matchZona && !matchRole) return false;
+            }
+            return true;
+        });
+
+        const totalPagi = currentScheduleRecords.filter(r => r.shiftType === 'P').length;
+        const totalSiang = currentScheduleRecords.filter(r => r.shiftType === 'S').length;
+        const totalOff = currentScheduleRecords.filter(r => r.shiftType === 'OFF' || r.shiftType === 'CUTI').length;
+
+        if (summaryEl) {
+            summaryEl.textContent = `Pagi (P): ${totalPagi} | Siang (X): ${totalSiang} | Off/Cuti: ${totalOff}`;
+        }
+
+        if (filtered.length === 0) {
+            bodyEl.innerHTML = `<div class="text-center py-8 text-slate-400 italic">Tidak ada data personel sesuai filter pada tanggal ini.</div>`;
+            return;
+        }
+
+        const groupedByZona = {};
+        filtered.forEach(rec => {
+            if (!groupedByZona[rec.zona]) groupedByZona[rec.zona] = [];
+            groupedByZona[rec.zona].push(rec);
+        });
+
+        let html = '';
+        Object.keys(groupedByZona).forEach(zonaName => {
+            const list = groupedByZona[zonaName];
+            html += `
+                <div class="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
+                    <div class="bg-slate-100 px-4 py-2 border-b border-slate-200 flex items-center justify-between">
+                        <span class="font-bold text-xs text-slate-800 uppercase tracking-wider">📍 ${escapeHtml(zonaName)}</span>
+                        <span class="text-[11px] font-semibold text-slate-500">${list.length} orang</span>
+                    </div>
+                    <div class="divide-y divide-slate-100">
+            `;
+
+            list.forEach(person => {
+                let badgeClass = 'bg-slate-100 text-slate-700 border-slate-200';
+                if (person.shiftType === 'P') {
+                    badgeClass = 'bg-amber-100 text-amber-800 border-amber-300';
+                } else if (person.shiftType === 'S') {
+                    badgeClass = 'bg-indigo-100 text-indigo-800 border-indigo-300';
+                } else if (person.shiftType === 'OFF' || person.shiftType === 'CUTI') {
+                    badgeClass = 'bg-rose-50 text-rose-600 border-rose-200';
+                } else if (person.shiftType === 'TRAINING') {
+                    badgeClass = 'bg-teal-100 text-teal-800 border-teal-300';
+                }
+
+                html += `
+                    <div class="px-4 py-2.5 flex items-center justify-between gap-2 hover:bg-slate-50">
+                        <div>
+                            <div class="font-semibold text-slate-800 text-xs sm:text-sm">${escapeHtml(person.name)}</div>
+                            ${person.role ? `<div class="text-[11px] text-slate-500">${escapeHtml(person.role)}</div>` : ''}
+                        </div>
+                        <span class="px-2.5 py-1 rounded-full text-xs font-bold border ${badgeClass} shrink-0">
+                            ${escapeHtml(person.shiftLabel)}
+                        </span>
+                    </div>
+                `;
+            });
+
+            html += `</div></div>`;
+        });
+
+        bodyEl.innerHTML = html;
     }
 
-    function resetScheduleDateToToday() {
-        currentSelectedScheduleDate = getWibDateString();
-        const pickerEl = document.getElementById('scheduleDatePicker');
-        if (pickerEl) pickerEl.value = currentSelectedScheduleDate;
-        loadScheduleForSelectedDate(false);
+    // --- PENUNJUKAN 18 TUGAS HARIAN, ROSTER & TEAM KHUSUS (TERISOLASI DI dailyRoleAssignments/{YYYY-MM-DD}) ---
+    function bindDailyRoleAssignmentListener(dateStr) {
+        if (activeDailyRoleListenerRef) {
+            activeDailyRoleListenerRef.off();
+            activeDailyRoleListenerRef = null;
+        }
+        const safeDateKey = String(dateStr || getWibDateString()).replace(/[^0-9-]/g, '');
+        activeDailyRoleListenerRef = db.ref(`dailyRoleAssignments/${safeDateKey}`);
+        activeDailyRoleListenerRef.on('value', (snap) => {
+            currentDailyRolesData = snap.val() || null;
+            renderAssignedRolesDisplay();
+        });
+    }
+
+    function getAllCandidateNamesForRoleSelect() {
+        const nameSet = new Set();
+        currentScheduleRecords.forEach(r => {
+            if (r && r.name) nameSet.add(String(r.name).trim().toUpperCase());
+        });
+        employees.forEach(e => {
+            if (e && e.name) nameSet.add(String(e.name).trim().toUpperCase());
+        });
+        return Array.from(nameSet).sort();
+    }
+
+    function renderAssignedRolesDisplay() {
+        const gridEl = document.getElementById('assignedRolesDisplayGrid');
+        const metaEl = document.getElementById('assignedRoleUpdatedMeta');
+        const rosterSummaryEl = document.getElementById('assignedRosterAndSpecialSummary');
+        if (!gridEl) return;
+
+        const data = currentDailyRolesData || {};
+        const rolesObj = data.roles || {};
+        const rosterPagi = data.rosterPagi || '';
+        const rosterSiang = data.rosterSiang || '';
+        const specialTeams = Array.isArray(data.specialTeams) ? data.specialTeams : [];
+
+        if (metaEl) {
+            metaEl.textContent = data.updatedAt ? `Update: ${data.updatedAt}` : 'Belum diatur';
+        }
+
+        if (rosterSummaryEl) {
+            let topSummaryHtml = '';
+            if (rosterPagi || rosterSiang) {
+                topSummaryHtml += `
+                    <div class="flex flex-wrap gap-2 text-[11px]">
+                        ${rosterPagi ? `<span class="bg-amber-100/90 text-amber-950 border border-amber-300 px-2.5 py-1 rounded-lg font-bold">☀️ Roster Pagi: ${escapeHtml(rosterPagi)}</span>` : ''}
+                        ${rosterSiang ? `<span class="bg-indigo-100/90 text-indigo-950 border border-indigo-300 px-2.5 py-1 rounded-lg font-bold">🌙 Roster Siang: ${escapeHtml(rosterSiang)}</span>` : ''}
+                    </div>
+                `;
+            }
+
+            if (specialTeams.length > 0) {
+                topSummaryHtml += `<div class="space-y-1.5">`;
+                specialTeams.forEach(st => {
+                    const membersList = Array.isArray(st.members) ? st.members.filter(Boolean) : [];
+                    if (!st.title && !st.roster && membersList.length === 0) return;
+                    topSummaryHtml += `
+                        <div class="bg-sky-50 border border-sky-200 rounded-lg px-3 py-2 text-xs">
+                            <div class="font-extrabold text-sky-950">⚡ ${escapeHtml(st.title || 'Team Khusus')} ${st.roster ? `<span class="text-sky-700 font-bold">(${escapeHtml(st.roster)})</span>` : ''}</div>
+                            <div class="text-slate-700 mt-0.5 text-[11px]">${membersList.length > 0 ? membersList.map((m, i) => `${i + 1}. ${escapeHtml(m)}`).join(' • ') : '<span class="italic text-slate-400">Belum ada anggota</span>'}</div>
+                        </div>
+                    `;
+                });
+                topSummaryHtml += `</div>`;
+            }
+            rosterSummaryEl.innerHTML = topSummaryHtml;
+        }
+
+        let html = '';
+        DAILY_ROLE_DEFINITIONS.forEach(def => {
+            const assignedName = rolesObj[def.key] ? String(rolesObj[def.key]).trim() : '';
+            html += `
+                <div class="flex items-center justify-between bg-white border ${assignedName ? 'border-amber-300' : 'border-slate-200'} rounded-lg px-3 py-1.5 shadow-2xs gap-2">
+                    <span class="text-slate-600 font-semibold truncate">${escapeHtml(def.label)}</span>
+                    <span class="font-extrabold ${assignedName ? 'text-indigo-700' : 'text-slate-400 italic'} text-right shrink-0">
+                        ${assignedName ? escapeHtml(assignedName) : 'Belum dipilih'}
+                    </span>
+                </div>
+            `;
+        });
+        gridEl.innerHTML = html;
     }
 
     function toggleScheduleRoleAdminBox() {
         const panel = document.getElementById('scheduleRoleAdminPanel');
         if (!panel) return;
-        if (!panel.classList.contains('hidden')) {
-            closeScheduleRoleAdminBox();
-            return;
-        }
-        panel.classList.remove('hidden');
-        if (isScheduleRoleUnlocked) {
-            document.getElementById('scheduleRolePinStep').classList.add('hidden');
-            document.getElementById('scheduleRoleFormStep').classList.remove('hidden');
-            renderAllRoleSelectInputs();
-        } else {
+        if (panel.classList.contains('hidden')) {
+            panel.classList.remove('hidden');
             document.getElementById('scheduleRolePinStep').classList.remove('hidden');
             document.getElementById('scheduleRoleFormStep').classList.add('hidden');
+            document.getElementById('scheduleRolePinError').classList.add('hidden');
             const pinInput = document.getElementById('scheduleRolePinInput');
             if (pinInput) {
                 pinInput.value = '';
-                setTimeout(() => pinInput.focus(), 80);
+                setTimeout(() => pinInput.focus(), 100);
             }
-            document.getElementById('scheduleRolePinError').classList.add('hidden');
+        } else {
+            closeScheduleRoleAdminBox();
         }
     }
 
@@ -4490,805 +5098,973 @@
         const errEl = document.getElementById('scheduleRolePinError');
         if (!pinInput) return;
 
-        if (pinInput.value.trim() === '15032024') {
-            isScheduleRoleUnlocked = true;
+        if (pinInput.value === '15032024') {
             if (errEl) errEl.classList.add('hidden');
             document.getElementById('scheduleRolePinStep').classList.add('hidden');
             document.getElementById('scheduleRoleFormStep').classList.remove('hidden');
-            renderAllRoleSelectInputs();
+            populateRoleDropdownOptions();
         } else {
             if (errEl) errEl.classList.remove('hidden');
         }
     }
 
-    function bindDailyRoleListener(dateKey) {
-        try {
-            if (activeRoleListenerRef) {
-                activeRoleListenerRef.off();
-                activeRoleListenerRef = null;
-            }
-            currentRoleAssignmentsData = {};
-            renderAssignedRolesDisplayGrid();
+    function renderSpecialTeamsDraftUI() {
+        const container = document.getElementById('specialTeamsDraftContainer');
+        if (!container) return;
 
-            if (!db) return;
-            activeRoleListenerRef = db.ref(`dailyRoleAssignments/${dateKey}`);
-            activeRoleListenerRef.on('value', (snap) => {
-                try {
-                    currentRoleAssignmentsData = (snap && snap.val()) ? snap.val() : {};
-                    renderAssignedRolesDisplayGrid();
-                    const adminPanel = document.getElementById('scheduleRoleAdminPanel');
-                    const isEditingForm = adminPanel && !adminPanel.classList.contains('hidden') && isScheduleRoleUnlocked;
-                    if (isScheduleRoleUnlocked && !isEditingForm) {
-                        renderAllRoleSelectInputs();
-                    }
-                } catch (innerErr) {
-                    console.error("Error saat sinkronisasi tampilan tugas harian:", innerErr);
-                }
-            });
-        } catch (e) {
-            console.error("Error bindDailyRoleListener:", e);
-        }
-    }
-
-    function renderAssignedRolesDisplayGrid() {
-        const gridEl = document.getElementById('assignedRolesDisplayGrid');
-        const metaEl = document.getElementById('assignedRoleUpdatedMeta');
-        const rosterSummaryEl = document.getElementById('assignedRosterAndSpecialSummary');
-        if (!gridEl) return;
-
-        if (metaEl) {
-            metaEl.textContent = currentRoleAssignmentsData && currentRoleAssignmentsData.updatedAt
-                ? `Update: ${currentRoleAssignmentsData.updatedAt}`
-                : '';
+        if (!Array.isArray(draftSpecialTeams) || draftSpecialTeams.length === 0) {
+            container.innerHTML = `<div class="text-[11px] text-sky-800/75 italic bg-white/70 border border-sky-200/70 rounded-lg px-3 py-2">Belum ada team khusus ditambahkan. Klik "+ Tambah Team Khusus" jika ada personel dengan jam roster khusus.</div>`;
+            return;
         }
 
-        if (rosterSummaryEl) {
-            const rosterPagi = (currentRoleAssignmentsData && currentRoleAssignmentsData.rosterPagi) ? String(currentRoleAssignmentsData.rosterPagi).trim() : '';
-            const rosterSiang = (currentRoleAssignmentsData && currentRoleAssignmentsData.rosterSiang) ? String(currentRoleAssignmentsData.rosterSiang).trim() : '';
-            const specialTeams = toSafeArray(currentRoleAssignmentsData && currentRoleAssignmentsData.specialTeams);
+        const candidateNames = getAllCandidateNamesForRoleSelect();
+        let optionsHtml = `<option value="">-- Pilih Nama Personel --</option>`;
+        candidateNames.forEach(name => {
+            optionsHtml += `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`;
+        });
 
-            let summaryHtml = `
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                    <div class="bg-amber-100/70 border border-amber-200 rounded-xl px-3 py-2 flex items-center justify-between gap-2">
-                        <span class="font-bold text-amber-900">☀️ Roster Pagi:</span>
-                        <span class="font-extrabold text-amber-950 truncate">${escapeHtml(rosterPagi || 'Belum diatur')}</span>
+        let html = '';
+        draftSpecialTeams.forEach((group, gIdx) => {
+            const members = Array.isArray(group.members) ? group.members : [];
+            html += `
+                <div class="bg-white border border-sky-300 rounded-xl p-3 space-y-2 shadow-2xs">
+                    <div class="flex items-center justify-between gap-2 border-b border-sky-100 pb-1.5">
+                        <span class="text-[11px] font-extrabold text-sky-900">Team Khusus #${gIdx + 1}</span>
+                        <button type="button" onclick="removeSpecialTeamGroupDraft(${gIdx})" class="text-[11px] font-bold text-rose-600 hover:text-rose-800">Hapus Team ✕</button>
                     </div>
-                    <div class="bg-indigo-100/70 border border-indigo-200 rounded-xl px-3 py-2 flex items-center justify-between gap-2">
-                        <span class="font-bold text-indigo-900">🌙 Roster Siang:</span>
-                        <span class="font-extrabold text-indigo-950 truncate">${escapeHtml(rosterSiang || 'Belum diatur')}</span>
-                    </div>
-                </div>
-            `;
-
-            if (specialTeams.length > 0) {
-                summaryHtml += `<div class="space-y-1.5 pt-1">`;
-                specialTeams.forEach((stItem, idx) => {
-                    const shiftLabel = stItem.shift === 'S' ? '🌙 Shift Siang' : '☀️ Shift Pagi';
-                    const membersArr = toSafeArray(stItem.members);
-                    summaryHtml += `
-                        <div class="bg-sky-50 border border-sky-200 rounded-xl px-3 py-2 text-xs">
-                            <div class="flex flex-wrap items-center justify-between gap-1 font-bold text-sky-950">
-                                <span>⚡ Team Khusus #${idx + 1} (${shiftLabel}${stItem.roster ? ' • ' + escapeHtml(stItem.roster) : ''})</span>
-                                ${stItem.note ? `<span class="bg-sky-200/80 text-sky-900 px-2 py-0.5 rounded-md text-[11px]">${escapeHtml(stItem.note)}</span>` : ''}
-                            </div>
-                            <div class="text-[11px] text-slate-700 mt-1">
-                                ${membersArr.length > 0 ? membersArr.map((m, i) => `${i + 1}. ${escapeHtml(m)}`).join(', ') : '<span class="italic text-slate-400">Belum ada personel dipilih</span>'}
-                            </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-600 mb-0.5">Keterangan / Nama Team:</label>
+                            <input type="text" value="${escapeHtml(group.title || '')}" oninput="updateSpecialTeamField(${gIdx}, 'title', this.value)" placeholder="Contoh: Team progress partisi homedecore" class="w-full text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 font-semibold text-slate-800">
                         </div>
-                    `;
-                });
-                summaryHtml += `</div>`;
-            }
-
-            rosterSummaryEl.innerHTML = summaryHtml;
-        }
-
-        gridEl.innerHTML = DAILY_ROLE_DEFINITIONS.map(roleDef => {
-            const assignedName = (currentRoleAssignmentsData && currentRoleAssignmentsData[roleDef.key])
-                ? String(currentRoleAssignmentsData[roleDef.key]).trim()
-                : '';
-            return `
-                <div class="flex items-center justify-between gap-2 bg-white border border-slate-200/80 rounded-xl px-3 py-1.5 shadow-2xs">
-                    <span class="text-[11px] font-bold px-2 py-0.5 rounded-md shrink-0 ${roleDef.badgeColor}">
-                        ${escapeHtml(roleDef.label)}
-                    </span>
-                    <span class="text-xs font-bold truncate ${assignedName ? 'text-slate-900' : 'text-slate-400 font-normal italic'}">
-                        ${escapeHtml(assignedName || 'Belum dipilih')}
-                    </span>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-600 mb-0.5">Kode Roster Team Ini (Pilih / Ketik):</label>
+                            <input type="text" list="rosterCodeDatalist" value="${escapeHtml(group.roster || '')}" oninput="updateSpecialTeamField(${gIdx}, 'roster', this.value)" placeholder="Contoh: Subuh VII (05:00 - 14:00) D0007" class="w-full text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 font-semibold text-slate-800">
+                        </div>
+                    </div>
+                    <div class="space-y-1.5 pt-1">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px] font-bold text-slate-600">Daftar Personel Team Khusus:</span>
+                            <button type="button" onclick="addSpecialTeamMemberDraft(${gIdx})" class="text-[11px] font-bold text-sky-700 hover:underline">+ Tambah Orang</button>
+                        </div>
+                        <div class="space-y-1.5">
+                            ${members.map((memberName, mIdx) => {
+                                let memberSelectHtml = optionsHtml;
+                                if (memberName && !candidateNames.includes(memberName)) {
+                                    memberSelectHtml += `<option value="${escapeHtml(memberName)}">${escapeHtml(memberName)}</option>`;
+                                }
+                                return `
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="text-[11px] font-bold text-slate-500 w-5">${mIdx + 1}.</span>
+                                        <select onchange="updateSpecialTeamMember(${gIdx}, ${mIdx}, this.value)" data-selected-member="${escapeHtml(memberName || '')}" class="special-team-member-select flex-1 text-xs font-semibold border border-slate-300 bg-white rounded-lg px-2.5 py-1.5 text-slate-800">
+                                            ${memberSelectHtml}
+                                        </select>
+                                        <button type="button" onclick="removeSpecialTeamMemberDraft(${gIdx}, ${mIdx})" class="text-xs text-rose-500 hover:text-rose-700 px-1.5 font-bold" title="Hapus baris">✕</button>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
                 </div>
             `;
-        }).join('');
-    }
+        });
 
-    // --- HELPER PENGELOLAAN TEAM KHUSUS (ROSTER BERBEDA) DI FORM ADMIN ---
-    function syncSpecialTeamsFromDomInputs() {
-        const cards = document.querySelectorAll('.special-team-draft-card');
-        if (!cards || cards.length === 0) return;
+        container.innerHTML = html;
 
-        draftSpecialTeamsList = Array.from(cards).map((card, idx) => {
-            const shiftSel = card.querySelector('.st-shift-select');
-            const rosterInput = card.querySelector('.st-roster-select');
-            const noteInput = card.querySelector('.st-note-input');
-            const checkedBoxes = card.querySelectorAll('.st-member-checkbox:checked');
-            const members = Array.from(checkedBoxes).map(cb => cb.value);
-
-            return {
-                id: card.getAttribute('data-team-id') || ('st_' + idx + '_' + getServerNowMs()),
-                shift: shiftSel ? shiftSel.value : 'P',
-                roster: rosterInput ? rosterInput.value.trim() : '',
-                note: noteInput ? noteInput.value.trim() : '',
-                members
-            };
+        const selects = container.querySelectorAll('.special-team-member-select');
+        selects.forEach(sel => {
+            const val = sel.getAttribute('data-selected-member') || '';
+            sel.value = val;
         });
     }
 
     function addSpecialTeamGroupDraft() {
-        syncSpecialTeamsFromDomInputs();
-        draftSpecialTeamsList.push({
-            id: 'st_' + getServerNowMs() + '_' + Math.random().toString(36).substring(2, 6),
-            shift: 'P',
-            roster: 'Pagi XXIX (08:00 - 18:00) M0029',
-            note: '',
-            members: []
+        draftSpecialTeams.push({
+            title: '',
+            roster: '',
+            members: ['']
         });
-        renderSpecialTeamsDraftContainer();
+        renderSpecialTeamsDraftUI();
     }
 
-    function removeSpecialTeamGroupDraft(index) {
-        syncSpecialTeamsFromDomInputs();
-        draftSpecialTeamsList.splice(index, 1);
-        renderSpecialTeamsDraftContainer();
+    function removeSpecialTeamGroupDraft(groupIdx) {
+        draftSpecialTeams.splice(groupIdx, 1);
+        renderSpecialTeamsDraftUI();
     }
 
-    function onSpecialTeamShiftChanged(index) {
-        syncSpecialTeamsFromDomInputs();
-        renderSpecialTeamsDraftContainer();
+    function updateSpecialTeamField(groupIdx, field, val) {
+        if (!draftSpecialTeams[groupIdx]) return;
+        draftSpecialTeams[groupIdx][field] = val;
     }
 
-    function renderSpecialTeamsDraftContainer() {
-        const container = document.getElementById('specialTeamsDraftContainer');
-        if (!container) return;
-
-        if (!Array.isArray(draftSpecialTeamsList) || draftSpecialTeamsList.length === 0) {
-            container.innerHTML = `<div class="text-[11px] text-sky-800/80 italic bg-white/70 border border-sky-200/70 rounded-lg px-3 py-2">Belum ada team khusus. Klik "+ Tambah Team Khusus" jika ada personel dengan jam roster berbeda.</div>`;
-            return;
+    function addSpecialTeamMemberDraft(groupIdx) {
+        if (!draftSpecialTeams[groupIdx]) return;
+        if (!Array.isArray(draftSpecialTeams[groupIdx].members)) {
+            draftSpecialTeams[groupIdx].members = [];
         }
-
-        const { dateKey } = getDatePartsFromIso(currentSelectedScheduleDate);
-        const scheduleList = Array.isArray(scheduleCacheByDate[dateKey]) ? scheduleCacheByDate[dateKey] : [];
-
-        container.innerHTML = draftSpecialTeamsList.map((teamObj, idx) => {
-            const shiftType = teamObj.shift === 'S' ? 'S' : 'P';
-            const shiftMembers = scheduleList.filter(m => m && m.shiftType === shiftType);
-            const fallbackList = shiftMembers.length > 0 ? shiftMembers : employees.map(e => ({ name: e.name, zone: 'SMT', role: e.nik }));
-            const selectedSet = new Set(toSafeArray(teamObj.members));
-
-            const checkboxesHtml = fallbackList.map(m => {
-                const isChecked = selectedSet.has(m.name) ? 'checked' : '';
-                return `
-                    <label class="flex items-center gap-1.5 bg-slate-50 hover:bg-sky-50 border border-slate-200 rounded-lg px-2 py-1.5 cursor-pointer text-[11px]">
-                        <input type="checkbox" class="st-member-checkbox rounded text-sky-600 focus:ring-sky-500" value="${escapeHtml(m.name)}" ${isChecked}>
-                        <span class="font-semibold text-slate-800 truncate">${escapeHtml(m.name)}</span>
-                        <span class="text-[10px] text-slate-400 shrink-0">(${escapeHtml(m.zone || '')})</span>
-                    </label>
-                `;
-            }).join('');
-
-            return `
-                <div class="special-team-draft-card bg-white border border-sky-300 rounded-xl p-3 space-y-2.5 shadow-2xs" data-team-id="${escapeHtml(teamObj.id || idx)}">
-                    <div class="flex items-center justify-between border-b border-sky-100 pb-1.5">
-                        <span class="text-xs font-extrabold text-sky-900">⚡ Team Khusus #${idx + 1}</span>
-                        <button type="button" onclick="removeSpecialTeamGroupDraft(${idx})" class="text-[11px] font-bold text-rose-600 hover:bg-rose-50 px-2 py-0.5 rounded-md transition">🗑️ Hapus</button>
-                    </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <div>
-                            <label class="block text-[10px] font-bold text-slate-600 mb-1">Shift:</label>
-                            <select onchange="onSpecialTeamShiftChanged(${idx})" class="st-shift-select w-full text-xs font-semibold border border-slate-300 bg-white rounded-lg px-2 py-1.5 text-slate-800">
-                                <option value="P" ${shiftType === 'P' ? 'selected' : ''}>☀️ Shift Pagi (P)</option>
-                                <option value="S" ${shiftType === 'S' ? 'selected' : ''}>🌙 Shift Siang (X)</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-[10px] font-bold text-slate-600 mb-1">Kode Roster (Pilih/Ketik):</label>
-                            <input type="text" list="rosterCodeDatalist" class="st-roster-select w-full text-xs font-semibold border border-slate-300 bg-white rounded-lg px-2 py-1.5 text-slate-800" value="${escapeHtml(teamObj.roster || '')}" placeholder="Pilih atau ketik roster...">
-                        </div>
-                        <div>
-                            <label class="block text-[10px] font-bold text-slate-600 mb-1">Keterangan / Pekerjaan:</label>
-                            <input type="text" class="st-note-input w-full text-xs font-semibold border border-slate-300 bg-white rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500" value="${escapeHtml(teamObj.note || '')}" placeholder="Misal: progress partisi homedecore">
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-bold text-slate-600 mb-1">Pilih Personel Shift ${shiftType === 'P' ? 'Pagi' : 'Siang'} yang Tergabung:</label>
-                        <div class="max-h-36 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-1.5 border border-slate-200 rounded-lg p-2 bg-slate-50/50">
-                            ${checkboxesHtml}
-                        </div>
-                    </div>
-                </div>
-            `;
-        }).join('');
+        draftSpecialTeams[groupIdx].members.push('');
+        renderSpecialTeamsDraftUI();
     }
 
-    function renderAllRoleSelectInputs() {
+    function removeSpecialTeamMemberDraft(groupIdx, memberIdx) {
+        if (!draftSpecialTeams[groupIdx] || !Array.isArray(draftSpecialTeams[groupIdx].members)) return;
+        draftSpecialTeams[groupIdx].members.splice(memberIdx, 1);
+        renderSpecialTeamsDraftUI();
+    }
+
+    function updateSpecialTeamMember(groupIdx, memberIdx, val) {
+        if (!draftSpecialTeams[groupIdx] || !Array.isArray(draftSpecialTeams[groupIdx].members)) return;
+        draftSpecialTeams[groupIdx].members[memberIdx] = val;
+    }
+
+    function populateRoleDropdownOptions() {
         const container = document.getElementById('roleSelectGridContainer');
-        const targetDateEl = document.getElementById('roleTargetDateText');
         if (!container) return;
 
-        const { dateKey, readableDate } = getDatePartsFromIso(currentSelectedScheduleDate);
-        if (targetDateEl) targetDateEl.textContent = readableDate;
+        const savedData = currentDailyRolesData || {};
+        const savedRoles = savedData.roles || {};
 
-        // Sinkronisasi input Roster Pagi & Siang (bisa dipilih dari datalist atau ketik manual)
         const rosterPagiEl = document.getElementById('rosterSelectPagi');
         const rosterSiangEl = document.getElementById('rosterSelectSiang');
-        const savedPagi = (currentRoleAssignmentsData && currentRoleAssignmentsData.rosterPagi !== undefined)
-            ? String(currentRoleAssignmentsData.rosterPagi)
-            : 'Pagi XXX (08:00 - 20:00) M0030';
-        const savedSiang = (currentRoleAssignmentsData && currentRoleAssignmentsData.rosterSiang !== undefined)
-            ? String(currentRoleAssignmentsData.rosterSiang)
-            : 'Siang II (12:00 - 20:00) A0002';
+        if (rosterPagiEl) rosterPagiEl.value = savedData.rosterPagi || '';
+        if (rosterSiangEl) rosterSiangEl.value = savedData.rosterSiang || '';
 
-        if (rosterPagiEl) {
-            rosterPagiEl.value = savedPagi;
-        }
-        if (rosterSiangEl) {
-            rosterSiangEl.value = savedSiang;
-        }
+        draftSpecialTeams = Array.isArray(savedData.specialTeams)
+            ? JSON.parse(JSON.stringify(savedData.specialTeams))
+            : [];
+        renderSpecialTeamsDraftUI();
 
-        // Sinkronisasi Team Khusus dari Firebase ke draft state
-        const savedSpecialTeams = toSafeArray(currentRoleAssignmentsData && currentRoleAssignmentsData.specialTeams);
-        draftSpecialTeamsList = savedSpecialTeams.map(st => ({
-            id: st.id || ('st_' + Math.random().toString(36).substring(2, 7)),
-            shift: st.shift === 'S' ? 'S' : 'P',
-            roster: st.roster || '',
-            note: st.note || '',
-            members: toSafeArray(st.members)
-        }));
-        renderSpecialTeamsDraftContainer();
+        const candidateNames = getAllCandidateNamesForRoleSelect();
 
-        // Sinkronisasi Dropdown 18 Peran Tugas Harian
-        const scheduleList = Array.isArray(scheduleCacheByDate[dateKey]) ? scheduleCacheByDate[dateKey] : [];
-        const pagiList = scheduleList.filter(m => m && m.shiftType === 'P');
-        const siangList = scheduleList.filter(m => m && m.shiftType === 'S');
+        let html = '';
+        DAILY_ROLE_DEFINITIONS.forEach(def => {
+            const currentVal = savedRoles[def.key] || '';
+            const allOptions = new Set(candidateNames);
+            if (currentVal) allOptions.add(currentVal);
 
-        const buildOptionsForPref = (prefShift, savedVal) => {
-            const primaryGroup = prefShift === 'P' ? pagiList : siangList;
-            const secondaryGroup = prefShift === 'P' ? siangList : pagiList;
-            const primaryLabel = prefShift === 'P' ? '☀️ Bertugas Shift Pagi (P)' : '🌙 Bertugas Shift Siang (X)';
-            const secondaryLabel = prefShift === 'P' ? '🌙 Bertugas Shift Siang (X)' : '☀️ Bertugas Shift Pagi (P)';
-
-            let opts = `<option value="">-- Belum Ditunjuk / Kosong --</option>`;
-            const seenNames = new Set();
-
-            if (primaryGroup.length > 0) {
-                opts += `<optgroup label="${primaryLabel}">`;
-                primaryGroup.forEach(m => {
-                    seenNames.add(m.name);
-                    opts += `<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)} (${escapeHtml(m.zone)} • ${escapeHtml(m.role)})</option>`;
-                });
-                opts += `</optgroup>`;
-            }
-
-            if (secondaryGroup.length > 0) {
-                opts += `<optgroup label="${secondaryLabel}">`;
-                secondaryGroup.forEach(m => {
-                    if (!seenNames.has(m.name)) {
-                        seenNames.add(m.name);
-                        opts += `<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)} (${escapeHtml(m.zone)} • ${escapeHtml(m.role)})</option>`;
-                    }
-                });
-                opts += `</optgroup>`;
-            }
-
-            if (seenNames.size === 0) {
-                opts += `<optgroup label="Daftar Personel">`;
-                employees.forEach(emp => {
-                    seenNames.add(emp.name);
-                    opts += `<option value="${escapeHtml(emp.name)}">${escapeHtml(emp.name)} (${escapeHtml(emp.nik)})</option>`;
-                });
-                opts += `</optgroup>`;
-            }
-
-            if (savedVal && !seenNames.has(savedVal)) {
-                opts += `<option value="${escapeHtml(savedVal)}">${escapeHtml(savedVal)} (Tersimpan)</option>`;
-            }
-            return opts;
-        };
-
-        container.innerHTML = DAILY_ROLE_DEFINITIONS.map(roleDef => {
-            const currentVal = (currentRoleAssignmentsData && currentRoleAssignmentsData[roleDef.key])
-                ? String(currentRoleAssignmentsData[roleDef.key]).trim()
-                : '';
-            return `
-                <div class="bg-white border border-amber-200/90 rounded-xl p-2.5 shadow-2xs">
-                    <label for="role-select-${roleDef.key}" class="block text-[11px] font-bold text-slate-700 mb-1">
-                        ${escapeHtml(roleDef.label)}
-                    </label>
-                    <select id="role-select-${roleDef.key}" class="w-full text-xs font-semibold border border-slate-300 bg-white rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
-                        ${buildOptionsForPref(roleDef.shiftPref, currentVal)}
+            html += `
+                <div class="bg-white border border-amber-200 rounded-xl p-2.5">
+                    <label for="roleSelect_${def.key}" class="block text-[11px] font-bold text-slate-700 mb-1">${escapeHtml(def.label)}</label>
+                    <select id="roleSelect_${def.key}" class="w-full text-xs font-semibold border border-slate-300 bg-white rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
+                        <option value="">-- Tidak Ditunjuk / Kosong --</option>
+                        ${Array.from(allOptions).sort().map(name => `<option value="${escapeHtml(name)}" ${name === currentVal ? 'selected' : ''}>${escapeHtml(name)}</option>`).join('')}
                     </select>
                 </div>
             `;
-        }).join('');
-
-        DAILY_ROLE_DEFINITIONS.forEach(roleDef => {
-            const selEl = document.getElementById(`role-select-${roleDef.key}`);
-            const currentVal = (currentRoleAssignmentsData && currentRoleAssignmentsData[roleDef.key])
-                ? String(currentRoleAssignmentsData[roleDef.key]).trim()
-                : '';
-            if (selEl) selEl.value = currentVal;
         });
+        container.innerHTML = html;
     }
 
     function clearAllRoleSelectInputs() {
-        DAILY_ROLE_DEFINITIONS.forEach(roleDef => {
-            const selEl = document.getElementById(`role-select-${roleDef.key}`);
-            if (selEl) selEl.value = '';
+        DAILY_ROLE_DEFINITIONS.forEach(def => {
+            const sel = document.getElementById(`roleSelect_${def.key}`);
+            if (sel) sel.value = '';
         });
-        draftSpecialTeamsList = [];
-        renderSpecialTeamsDraftContainer();
+        const rosterPagiEl = document.getElementById('rosterSelectPagi');
+        const rosterSiangEl = document.getElementById('rosterSelectSiang');
+        if (rosterPagiEl) rosterPagiEl.value = '';
+        if (rosterSiangEl) rosterSiangEl.value = '';
+        draftSpecialTeams = [];
+        renderSpecialTeamsDraftUI();
     }
 
-    function saveDailyRoleAssignment() {
-        if (isSavingRoleAssignment) return;
-        const saveBtn = document.getElementById('btnSaveDailyRoleAssignment');
-        const { dateKey } = getDatePartsFromIso(currentSelectedScheduleDate);
+    async function saveDailyRoleAssignment() {
+        const selectedDate = currentSelectedScheduleDate || getWibDateString();
+        const safeDateKey = String(selectedDate).replace(/[^0-9-]/g, '');
+        const btn = document.getElementById('btnSaveDailyRoleAssignment');
 
-        if (!db) {
-            showCustomAlert("Gagal", "Koneksi database belum siap. Coba beberapa saat lagi.");
-            return;
-        }
-
-        syncSpecialTeamsFromDomInputs();
-
-        const rosterPagiVal = document.getElementById('rosterSelectPagi') ? document.getElementById('rosterSelectPagi').value.trim() : '';
-        const rosterSiangVal = document.getElementById('rosterSelectSiang') ? document.getElementById('rosterSelectSiang').value.trim() : '';
-
-        const payload = {
-            dateKey,
-            rosterPagi: rosterPagiVal,
-            rosterSiang: rosterSiangVal,
-            specialTeams: draftSpecialTeamsList.map((t, i) => ({
-                id: t.id || ('st_' + i),
-                shift: t.shift === 'S' ? 'S' : 'P',
-                roster: t.roster || '',
-                note: t.note || '',
-                members: toSafeArray(t.members)
-            })),
-            updatedAt: `${getWibDateString()} ${getWibTimeString()} WIB`
-        };
-
-        DAILY_ROLE_DEFINITIONS.forEach(roleDef => {
-            const selEl = document.getElementById(`role-select-${roleDef.key}`);
-            payload[roleDef.key] = selEl ? selEl.value.trim() : '';
+        const rolesPayload = {};
+        DAILY_ROLE_DEFINITIONS.forEach(def => {
+            const sel = document.getElementById(`roleSelect_${def.key}`);
+            rolesPayload[def.key] = sel ? sel.value.trim() : '';
         });
 
-        isSavingRoleAssignment = true;
-        if (saveBtn) {
-            saveBtn.disabled = true;
-            saveBtn.textContent = 'Menyimpan...';
+        const rosterPagiEl = document.getElementById('rosterSelectPagi');
+        const rosterSiangEl = document.getElementById('rosterSelectSiang');
+        const rosterPagi = rosterPagiEl ? rosterPagiEl.value.trim() : '';
+        const rosterSiang = rosterSiangEl ? rosterSiangEl.value.trim() : '';
+
+        const cleanedSpecialTeams = (Array.isArray(draftSpecialTeams) ? draftSpecialTeams : [])
+            .map(st => ({
+                title: String(st.title || '').trim(),
+                roster: String(st.roster || '').trim(),
+                members: (Array.isArray(st.members) ? st.members : [])
+                    .map(m => String(m || '').trim())
+                    .filter(Boolean)
+            }))
+            .filter(st => st.title || st.roster || st.members.length > 0);
+
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Menyimpan...';
         }
 
-        db.ref(`dailyRoleAssignments/${dateKey}`).set(payload)
-            .then(() => {
-                currentRoleAssignmentsData = payload;
-                renderAssignedRolesDisplayGrid();
-                closeScheduleRoleAdminBox();
-                showCustomAlert("Berhasil", "Susunan tugas harian, kode roster, dan team khusus berhasil disimpan secara live.");
-            })
-            .catch((err) => {
-                console.error("Gagal menyimpan susunan tugas harian:", err);
-                showCustomAlert("Gagal", "Gagal menyimpan pengaturan ke server. Periksa koneksi jaringan Anda.");
-            })
-            .finally(() => {
-                isSavingRoleAssignment = false;
-                if (saveBtn) {
-                    saveBtn.disabled = false;
-                    saveBtn.textContent = '💾 Simpan Susunan & Roster';
-                }
+        try {
+            await db.ref(`dailyRoleAssignments/${safeDateKey}`).set({
+                date: safeDateKey,
+                rosterPagi: rosterPagi,
+                rosterSiang: rosterSiang,
+                specialTeams: cleanedSpecialTeams,
+                roles: rolesPayload,
+                updatedAt: `${getWibDateString()} ${getWibTimeString()} WIB`
             });
-    }
-
-    // --- HELPER PEMBANGUN TEKS SALIN WA (TEAM KHUSUS DI ATAS + KODE ROSTER DI SHIFT + 18 TUGAS) ---
-    function buildDailyScheduleWhatsAppText() {
-        const { dateKey, readableDate } = getDatePartsFromIso(currentSelectedScheduleDate);
-        const scheduleList = Array.isArray(scheduleCacheByDate[dateKey]) ? scheduleCacheByDate[dateKey] : [];
-
-        const specialTeams = toSafeArray(currentRoleAssignmentsData && currentRoleAssignmentsData.specialTeams);
-        const rosterPagi = (currentRoleAssignmentsData && currentRoleAssignmentsData.rosterPagi)
-            ? String(currentRoleAssignmentsData.rosterPagi).trim()
-            : '';
-        const rosterSiang = (currentRoleAssignmentsData && currentRoleAssignmentsData.rosterSiang)
-            ? String(currentRoleAssignmentsData.rosterSiang).trim()
-            : '';
-
-        // Petakan personel team khusus agar tidak terduplikasi atau tetap tercatat rapi
-        const specialMemberNamesSet = new Set();
-        specialTeams.forEach(st => {
-            toSafeArray(st.members).forEach(m => specialMemberNamesSet.add(String(m).trim().toUpperCase()));
-        });
-
-        const getRolesForPerson = (personName) => {
-            const matched = [];
-            DAILY_ROLE_DEFINITIONS.forEach(roleDef => {
-                const assigned = currentRoleAssignmentsData && currentRoleAssignmentsData[roleDef.key]
-                    ? String(currentRoleAssignmentsData[roleDef.key]).trim()
-                    : '';
-                if (assigned && assigned.toUpperCase() === personName.toUpperCase()) {
-                    matched.push(roleDef.label);
-                }
-            });
-            return matched;
-        };
-
-        let waLines = [];
-        waLines.push(`📅 *JADWAL & TUGAS HARIAN LW KOWIS*`);
-        waLines.push(`🗓️ *${readableDate}*`);
-        waLines.push(``);
-
-        // 1. BAGIAN PALING ATAS: TEAM KHUSUS / ROSTER BERBEDA (JIKA ADA)
-        if (specialTeams.length > 0) {
-            waLines.push(`⚡ *TEAM KHUSUS / ROSTER BERBEDA*`);
-            specialTeams.forEach((stItem, tIdx) => {
-                const shiftText = stItem.shift === 'S' ? 'Shift Siang (X)' : 'Shift Pagi (P)';
-                const rosterText = stItem.roster ? ` | ${stItem.roster}` : '';
-                const noteText = stItem.note ? ` — *(${stItem.note})*` : '';
-                waLines.push(`*${tIdx + 1}. ${shiftText}${rosterText}*${noteText}`);
-
-                const membersArr = toSafeArray(stItem.members);
-                if (membersArr.length === 0) {
-                    waLines.push(`   - _(Belum ada personel)_`);
-                } else {
-                    membersArr.forEach((memberName, mIdx) => {
-                        const foundInfo = scheduleList.find(s => s && s.name.toUpperCase() === String(memberName).trim().toUpperCase());
-                        const roles = getRolesForPerson(memberName);
-                        const zoneStr = foundInfo ? ` [${foundInfo.zone} - ${foundInfo.role}]` : '';
-                        const roleTag = roles.length > 0 ? ` 👉 *${roles.join(', ')}*` : '';
-                        waLines.push(`   ${mIdx + 1}. ${memberName}${zoneStr}${roleTag}`);
-                    });
-                }
-                waLines.push(``);
-            });
+            closeScheduleRoleAdminBox();
+            showCustomAlert('Berhasil Disimpan', `Susunan roster, team khusus & 18 tugas harian untuk ${formatIndonesianLongDate(safeDateKey)} berhasil diperbarui secara live!`);
+        } catch (err) {
+            showCustomAlert('Gagal Menyimpan', 'Terjadi kesalahan saat menyimpan penugasan: ' + err.message);
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = '💾 Simpan Susunan & Roster';
+            }
         }
-
-        // 2. SUSUNAN 18 PENANGGUNG JAWAB TUGAS HARIAN
-        waLines.push(`📌 *SUSUNAN PENANGGUNG JAWAB TUGAS HARIAN*`);
-        DAILY_ROLE_DEFINITIONS.forEach((roleDef, idx) => {
-            const person = (currentRoleAssignmentsData && currentRoleAssignmentsData[roleDef.key])
-                ? String(currentRoleAssignmentsData[roleDef.key]).trim()
-                : '-';
-            waLines.push(`${idx + 1}. *${roleDef.label}:* ${person || '-'}`);
-        });
-        waLines.push(``);
-
-        // 3. DAFTAR PERSONEL SHIFT PAGI & SIANG BESERTA KODE ROSTER DI SAMPINGNYA
-        const pagiRegular = scheduleList.filter(m => m && m.shiftType === 'P' && !specialMemberNamesSet.has(m.name.toUpperCase()));
-        const siangRegular = scheduleList.filter(m => m && m.shiftType === 'S' && !specialMemberNamesSet.has(m.name.toUpperCase()));
-
-        const pagiHeaderSuffix = rosterPagi ? ` — [${rosterPagi}]` : '';
-        waLines.push(`☀️ *SHIFT PAGI (P) (${pagiRegular.length} Org)*${pagiHeaderSuffix}`);
-        if (pagiRegular.length === 0) {
-            waLines.push(`- Tidak ada personel reguler`);
-        } else {
-            pagiRegular.forEach((m, i) => {
-                const roles = getRolesForPerson(m.name);
-                const roleTag = roles.length > 0 ? ` 👉 *${roles.join(', ')}*` : '';
-                waLines.push(`${i + 1}. ${m.name} (${m.zone} - ${m.role})${roleTag}`);
-            });
-        }
-        waLines.push(``);
-
-        const siangHeaderSuffix = rosterSiang ? ` — [${rosterSiang}]` : '';
-        waLines.push(`🌙 *SHIFT SIANG (X) (${siangRegular.length} Org)*${siangHeaderSuffix}`);
-        if (siangRegular.length === 0) {
-            waLines.push(`- Tidak ada personel reguler`);
-        } else {
-            siangRegular.forEach((m, i) => {
-                const roles = getRolesForPerson(m.name);
-                const roleTag = roles.length > 0 ? ` 👉 *${roles.join(', ')}*` : '';
-                waLines.push(`${i + 1}. ${m.name} (${m.zone} - ${m.role})${roleTag}`);
-            });
-        }
-
-        return waLines.join('\n');
     }
 
     function copyDailyRolesToClipboard() {
-        const textToCopy = buildDailyScheduleWhatsAppText();
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(textToCopy)
-                .then(() => {
-                    showCustomAlert("Tersalin", "Susunan tugas harian, kode roster, team khusus & jadwal shift lengkap berhasil disalin ke clipboard (siap paste ke WhatsApp)!");
-                })
-                .catch(() => {
-                    fallbackCopyTextToClipboard(textToCopy);
+        const selectedDate = currentSelectedScheduleDate || getWibDateString();
+        const formattedDate = formatIndonesianLongDate(selectedDate);
+        const data = currentDailyRolesData || {};
+        const rolesObj = data.roles || {};
+        const rosterPagi = data.rosterPagi ? String(data.rosterPagi).trim() : '';
+        const rosterSiang = data.rosterSiang ? String(data.rosterSiang).trim() : '';
+        const specialTeams = Array.isArray(data.specialTeams) ? data.specialTeams : [];
+
+        const specialMembersSet = new Set();
+        specialTeams.forEach(st => {
+            if (Array.isArray(st.members)) {
+                st.members.forEach(m => {
+                    if (m) specialMembersSet.add(String(m).trim().toUpperCase());
                 });
+            }
+        });
+
+        const pagiList = currentScheduleRecords
+            .filter(r => r.shiftType === 'P' && !specialMembersSet.has(String(r.name || '').trim().toUpperCase()))
+            .map(r => `${r.name} (${r.zona})`);
+
+        const siangList = currentScheduleRecords
+            .filter(r => r.shiftType === 'S' && !specialMembersSet.has(String(r.name || '').trim().toUpperCase()))
+            .map(r => `${r.name} (${r.zona})`);
+
+        const offList = currentScheduleRecords
+            .filter(r => r.shiftType === 'OFF' || r.shiftType === 'CUTI')
+            .map(r => `${r.name} [${r.shiftLabel}]`);
+
+        let lines = [];
+        lines.push(`*JADWAL SHIFT & TUGAS HARIAN*`);
+        lines.push(`📅 ${formattedDate}`);
+        lines.push(``);
+
+        if (specialTeams.length > 0) {
+            specialTeams.forEach(st => {
+                const members = Array.isArray(st.members) ? st.members.filter(Boolean) : [];
+                if (!st.title && !st.roster && members.length === 0) return;
+                const headerTitle = st.title || 'Team Khusus';
+                const headerRoster = st.roster ? ` (${st.roster})` : '';
+                lines.push(`⚡ *${headerTitle}${headerRoster}:*`);
+                if (members.length > 0) {
+                    members.forEach((m, idx) => lines.push(`${idx + 1}. ${m}`));
+                } else {
+                    lines.push(`- Belum ada personel`);
+                }
+                lines.push(``);
+            });
+        }
+
+        const pagiHeader = rosterPagi
+            ? `☀️ *SHIFT PAGI (${pagiList.length} Orang) — ${rosterPagi}:*`
+            : `☀️ *SHIFT PAGI (${pagiList.length} Orang):*`;
+        lines.push(pagiHeader);
+        if (pagiList.length > 0) {
+            pagiList.forEach((item, idx) => lines.push(`${idx + 1}. ${item}`));
         } else {
-            fallbackCopyTextToClipboard(textToCopy);
+            lines.push(`- Belum ada data`);
+        }
+
+        lines.push(``);
+        const siangHeader = rosterSiang
+            ? `🌙 *SHIFT SIANG (${siangList.length} Orang) — ${rosterSiang}:*`
+            : `🌙 *SHIFT SIANG (${siangList.length} Orang):*`;
+        lines.push(siangHeader);
+        if (siangList.length > 0) {
+            siangList.forEach((item, idx) => lines.push(`${idx + 1}. ${item}`));
+        } else {
+            lines.push(`- Belum ada data`);
+        }
+
+        lines.push(``);
+        lines.push(`📌 *PENANGGUNG JAWAB TUGAS:*`);
+        DAILY_ROLE_DEFINITIONS.forEach(def => {
+            const val = rolesObj[def.key] || '-';
+            lines.push(`• ${def.label}: *${val}*`);
+        });
+
+        if (offList.length > 0) {
+            lines.push(``);
+            lines.push(`🏠 *OFF / CUTI (${offList.length} Orang):*`);
+            lines.push(offList.join(', '));
+        }
+
+        const finalWaText = lines.join('\n');
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(finalWaText).then(() => {
+                showCustomAlert('Tersalin ke Clipboard', 'Format jadwal shift & tugas harian berhasil disalin. Siap ditempel (Paste) ke grup WhatsApp!');
+            }).catch(() => {
+                window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(finalWaText)}`, '_blank');
+            });
+        } else {
+            window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(finalWaText)}`, '_blank');
         }
     }
 
-    function fallbackCopyTextToClipboard(text) {
-        const textArea = document.createElement("textarea");
-        textArea.value = text;
-        textArea.style.position = "fixed";
-        textArea.style.opacity = "0";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        try {
-            document.execCommand('copy');
-            showCustomAlert("Tersalin", "Susunan tugas harian, kode roster, team khusus & jadwal shift berhasil disalin!");
-        } catch (err) {
-            showCustomAlert("Gagal Salin", "Browser menolak akses clipboard otomatis.");
+    // =========================================================================
+    // MODUL PORTAL MEKANISME PROMO (JPG), DATA LOCK (.ODS/.XLS/.XLSX) & KALKULATOR
+    // TERISOLASI PENUH DI NODE FIREBASE 'promoPortalData'
+    // =========================================================================
+    let promoPortalState = {
+        banners: [],
+        dataLock: null,
+        updatedAt: ''
+    };
+    let isPromoPortalListenerBound = false;
+
+    function initPromoPortalModule() {
+        onCalcPromoTypeChange();
+        if (!isPromoPortalListenerBound && db) {
+            isPromoPortalListenerBound = true;
+            db.ref('promoPortalData').on('value', (snap) => {
+                const val = snap.val();
+                if (val && typeof val === 'object') {
+                    promoPortalState.banners = toSafeArray(val.banners);
+                    promoPortalState.dataLock = val.dataLock || null;
+                    promoPortalState.updatedAt = val.updatedAt || '';
+                } else {
+                    promoPortalState = { banners: [], dataLock: null, updatedAt: '' };
+                }
+                renderPromoPortalAllViews();
+            });
         }
-        document.body.removeChild(textArea);
     }
 
-    function setScheduleShiftFilter(filterVal) {
-        currentScheduleShiftFilter = filterVal;
-        ['ALL', 'P', 'S'].forEach(key => {
-            const btn = document.getElementById(`schedFilter-${key}`);
-            if (!btn) return;
-            if (key === filterVal) {
-                btn.className = 'sched-filter-btn px-3 py-1.5 rounded-lg bg-indigo-600 text-white';
+    function openPromoPortalModal() {
+        const modal = document.getElementById('promoPortalModal');
+        if (!modal) return;
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        closePromoAdminPanel();
+        switchPromoTab('mekanisme');
+        renderPromoPortalAllViews();
+        calculatePromoSimulation();
+    }
+
+    function closePromoPortalModal() {
+        const modal = document.getElementById('promoPortalModal');
+        if (!modal) return;
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        closePromoAdminPanel();
+    }
+
+    function switchPromoTab(tabKey) {
+        const tabs = ['mekanisme', 'datalock', 'kalkulator'];
+        tabs.forEach(t => {
+            const btn = document.getElementById(`promoTabBtn-${t}`);
+            const content = document.getElementById(`promoTabContent-${t}`);
+            if (!btn || !content) return;
+            if (t === tabKey) {
+                content.classList.remove('hidden');
+                btn.className = 'promo-tab-btn px-4 py-2 rounded-t-xl text-xs sm:text-sm font-extrabold bg-white text-rose-700 border-t border-x border-slate-200 shadow-2xs';
             } else {
-                btn.className = 'sched-filter-btn px-3 py-1.5 rounded-lg bg-white text-slate-600 border border-slate-200';
+                content.classList.add('hidden');
+                btn.className = 'promo-tab-btn px-4 py-2 rounded-t-xl text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 bg-slate-200/70';
             }
         });
-        renderDailyScheduleContent();
     }
 
-    async function loadScheduleForSelectedDate(forceRefresh = false) {
-        const bodyEl = document.getElementById('dailyScheduleBody');
-        const labelEl = document.getElementById('dailyScheduleDateLabel');
-        const summaryEl = document.getElementById('dailyScheduleSummary');
-        if (!bodyEl) return;
+    function togglePromoAdminPanel() {
+        const panel = document.getElementById('promoAdminPanel');
+        if (!panel) return;
+        if (panel.classList.contains('hidden')) {
+            panel.classList.remove('hidden');
+            document.getElementById('promoAdminPinStep').classList.remove('hidden');
+            document.getElementById('promoAdminFormStep').classList.add('hidden');
+            document.getElementById('promoAdminPinError').classList.add('hidden');
+            const pinInp = document.getElementById('promoAdminPinInput');
+            if (pinInp) {
+                pinInp.value = '';
+                setTimeout(() => pinInp.focus(), 80);
+            }
+        } else {
+            closePromoAdminPanel();
+        }
+    }
 
-        const { dayNum, sheetName, readableDate, dateKey } = getDatePartsFromIso(currentSelectedScheduleDate);
-        if (labelEl) labelEl.textContent = `${readableDate} • Sheet ${sheetName}`;
+    function closePromoAdminPanel() {
+        const panel = document.getElementById('promoAdminPanel');
+        if (panel) panel.classList.add('hidden');
+    }
 
-        bindDailyRoleListener(dateKey);
+    function verifyPromoAdminPin() {
+        const pinVal = (document.getElementById('promoAdminPinInput')?.value || '').trim();
+        const errEl = document.getElementById('promoAdminPinError');
+        if (pinVal === '15032024' || pinVal === '08121989' || pinVal === '11012023') {
+            if (errEl) errEl.classList.add('hidden');
+            document.getElementById('promoAdminPinStep').classList.add('hidden');
+            document.getElementById('promoAdminFormStep').classList.remove('hidden');
+        } else {
+            if (errEl) errEl.classList.remove('hidden');
+        }
+    }
 
-        if (!forceRefresh && Array.isArray(scheduleCacheByDate[dateKey])) {
-            renderDailyScheduleContent();
-            if (isScheduleRoleUnlocked) renderAllRoleSelectInputs();
+    function compressPromoImageToDataUrl(file, maxWidth = 1280, quality = 0.78) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    let targetW = img.width;
+                    let targetH = img.height;
+                    if (targetW > maxWidth) {
+                        targetH = Math.round((targetH * maxWidth) / targetW);
+                        targetW = maxWidth;
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = targetW;
+                    canvas.height = targetH;
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, targetW, targetH);
+                    ctx.drawImage(img, 0, 0, targetW, targetH);
+                    const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+                    resolve(compressedDataUrl);
+                };
+                img.onerror = () => reject(new Error('Gagal memproses file gambar.'));
+                img.src = e.target.result;
+            };
+            reader.onerror = () => reject(new Error('Gagal membaca file gambar.'));
+            reader.readAsDataURL(file);
+        });
+    }
+
+    async function handleUploadPromoBanners() {
+        const fileInput = document.getElementById('promoBannerFileInput');
+        const titleInput = document.getElementById('promoBannerTitleInput');
+        const btn = document.getElementById('btnUploadPromoBanners');
+
+        if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+            showCustomAlert('Pilih Gambar', 'Silakan pilih minimal 1 file gambar JPG/PNG mekanisme promo terlebih dahulu.');
             return;
         }
 
-        bodyEl.innerHTML = `<div class="text-center py-10 text-slate-500 font-medium">⏳ Mengambil jadwal tanggal ${dayNum} (${sheetName})...</div>`;
-        if (summaryEl) summaryEl.textContent = 'Memuat data...';
+        const customTitle = (titleInput?.value || '').trim();
+        const files = Array.from(fileInput.files);
+
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Mengoptimalkan & Upload...';
+        }
 
         try {
-            const csvUrl = `https://docs.google.com/spreadsheets/d/${SCHEDULE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}&_t=${Date.now()}`;
-            const response = await fetch(csvUrl);
-            if (!response.ok) throw new Error('Gagal mengakses Google Spreadsheet');
-            const csvText = await response.text();
-            const rows = parseScheduleCsvRows(csvText);
-
-            let headerRowIdx = -1;
-            let dayColIdx = -1;
-            let nameColIdx = -1;
-            let deptColIdx = -1;
-
-            for (let r = 0; r < Math.min(rows.length, 25); r++) {
-                const row = rows[r];
-                if (!row) continue;
-
-                // Deteksi kolom header tanggal serta kolom DEPT/JABATAN atau NAMA
-                let tempDayCol = -1;
-                let tempDeptCol = -1;
-                let tempNameCol = -1;
-
-                for (let c = 0; c < row.length; c++) {
-                    const cellStr = String(row[c] || '').trim();
-                    const cellUpper = cellStr.toUpperCase();
-
-                    if (cellUpper.includes('DEPT') || cellUpper.includes('JABATAN')) {
-                        tempDeptCol = c;
-                    } else if (cellUpper === 'NAMA' || cellUpper === 'NAMA KARYAWAN' || cellUpper === 'NAMA STAFF') {
-                        tempNameCol = c;
-                    }
-
-                    const numVal = parseInt(cellStr, 10);
-                    if (!isNaN(numVal) && String(numVal) === cellStr && numVal === dayNum && c >= 2) {
-                        tempDayCol = c;
-                    }
-                }
-
-                if (tempDayCol !== -1) {
-                    headerRowIdx = r;
-                    dayColIdx = tempDayCol;
-                    deptColIdx = tempDeptCol !== -1 ? tempDeptCol : 0;
-                    nameColIdx = tempNameCol !== -1 ? tempNameCol : -1;
-                    break;
-                }
-            }
-
-            if (headerRowIdx === -1 || dayColIdx === -1) {
-                throw new Error(`Kolom tanggal ${dayNum} tidak ditemukan pada sheet ${sheetName}`);
-            }
-
-            // Jika kolom nama terpisah tidak ada di header, cari kolom tepat sebelum tanggal pertama
-            if (nameColIdx === -1) {
-                let firstDateCol = dayColIdx;
-                for (let c = deptColIdx + 1; c <= dayColIdx; c++) {
-                    const val = String(rows[headerRowIdx][c] || '').trim();
-                    if (/^\d+$/.test(val)) {
-                        firstDateCol = c;
-                        break;
-                    }
-                }
-                nameColIdx = firstDateCol > deptColIdx + 1 ? firstDateCol - 1 : -1;
-            }
-
-            const parsedList = [];
-            let currentZone = 'UMUM';
-
-            for (let r = headerRowIdx + 1; r < rows.length; r++) {
-                const row = rows[r];
-                if (!row || row.length === 0) continue;
-
-                const col0 = String(row[deptColIdx] || '').trim();
-                const col0Upper = col0.toUpperCase();
-
-                if (
-                    col0Upper.startsWith('TOTAL') ||
-                    col0Upper.startsWith('PS PAGI') ||
-                    col0Upper.startsWith('SMT PAGI') ||
-                    col0Upper.startsWith('PS SIANG') ||
-                    col0Upper.startsWith('SMT SIANG') ||
-                    col0Upper === 'OFF' ||
-                    col0Upper === 'RO' ||
-                    col0Upper === 'CUTI' ||
-                    col0Upper === 'SAKIT' ||
-                    col0Upper === 'IZIN'
-                ) {
-                    break;
-                }
-
-                // Cek baris pemisah zona (misal: LIVING A10, ASHLEY, HOME DECORE tanpa /PS atau /SMT)
-                if (col0 && !col0.includes('/') && !col0Upper.startsWith('DEPT')) {
-                    currentZone = col0Upper;
-                }
-
-                const rawShift = String(row[dayColIdx] || '').trim().toUpperCase();
-                let shiftType = '';
-                if (rawShift === 'P' || rawShift.startsWith('PAGI')) {
-                    shiftType = 'P';
-                } else if (rawShift === 'X' || rawShift === 'S' || rawShift.startsWith('SIANG')) {
-                    shiftType = 'S';
-                }
-
-                if (!shiftType) continue;
-
-                let zoneLabel = currentZone;
-                let roleLabel = 'SMT';
-                if (col0.includes('/')) {
-                    const parts = col0.split('/');
-                    zoneLabel = (parts[0] || currentZone).trim().toUpperCase();
-                    roleLabel = (parts[1] || 'SMT').trim().toUpperCase();
-                } else if (col0) {
-                    roleLabel = col0Upper;
-                }
-
-                // Cari nama karyawan pada kolom yang tersedia di sebelah kiri kolom tanggal
-                let staffName = '';
-                if (nameColIdx !== -1 && row[nameColIdx]) {
-                    staffName = String(row[nameColIdx]).trim();
-                }
-                if (!staffName) {
-                    for (let c = deptColIdx + 1; c < dayColIdx; c++) {
-                        const candidate = String(row[c] || '').trim();
-                        if (candidate && candidate.length > 2 && !/^\d+$/.test(candidate) && candidate.toUpperCase() !== zoneLabel) {
-                            staffName = candidate;
-                            break;
-                        }
-                    }
-                }
-
-                if (!staffName) {
-                    staffName = `${zoneLabel} (${roleLabel})`;
-                }
-
-                parsedList.push({
-                    name: staffName.toUpperCase(),
-                    zone: zoneLabel,
-                    role: roleLabel,
-                    shiftCode: rawShift,
-                    shiftType
+            const newBanners = [];
+            for (let i = 0; i < files.length; i++) {
+                const f = files[i];
+                const dataUrl = await compressPromoImageToDataUrl(f, 1280, 0.78);
+                newBanners.push({
+                    id: 'banner_' + getServerNowMs() + '_' + i,
+                    title: customTitle || f.name.replace(/\.[^/.]+$/, ''),
+                    imageData: dataUrl,
+                    uploadedAt: `${getWibDateString()} ${getWibTimeString()} WIB`
                 });
             }
 
-            scheduleCacheByDate[dateKey] = parsedList;
-            renderDailyScheduleContent();
-            if (isScheduleRoleUnlocked) {
-                renderAllRoleSelectInputs();
-            }
+            const existingBanners = toSafeArray(promoPortalState.banners);
+            const combinedBanners = [...newBanners, ...existingBanners].slice(0, 12);
+
+            await db.ref('promoPortalData').update({
+                banners: combinedBanners,
+                updatedAt: `${getWibDateString()} ${getWibTimeString()} WIB`
+            });
+
+            fileInput.value = '';
+            if (titleInput) titleInput.value = '';
+            showCustomAlert('Berhasil Upload Poster', `${newBanners.length} poster mekanisme promo berhasil diunggah dan langsung tampil di seluruh perangkat!`);
         } catch (err) {
-            console.error('Error fetch schedule:', err);
-            bodyEl.innerHTML = `
-                <div class="text-center py-8 px-4 bg-rose-50 rounded-xl border border-rose-200 text-rose-700">
-                    <p class="font-bold mb-1">Gagal memuat jadwal dari Spreadsheet</p>
-                    <p class="text-xs">${escapeHtml(err.message || 'Pastikan spreadsheet dapat diakses publik / koneksi stabil.')}</p>
-                </div>
-            `;
-            if (summaryEl) summaryEl.textContent = 'Gagal memuat data';
+            console.error('Upload banner promo error:', err);
+            showCustomAlert('Gagal Upload Poster', 'Terjadi kesalahan saat mengunggah poster: ' + err.message);
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = '⬆️ Upload Poster Promo';
+            }
         }
     }
 
-    function renderDailyScheduleContent() {
-        const bodyEl = document.getElementById('dailyScheduleBody');
-        const summaryEl = document.getElementById('dailyScheduleSummary');
-        const searchInput = document.getElementById('dailyScheduleSearch');
-        if (!bodyEl) return;
-
-        const { dateKey, readableDate } = getDatePartsFromIso(currentSelectedScheduleDate);
-        const list = Array.isArray(scheduleCacheByDate[dateKey]) ? scheduleCacheByDate[dateKey] : [];
-        const keyword = (searchInput ? searchInput.value : '').trim().toLowerCase();
-
-        const filtered = list.filter(item => {
-            if (currentScheduleShiftFilter !== 'ALL' && item.shiftType !== currentScheduleShiftFilter) {
-                return false;
-            }
-            if (keyword) {
-                const matchName = item.name.toLowerCase().includes(keyword);
-                const matchZone = item.zone.toLowerCase().includes(keyword);
-                const matchRole = item.role.toLowerCase().includes(keyword);
-                if (!matchName && !matchZone && !matchRole) return false;
-            }
-            return true;
-        });
-
-        const totalPagi = list.filter(i => i.shiftType === 'P').length;
-        const totalSiang = list.filter(i => i.shiftType === 'S').length;
-        if (summaryEl) {
-            summaryEl.textContent = `Total Bertugas: ${list.length} personel (☀️ Pagi: ${totalPagi} | 🌙 Siang: ${totalSiang})`;
+    async function deleteSinglePromoBanner(bannerId) {
+        if (!confirm('Hapus poster mekanisme promo ini?')) return;
+        try {
+            const filtered = toSafeArray(promoPortalState.banners).filter(b => b && b.id !== bannerId);
+            await db.ref('promoPortalData').update({
+                banners: filtered,
+                updatedAt: `${getWibDateString()} ${getWibTimeString()} WIB`
+            });
+        } catch (err) {
+            showCustomAlert('Gagal', 'Gagal menghapus poster: ' + err.message);
         }
+    }
 
-        if (filtered.length === 0) {
-            bodyEl.innerHTML = `<div class="text-center py-10 text-slate-400 italic">Tidak ada personel bertugas yang cocok pada tanggal ${escapeHtml(readableDate)}.</div>`;
+    async function clearAllPromoBanners() {
+        if (!confirm('Yakin ingin menghapus SEMUA poster mekanisme promo?')) return;
+        try {
+            await db.ref('promoPortalData').update({
+                banners: [],
+                updatedAt: `${getWibDateString()} ${getWibTimeString()} WIB`
+            });
+            showCustomAlert('Berhasil', 'Semua poster mekanisme promo telah dihapus.');
+        } catch (err) {
+            showCustomAlert('Gagal', 'Gagal menghapus poster: ' + err.message);
+        }
+    }
+
+    async function handleUploadPromoDataLock() {
+        const fileInput = document.getElementById('promoDataLockFileInput');
+        const noteInput = document.getElementById('promoDataLockNoteInput');
+        const btn = document.getElementById('btnUploadPromoDataLock');
+
+        if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+            showCustomAlert('Pilih File Data Lock', 'Silakan pilih file .ods (OpenCalc), .xlsx, .xls, atau .csv terlebih dahulu.');
             return;
         }
 
-        const groupedByZone = {};
-        filtered.forEach(item => {
-            const z = item.zone || 'UMUM';
-            if (!groupedByZone[z]) groupedByZone[z] = [];
-            groupedByZone[z].push(item);
-        });
+        const file = fileInput.files[0];
+        const noteText = (noteInput?.value || '').trim();
 
-        bodyEl.innerHTML = Object.entries(groupedByZone).map(([zoneName, members]) => {
-            const cardsHtml = members.map(m => {
-                const isPagi = m.shiftType === 'P';
-                const badgeClass = isPagi
-                    ? 'bg-amber-100 text-amber-800 border-amber-200'
-                    : 'bg-indigo-100 text-indigo-800 border-indigo-200';
-                const shiftText = isPagi ? `☀️ Pagi (${m.shiftCode})` : `🌙 Siang (${m.shiftCode})`;
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Membaca Spreadsheet...';
+        }
 
-                return `
-                    <div class="flex items-center justify-between gap-2 bg-white border border-slate-200/90 rounded-xl px-3.5 py-2.5 shadow-2xs">
-                        <div>
-                            <div class="font-bold text-slate-900 text-xs sm:text-sm">${escapeHtml(m.name)}</div>
-                            <div class="text-[11px] text-slate-500 font-medium">${escapeHtml(m.role)} • ${escapeHtml(m.zone)}</div>
-                        </div>
-                        <span class="text-[11px] font-bold px-2.5 py-1 rounded-lg border shrink-0 ${badgeClass}">
-                            ${escapeHtml(shiftText)}
-                        </span>
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+            const sheetsPayload = {};
+            let totalRowsCount = 0;
+
+            workbook.SheetNames.forEach(sheetName => {
+                const ws = workbook.Sheets[sheetName];
+                const rawRows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+                const cleanedRows = rawRows
+                    .filter(r => Array.isArray(r) && r.some(cell => String(cell).trim() !== ''))
+                    .slice(0, 2500)
+                    .map(r => r.slice(0, 20).map(cell => String(cell).trim()));
+
+                if (cleanedRows.length > 0) {
+                    sheetsPayload[sheetName] = cleanedRows;
+                    totalRowsCount += Math.max(0, cleanedRows.length - 1);
+                }
+            });
+
+            if (Object.keys(sheetsPayload).length === 0) {
+                throw new Error('File spreadsheet kosong atau tidak memiliki baris data yang dapat dibaca.');
+            }
+
+            const dataLockObj = {
+                fileName: file.name,
+                note: noteText,
+                sheetNames: Object.keys(sheetsPayload),
+                sheets: sheetsPayload,
+                totalRows: totalRowsCount,
+                uploadedAt: `${getWibDateString()} ${getWibTimeString()} WIB`
+            };
+
+            await db.ref('promoPortalData').update({
+                dataLock: dataLockObj,
+                updatedAt: `${getWibDateString()} ${getWibTimeString()} WIB`
+            });
+
+            fileInput.value = '';
+            if (noteInput) noteInput.value = '';
+            switchPromoTab('datalock');
+            showCustomAlert('Data Lock Berhasil Dimuat', `File "${file.name}" (${totalRowsCount} baris data) berhasil diunggah dan siap dicari oleh seluruh staf!`);
+        } catch (err) {
+            console.error('Upload Data Lock error:', err);
+            showCustomAlert('Gagal Membaca File', 'Pastikan file berformat .ods, .xlsx, .xls, atau .csv yang valid. Detail: ' + err.message);
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = '⬆️ Upload Data Lock';
+            }
+        }
+    }
+
+    async function clearPromoDataLock() {
+        if (!confirm('Yakin ingin menghapus data spreadsheet Data Lock saat ini?')) return;
+        try {
+            await db.ref('promoPortalData').update({
+                dataLock: null,
+                updatedAt: `${getWibDateString()} ${getWibTimeString()} WIB`
+            });
+            showCustomAlert('Berhasil', 'Data Lock telah dihapus.');
+        } catch (err) {
+            showCustomAlert('Gagal', 'Gagal menghapus Data Lock: ' + err.message);
+        }
+    }
+
+    function renderPromoPortalAllViews() {
+        const lastUpdatedEl = document.getElementById('promoPortalLastUpdated');
+        if (lastUpdatedEl) {
+            lastUpdatedEl.textContent = promoPortalState.updatedAt
+                ? `Terakhir diperbarui: ${promoPortalState.updatedAt} • Sinkron Live`
+                : 'Panduan promo aktif, pencarian item data lock, dan kalkulator keuntungan customer';
+        }
+        renderPromoBannersGallery();
+        setupPromoDataLockSheetSelector();
+        renderPromoDataLockTable();
+    }
+
+    function renderPromoBannersGallery() {
+        const galleryEl = document.getElementById('promoBannersGallery');
+        const badgeEl = document.getElementById('promoBannerCountBadge');
+        if (!galleryEl) return;
+
+        const banners = toSafeArray(promoPortalState.banners);
+        if (badgeEl) badgeEl.textContent = `${banners.length} Poster`;
+
+        if (banners.length === 0) {
+            galleryEl.innerHTML = `
+                <div class="col-span-full text-center py-12 text-slate-400 italic text-sm border-2 border-dashed border-slate-200 rounded-2xl">
+                    Belum ada gambar mekanisme promo yang diunggah. Klik "Update Promo (Admin)" di kanan atas untuk mengunggah JPG/PNG.
+                </div>
+            `;
+            return;
+        }
+
+        const isAdminFormOpen = !document.getElementById('promoAdminFormStep')?.classList.contains('hidden');
+
+        galleryEl.innerHTML = banners.map(b => `
+            <div class="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden shadow-xs flex flex-col justify-between group">
+                <div class="relative bg-slate-900/5 overflow-hidden cursor-zoom-in" onclick="openPromoImageLightbox('${escapeHtml(b.id)}')">
+                    <img src="${b.imageData}" alt="${escapeHtml(b.title || 'Poster Promo')}" class="w-full max-h-96 object-contain mx-auto transition-transform duration-200 group-hover:scale-[1.02]">
+                    <span class="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg">🔍 Klik Perbesar</span>
+                </div>
+                <div class="p-3 bg-white border-t border-slate-100 flex items-center justify-between gap-2">
+                    <div class="min-w-0">
+                        <div class="text-xs font-extrabold text-slate-800 truncate">${escapeHtml(b.title || 'Mekanisme Promo')}</div>
+                        <div class="text-[10px] text-slate-400">${escapeHtml(b.uploadedAt || '')}</div>
                     </div>
-                `;
-            }).join('');
-
-            return `
-                <div class="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-3.5 space-y-2.5">
-                    <div class="flex items-center justify-between border-b border-slate-200/70 pb-2">
-                        <span class="text-xs font-extrabold uppercase tracking-wider text-slate-800">📍 ${escapeHtml(zoneName)}</span>
-                        <span class="text-[11px] font-semibold text-slate-500">${members.length} personel</span>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        <button type="button" onclick="openPromoImageLightbox('${escapeHtml(b.id)}')" class="text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 px-2.5 py-1 rounded-lg transition">Zoom</button>
+                        <button type="button" onclick="deleteSinglePromoBanner('${escapeHtml(b.id)}')" class="text-xs font-bold bg-slate-100 hover:bg-rose-600 hover:text-white text-slate-600 px-2 py-1 rounded-lg transition" title="Hapus poster">🗑️</button>
                     </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        ${cardsHtml}
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function openPromoImageLightbox(bannerId) {
+        const banner = toSafeArray(promoPortalState.banners).find(b => b && b.id === bannerId);
+        if (!banner) return;
+        const modal = document.getElementById('promoImageLightboxModal');
+        const imgEl = document.getElementById('promoLightboxImg');
+        const capEl = document.getElementById('promoLightboxCaption');
+        if (!modal || !imgEl) return;
+        imgEl.src = banner.imageData;
+        if (capEl) capEl.textContent = banner.title || 'Poster Mekanisme Promo';
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function closePromoImageLightbox() {
+        const modal = document.getElementById('promoImageLightboxModal');
+        if (!modal) return;
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+
+    function setupPromoDataLockSheetSelector() {
+        const selectEl = document.getElementById('promoDataLockSheetSelect');
+        const fileNameEl = document.getElementById('promoDataLockFileName');
+        const metaEl = document.getElementById('promoDataLockMeta');
+        const dl = promoPortalState.dataLock;
+
+        if (!dl || !dl.sheets) {
+            if (selectEl) {
+                selectEl.classList.add('hidden');
+                selectEl.innerHTML = '';
+            }
+            if (fileNameEl) fileNameEl.textContent = '📄 Belum ada file Data Lock aktif';
+            if (metaEl) metaEl.textContent = 'Unggah file .ods (OpenCalc), .xlsx, .xls, atau .csv melalui tombol Update Promo (Admin).';
+            return;
+        }
+
+        const sheetNames = toSafeArray(dl.sheetNames).length > 0 ? toSafeArray(dl.sheetNames) : Object.keys(dl.sheets);
+        if (fileNameEl) {
+            fileNameEl.textContent = `📄 ${dl.fileName || 'Data_Lock'}${dl.note ? ' — ' + dl.note : ''}`;
+        }
+        if (metaEl) {
+            metaEl.textContent = `Total ${dl.totalRows || 0} item • Diunggah: ${dl.uploadedAt || '-'}`;
+        }
+
+        if (selectEl) {
+            const prevVal = selectEl.value;
+            selectEl.innerHTML = sheetNames.map(name => `<option value="${escapeHtml(name)}">Sheet: ${escapeHtml(name)}</option>`).join('');
+            if (sheetNames.includes(prevVal)) {
+                selectEl.value = prevVal;
+            }
+            if (sheetNames.length > 1) {
+                selectEl.classList.remove('hidden');
+            } else {
+                selectEl.classList.add('hidden');
+            }
+        }
+    }
+
+    function renderPromoDataLockTable() {
+        const wrapper = document.getElementById('promoDataLockTableWrapper');
+        const selectEl = document.getElementById('promoDataLockSheetSelect');
+        const searchInput = document.getElementById('promoDataLockSearchInput');
+        if (!wrapper) return;
+
+        const dl = promoPortalState.dataLock;
+        if (!dl || !dl.sheets) {
+            wrapper.innerHTML = `<div class="text-center py-12 text-slate-400 italic text-sm">Belum ada data spreadsheet Data Lock yang dimuat.</div>`;
+            return;
+        }
+
+        const sheetNames = Object.keys(dl.sheets);
+        const activeSheet = (selectEl && selectEl.value && dl.sheets[selectEl.value]) ? selectEl.value : sheetNames[0];
+        const rows = toSafeArray(dl.sheets[activeSheet]);
+
+        if (rows.length === 0) {
+            wrapper.innerHTML = `<div class="text-center py-10 text-slate-400 italic text-sm">Sheet ini kosong.</div>`;
+            return;
+        }
+
+        const headers = toSafeArray(rows[0]);
+        const bodyRows = rows.slice(1);
+        const keyword = (searchInput?.value || '').trim().toLowerCase();
+
+        const filteredRows = keyword
+            ? bodyRows.filter(r => toSafeArray(r).some(cell => String(cell).toLowerCase().includes(keyword)))
+            : bodyRows;
+
+        const displayRows = filteredRows.slice(0, 300);
+
+        let html = `
+            <div class="bg-slate-50 px-3.5 py-2 border-b border-slate-200 flex items-center justify-between text-[11px] font-semibold text-slate-600">
+                <span>Menampilkan ${displayRows.length} dari ${filteredRows.length} baris cocok</span>
+                ${filteredRows.length > 300 ? '<span class="text-amber-700">Ketik kata kunci pencarian untuk menyaring lebih spesifik</span>' : ''}
+            </div>
+            <div class="overflow-x-auto max-h-[52vh]">
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead class="bg-slate-800 text-white sticky top-0 z-10">
+                        <tr>
+                            <th class="px-3 py-2 font-bold border-r border-slate-700 w-10">#</th>
+                            ${headers.map(h => `<th class="px-3 py-2 font-bold border-r border-slate-700 whitespace-nowrap">${escapeHtml(h || '-')}</th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200 bg-white">
+        `;
+
+        if (displayRows.length === 0) {
+            html += `<tr><td colspan="${headers.length + 1}" class="px-4 py-8 text-center text-slate-400 italic">Tidak ditemukan item yang cocok dengan pencarian "${escapeHtml(keyword)}".</td></tr>`;
+        } else {
+            displayRows.forEach((r, idx) => {
+                const cells = toSafeArray(r);
+                html += `<tr class="hover:bg-indigo-50/60 transition">`;
+                html += `<td class="px-3 py-2 font-mono text-slate-400 border-r border-slate-100">${idx + 1}</td>`;
+                for (let c = 0; c < headers.length; c++) {
+                    html += `<td class="px-3 py-2 text-slate-800 border-r border-slate-100 whitespace-nowrap">${escapeHtml(cells[c] ?? '')}</td>`;
+                }
+                html += `</tr>`;
+            });
+        }
+
+        html += `</tbody></table></div>`;
+        wrapper.innerHTML = html;
+    }
+
+    // --- KALKULATOR SIMULASI KEUNTUNGAN CUSTOMER ---
+    function parseRupiahNumber(str) {
+        if (!str) return 0;
+        const cleaned = String(str).replace(/[^0-9]/g, '');
+        return parseInt(cleaned, 10) || 0;
+    }
+
+    function formatIdrCurrency(num) {
+        const val = Math.round(Number(num) || 0);
+        return 'Rp ' + val.toLocaleString('id-ID');
+    }
+
+    function onCalcPromoTypeChange() {
+        const type = document.getElementById('calcPromoType')?.value || 'cashback_rp';
+        const container = document.getElementById('calcDynamicInputsContainer');
+        if (!container) return;
+
+        if (type === 'cashback_rp') {
+            container.innerHTML = `
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Nominal Cashback Didapat (Rp)</label>
+                    <input type="text" id="calcParamNominal" onkeyup="formatRupiahInput(this); calculatePromoSimulation();" placeholder="Contoh: 1.500.000" class="w-full text-sm font-extrabold border border-emerald-300 bg-emerald-50/40 rounded-xl px-3.5 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                </div>
+            `;
+        } else if (type === 'cashback_pct') {
+            container.innerHTML = `
+                <div class="grid grid-cols-2 gap-2.5">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Persentase Cashback (%)</label>
+                        <input type="number" step="0.1" min="0" max="100" id="calcParamPercent" oninput="calculatePromoSimulation()" placeholder="Contoh: 10" class="w-full text-sm font-extrabold border border-emerald-300 bg-emerald-50/40 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Maksimal Cashback (Opsional, Rp)</label>
+                        <input type="text" id="calcParamMaxCap" onkeyup="formatRupiahInput(this); calculatePromoSimulation();" placeholder="Tanpa batas" class="w-full text-xs font-bold border border-slate-300 rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500">
                     </div>
                 </div>
             `;
-        }).join('');
+        } else if (type === 'discount_pct') {
+            container.innerHTML = `
+                <div class="grid grid-cols-2 gap-2.5">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Persentase Discount (%)</label>
+                        <input type="number" step="0.1" min="0" max="100" id="calcParamPercent" oninput="calculatePromoSimulation()" placeholder="Contoh: 15" class="w-full text-sm font-extrabold border border-rose-300 bg-rose-50/40 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Maksimal Potongan (Opsional, Rp)</label>
+                        <input type="text" id="calcParamMaxCap" onkeyup="formatRupiahInput(this); calculatePromoSimulation();" placeholder="Tanpa batas" class="w-full text-xs font-bold border border-slate-300 rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500">
+                    </div>
+                </div>
+            `;
+        } else if (type === 'discount_rp') {
+            container.innerHTML = `
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Nominal Potongan Discount (Rp)</label>
+                    <input type="text" id="calcParamNominal" onkeyup="formatRupiahInput(this); calculatePromoSimulation();" placeholder="Contoh: 1.000.000" class="w-full text-sm font-extrabold border border-rose-300 bg-rose-50/40 rounded-xl px-3.5 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500">
+                </div>
+            `;
+        } else if (type === 'combo_disc_cb') {
+            container.innerHTML = `
+                <div class="grid grid-cols-2 gap-2.5">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Direct Discount (%)</label>
+                        <input type="number" step="0.1" min="0" max="100" id="calcParamPercent" oninput="calculatePromoSimulation()" placeholder="Contoh: 10" class="w-full text-sm font-extrabold border border-rose-300 bg-rose-50/40 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Tambahan Cashback (Rp)</label>
+                        <input type="text" id="calcParamNominal" onkeyup="formatRupiahInput(this); calculatePromoSimulation();" placeholder="Contoh: 500.000" class="w-full text-sm font-extrabold border border-emerald-300 bg-emerald-50/40 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    function calculatePromoSimulation() {
+        const totalBelanja = parseRupiahNumber(document.getElementById('calcTotalBelanja')?.value);
+        const minSpend = parseRupiahNumber(document.getElementById('calcMinSpend')?.value);
+        const promoType = document.getElementById('calcPromoType')?.value || 'cashback_rp';
+
+        const paramNominal = parseRupiahNumber(document.getElementById('calcParamNominal')?.value);
+        const paramPercent = parseFloat(document.getElementById('calcParamPercent')?.value) || 0;
+        const paramMaxCap = parseRupiahNumber(document.getElementById('calcParamMaxCap')?.value);
+
+        const alertEl = document.getElementById('calcEligibilityAlert');
+        const badgeModeEl = document.getElementById('calcBadgeMode');
+
+        let discountVal = 0;
+        let cashbackVal = 0;
+        let isEligible = true;
+
+        if (minSpend > 0 && totalBelanja < minSpend) {
+            isEligible = false;
+            const kurang = minSpend - totalBelanja;
+            if (alertEl) {
+                alertEl.classList.remove('hidden');
+                alertEl.textContent = `⚠️ Kurang ${formatIdrCurrency(kurang)} lagi untuk mencapai minimal belanja ${formatIdrCurrency(minSpend)}!`;
+            }
+        } else {
+            if (alertEl) alertEl.classList.add('hidden');
+        }
+
+        if (isEligible && totalBelanja > 0) {
+            if (promoType === 'cashback_rp') {
+                cashbackVal = paramNominal;
+                if (badgeModeEl) badgeModeEl.textContent = 'CASHBACK NOMINAL';
+            } else if (promoType === 'cashback_pct') {
+                let rawCb = Math.round((totalBelanja * paramPercent) / 100);
+                if (paramMaxCap > 0 && rawCb > paramMaxCap) rawCb = paramMaxCap;
+                cashbackVal = rawCb;
+                if (badgeModeEl) badgeModeEl.textContent = `CASHBACK ${paramPercent}%`;
+            } else if (promoType === 'discount_pct') {
+                let rawDisc = Math.round((totalBelanja * paramPercent) / 100);
+                if (paramMaxCap > 0 && rawDisc > paramMaxCap) rawDisc = paramMaxCap;
+                discountVal = Math.min(totalBelanja, rawDisc);
+                if (badgeModeEl) badgeModeEl.textContent = `DISCOUNT ${paramPercent}%`;
+            } else if (promoType === 'discount_rp') {
+                discountVal = Math.min(totalBelanja, paramNominal);
+                if (badgeModeEl) badgeModeEl.textContent = 'DIRECT DISCOUNT';
+            } else if (promoType === 'combo_disc_cb') {
+                let rawDisc = Math.round((totalBelanja * paramPercent) / 100);
+                discountVal = Math.min(totalBelanja, rawDisc);
+                cashbackVal = paramNominal;
+                if (badgeModeEl) badgeModeEl.textContent = 'COMBO DISC + CB';
+            }
+        }
+
+        const nettoBayar = Math.max(0, totalBelanja - discountVal);
+        const totalBenefit = discountVal + cashbackVal;
+        const effectiveSavingPct = totalBelanja > 0 ? ((totalBenefit / totalBelanja) * 100).toFixed(1) : '0';
+
+        document.getElementById('resBelanjaAwal').textContent = formatIdrCurrency(totalBelanja);
+        document.getElementById('resDiscountVal').textContent = `- ${formatIdrCurrency(discountVal)}`;
+        document.getElementById('resNettoBayar').textContent = formatIdrCurrency(nettoBayar);
+        document.getElementById('resCashbackVal').textContent = `+ ${formatIdrCurrency(cashbackVal)}`;
+        document.getElementById('resTotalBenefit').textContent = formatIdrCurrency(totalBenefit);
+        document.getElementById('resBenefitPercent').textContent = `Hemat ${effectiveSavingPct}%`;
+
+        const expEl = document.getElementById('resExplanationText');
+        if (expEl) {
+            if (totalBelanja === 0) {
+                expEl.textContent = 'Masukkan nominal belanja dan parameter promo untuk melihat simulasi lengkap.';
+            } else if (!isEligible) {
+                expEl.textContent = `Ajak customer tambah belanja ${formatIdrCurrency(minSpend - totalBelanja)} agar promo langsung aktif!`;
+            } else {
+                expEl.textContent = `Customer cukup bayar ${formatIdrCurrency(nettoBayar)} di kasir dan menghemat total ${formatIdrCurrency(totalBenefit)} (${effectiveSavingPct}% dari nilai belanja).`;
+            }
+        }
+    }
+
+    function resetPromoCalculator() {
+        const ids = ['calcTotalBelanja', 'calcMinSpend', 'calcParamNominal', 'calcParamPercent', 'calcParamMaxCap'];
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        calculatePromoSimulation();
+    }
+
+    function copyPromoSimulationToClipboard() {
+        const awal = document.getElementById('resBelanjaAwal')?.textContent || 'Rp 0';
+        const disc = document.getElementById('resDiscountVal')?.textContent || '- Rp 0';
+        const netto = document.getElementById('resNettoBayar')?.textContent || 'Rp 0';
+        const cb = document.getElementById('resCashbackVal')?.textContent || '+ Rp 0';
+        const benefit = document.getElementById('resTotalBenefit')?.textContent || 'Rp 0';
+        const pct = document.getElementById('resBenefitPercent')?.textContent || 'Hemat 0%';
+
+        const summaryText = [
+            `🎁 *SIMULASI KEUNTUNGAN PROMO INFORMA*`,
+            `• Total Belanja Awal: ${awal}`,
+            `• Direct Discount: ${disc}`,
+            `• Total Bayar di Kasir: *${netto}*`,
+            `• Voucher / Cashback: ${cb}`,
+            `✨ *Total Keuntungan Customer: ${benefit} (${pct})*`
+        ].join('\n');
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(summaryText).then(() => {
+                showCustomAlert('Tersalin', 'Rincian simulasi keuntungan customer berhasil disalin ke clipboard!');
+            });
+        } else {
+            showCustomAlert('Rincian Simulasi', summaryText);
+        }
     }
     </script>
 </body>
