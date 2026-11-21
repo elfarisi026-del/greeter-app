@@ -727,8 +727,10 @@
                     Object.keys(originGroup).forEach(pStr => {
                         const p = parseInt(pStr, 10);
                         const maxP = (s === 0) ? limitSpot1 : 2;
-                        if (!isNaN(p) && p >= 0 && p < maxP && originGroup[p]) {
-                            normalizedOrigin[s][p] = originGroup[p];
+                        if (!isNaN(p) && originGroup[p]) {
+                            if (p >= 0 && p < maxP) {
+                                normalizedOrigin[s][p] = originGroup[p];
+                            }
                         }
                     });
                 }
@@ -4696,8 +4698,8 @@
                         </div>
                     </div>
                     <div>
-                        <div class="text-[10px] font-bold text-slate-600 mb-1">Pilih Personel (${shiftType === 'P' ? 'Shift Pagi' : 'Shift Siang'}):</div>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1.5 max-h-36 overflow-y-auto p-1 border border-slate-100 rounded-lg bg-slate-50/50">
+                        <label class="block text-[10px] font-bold text-slate-600 mb-1">Pilih Personel Shift ${shiftType === 'P' ? 'Pagi' : 'Siang'} yang Tergabung:</label>
+                        <div class="max-h-36 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-1.5 border border-slate-200 rounded-lg p-2 bg-slate-50/50">
                             ${checkboxesHtml}
                         </div>
                     </div>
@@ -4708,153 +4710,155 @@
 
     function renderAllRoleSelectInputs() {
         const container = document.getElementById('roleSelectGridContainer');
-        const dateTargetEl = document.getElementById('roleTargetDateText');
+        const targetDateEl = document.getElementById('roleTargetDateText');
         if (!container) return;
 
         const { dateKey, readableDate } = getDatePartsFromIso(currentSelectedScheduleDate);
-        if (dateTargetEl) dateTargetEl.textContent = readableDate;
+        if (targetDateEl) targetDateEl.textContent = readableDate;
 
-        // Sinkronkan input teks+datalist kode roster utama Shift Pagi & Shift Siang
+        // Sinkronisasi input Roster Pagi & Siang (bisa dipilih dari datalist atau ketik manual)
         const rosterPagiEl = document.getElementById('rosterSelectPagi');
         const rosterSiangEl = document.getElementById('rosterSelectSiang');
-        const savedRosterPagi = (currentRoleAssignmentsData && currentRoleAssignmentsData.rosterPagi !== undefined)
-            ? String(currentRoleAssignmentsData.rosterPagi).trim()
-            : 'Pagi XXIX (08:00 - 18:00) M0029';
-        const savedRosterSiang = (currentRoleAssignmentsData && currentRoleAssignmentsData.rosterSiang !== undefined)
-            ? String(currentRoleAssignmentsData.rosterSiang).trim()
-            : 'Siang XII (14:00 - 22:00) A0012';
+        const savedPagi = (currentRoleAssignmentsData && currentRoleAssignmentsData.rosterPagi !== undefined)
+            ? String(currentRoleAssignmentsData.rosterPagi)
+            : 'Pagi XXX (08:00 - 20:00) M0030';
+        const savedSiang = (currentRoleAssignmentsData && currentRoleAssignmentsData.rosterSiang !== undefined)
+            ? String(currentRoleAssignmentsData.rosterSiang)
+            : 'Siang II (12:00 - 20:00) A0002';
 
         if (rosterPagiEl) {
-            rosterPagiEl.value = savedRosterPagi;
+            rosterPagiEl.value = savedPagi;
         }
         if (rosterSiangEl) {
-            rosterSiangEl.value = savedRosterSiang;
+            rosterSiangEl.value = savedSiang;
         }
 
-        // Muat daftar Team Khusus dari data tersimpan
+        // Sinkronisasi Team Khusus dari Firebase ke draft state
         const savedSpecialTeams = toSafeArray(currentRoleAssignmentsData && currentRoleAssignmentsData.specialTeams);
-        draftSpecialTeamsList = savedSpecialTeams.map((stItem, idx) => ({
-            id: stItem.id || ('st_' + idx),
-            shift: stItem.shift === 'S' ? 'S' : 'P',
-            roster: stItem.roster || '',
-            note: stItem.note || '',
-            members: toSafeArray(stItem.members)
+        draftSpecialTeamsList = savedSpecialTeams.map(st => ({
+            id: st.id || ('st_' + Math.random().toString(36).substring(2, 7)),
+            shift: st.shift === 'S' ? 'S' : 'P',
+            roster: st.roster || '',
+            note: st.note || '',
+            members: toSafeArray(st.members)
         }));
         renderSpecialTeamsDraftContainer();
 
+        // Sinkronisasi Dropdown 18 Peran Tugas Harian
         const scheduleList = Array.isArray(scheduleCacheByDate[dateKey]) ? scheduleCacheByDate[dateKey] : [];
-        const pagiMembers = scheduleList.filter(m => m && m.shiftType === 'P');
-        const siangMembers = scheduleList.filter(m => m && m.shiftType === 'S');
+        const pagiList = scheduleList.filter(m => m && m.shiftType === 'P');
+        const siangList = scheduleList.filter(m => m && m.shiftType === 'S');
+
+        const buildOptionsForPref = (prefShift, savedVal) => {
+            const primaryGroup = prefShift === 'P' ? pagiList : siangList;
+            const secondaryGroup = prefShift === 'P' ? siangList : pagiList;
+            const primaryLabel = prefShift === 'P' ? '☀️ Bertugas Shift Pagi (P)' : '🌙 Bertugas Shift Siang (X)';
+            const secondaryLabel = prefShift === 'P' ? '🌙 Bertugas Shift Siang (X)' : '☀️ Bertugas Shift Pagi (P)';
+
+            let opts = `<option value="">-- Belum Ditunjuk / Kosong --</option>`;
+            const seenNames = new Set();
+
+            if (primaryGroup.length > 0) {
+                opts += `<optgroup label="${primaryLabel}">`;
+                primaryGroup.forEach(m => {
+                    seenNames.add(m.name);
+                    opts += `<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)} (${escapeHtml(m.zone)} • ${escapeHtml(m.role)})</option>`;
+                });
+                opts += `</optgroup>`;
+            }
+
+            if (secondaryGroup.length > 0) {
+                opts += `<optgroup label="${secondaryLabel}">`;
+                secondaryGroup.forEach(m => {
+                    if (!seenNames.has(m.name)) {
+                        seenNames.add(m.name);
+                        opts += `<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)} (${escapeHtml(m.zone)} • ${escapeHtml(m.role)})</option>`;
+                    }
+                });
+                opts += `</optgroup>`;
+            }
+
+            if (seenNames.size === 0) {
+                opts += `<optgroup label="Daftar Personel">`;
+                employees.forEach(emp => {
+                    seenNames.add(emp.name);
+                    opts += `<option value="${escapeHtml(emp.name)}">${escapeHtml(emp.name)} (${escapeHtml(emp.nik)})</option>`;
+                });
+                opts += `</optgroup>`;
+            }
+
+            if (savedVal && !seenNames.has(savedVal)) {
+                opts += `<option value="${escapeHtml(savedVal)}">${escapeHtml(savedVal)} (Tersimpan)</option>`;
+            }
+            return opts;
+        };
 
         container.innerHTML = DAILY_ROLE_DEFINITIONS.map(roleDef => {
             const currentVal = (currentRoleAssignmentsData && currentRoleAssignmentsData[roleDef.key])
                 ? String(currentRoleAssignmentsData[roleDef.key]).trim()
                 : '';
-
-            const preferredList = roleDef.shiftPref === 'P' ? pagiMembers : siangMembers;
-            const otherList = roleDef.shiftPref === 'P' ? siangMembers : pagiMembers;
-            const prefLabel = roleDef.shiftPref === 'P' ? 'Jadwal Shift Pagi (P)' : 'Jadwal Shift Siang (X)';
-            const otherLabel = roleDef.shiftPref === 'P' ? 'Jadwal Shift Siang (X)' : 'Jadwal Shift Pagi (P)';
-
-            let optionsHtml = `<option value="">-- Tidak Ditunjuk / Kosong --</option>`;
-            const usedNames = new Set();
-
-            if (preferredList.length > 0) {
-                optionsHtml += `<optgroup label="★ ${prefLabel}">`;
-                preferredList.forEach(m => {
-                    usedNames.add(m.name);
-                    const selectedAttr = currentVal === m.name ? 'selected' : '';
-                    optionsHtml += `<option value="${escapeHtml(m.name)}" ${selectedAttr}>${escapeHtml(m.name)} (${escapeHtml(m.zone)} • ${escapeHtml(m.role)})</option>`;
-                });
-                optionsHtml += `</optgroup>`;
-            }
-
-            if (otherList.length > 0) {
-                optionsHtml += `<optgroup label="${otherLabel}">`;
-                otherList.forEach(m => {
-                    if (!usedNames.has(m.name)) {
-                        usedNames.add(m.name);
-                        const selectedAttr = currentVal === m.name ? 'selected' : '';
-                        optionsHtml += `<option value="${escapeHtml(m.name)}" ${selectedAttr}>${escapeHtml(m.name)} (${escapeHtml(m.zone)} • ${escapeHtml(m.role)})</option>`;
-                    }
-                });
-                optionsHtml += `</optgroup>`;
-            }
-
-            const remainingEmployees = employees.filter(e => e && e.name && !usedNames.has(e.name));
-            if (remainingEmployees.length > 0) {
-                optionsHtml += `<optgroup label="Daftar Master SMT Lainnya">`;
-                remainingEmployees.forEach(e => {
-                    usedNames.add(e.name);
-                    const selectedAttr = currentVal === e.name ? 'selected' : '';
-                    optionsHtml += `<option value="${escapeHtml(e.name)}" ${selectedAttr}>${escapeHtml(e.name)} (${escapeHtml(e.nik)})</option>`;
-                });
-                optionsHtml += `</optgroup>`;
-            }
-
-            if (currentVal && !usedNames.has(currentVal)) {
-                optionsHtml += `<option value="${escapeHtml(currentVal)}" selected>${escapeHtml(currentVal)}</option>`;
-            }
-
             return `
-                <div class="bg-white border border-amber-200/90 rounded-xl p-2.5 space-y-1 shadow-2xs">
-                    <label for="roleSelect_${roleDef.key}" class="block text-[11px] font-extrabold text-slate-800">
+                <div class="bg-white border border-amber-200/90 rounded-xl p-2.5 shadow-2xs">
+                    <label for="role-select-${roleDef.key}" class="block text-[11px] font-bold text-slate-700 mb-1">
                         ${escapeHtml(roleDef.label)}
                     </label>
-                    <select id="roleSelect_${roleDef.key}" class="w-full text-xs font-semibold border border-slate-300 bg-white rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
-                        ${optionsHtml}
+                    <select id="role-select-${roleDef.key}" class="w-full text-xs font-semibold border border-slate-300 bg-white rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
+                        ${buildOptionsForPref(roleDef.shiftPref, currentVal)}
                     </select>
                 </div>
             `;
         }).join('');
+
+        DAILY_ROLE_DEFINITIONS.forEach(roleDef => {
+            const selEl = document.getElementById(`role-select-${roleDef.key}`);
+            const currentVal = (currentRoleAssignmentsData && currentRoleAssignmentsData[roleDef.key])
+                ? String(currentRoleAssignmentsData[roleDef.key]).trim()
+                : '';
+            if (selEl) selEl.value = currentVal;
+        });
     }
 
     function clearAllRoleSelectInputs() {
         DAILY_ROLE_DEFINITIONS.forEach(roleDef => {
-            const sel = document.getElementById(`roleSelect_${roleDef.key}`);
-            if (sel) sel.value = '';
+            const selEl = document.getElementById(`role-select-${roleDef.key}`);
+            if (selEl) selEl.value = '';
         });
         draftSpecialTeamsList = [];
         renderSpecialTeamsDraftContainer();
     }
 
     function saveDailyRoleAssignment() {
-        if (!isScheduleRoleUnlocked) {
-            showCustomAlert('Akses Ditolak', 'Silakan masukkan kode akses terlebih dahulu.');
-            return;
-        }
         if (isSavingRoleAssignment) return;
-
         const saveBtn = document.getElementById('btnSaveDailyRoleAssignment');
         const { dateKey } = getDatePartsFromIso(currentSelectedScheduleDate);
-        const nowTimeStr = `${getWibDateString()} ${getWibTimeString()} WIB`;
+
+        if (!db) {
+            showCustomAlert("Gagal", "Koneksi database belum siap. Coba beberapa saat lagi.");
+            return;
+        }
 
         syncSpecialTeamsFromDomInputs();
 
-        const rosterPagiEl = document.getElementById('rosterSelectPagi');
-        const rosterSiangEl = document.getElementById('rosterSelectSiang');
-
-        const cleanedSpecialTeams = draftSpecialTeamsList
-            .filter(t => (t.members && t.members.length > 0) || (t.note && t.note.trim() !== ''))
-            .map((t, idx) => ({
-                id: t.id || ('st_' + idx),
-                shift: t.shift === 'S' ? 'S' : 'P',
-                roster: String(t.roster || '').trim(),
-                note: String(t.note || '').trim(),
-                members: toSafeArray(t.members)
-            }));
+        const rosterPagiVal = document.getElementById('rosterSelectPagi') ? document.getElementById('rosterSelectPagi').value.trim() : '';
+        const rosterSiangVal = document.getElementById('rosterSelectSiang') ? document.getElementById('rosterSelectSiang').value.trim() : '';
 
         const payload = {
-            rosterPagi: rosterPagiEl ? rosterPagiEl.value.trim() : '',
-            rosterSiang: rosterSiangEl ? rosterSiangEl.value.trim() : '',
-            specialTeams: cleanedSpecialTeams,
-            updatedAt: nowTimeStr,
-            updatedBy: DEVICE_CLIENT_ID
+            dateKey,
+            rosterPagi: rosterPagiVal,
+            rosterSiang: rosterSiangVal,
+            specialTeams: draftSpecialTeamsList.map((t, i) => ({
+                id: t.id || ('st_' + i),
+                shift: t.shift === 'S' ? 'S' : 'P',
+                roster: t.roster || '',
+                note: t.note || '',
+                members: toSafeArray(t.members)
+            })),
+            updatedAt: `${getWibDateString()} ${getWibTimeString()} WIB`
         };
 
         DAILY_ROLE_DEFINITIONS.forEach(roleDef => {
-            const sel = document.getElementById(`roleSelect_${roleDef.key}`);
-            payload[roleDef.key] = sel ? sel.value.trim() : '';
+            const selEl = document.getElementById(`role-select-${roleDef.key}`);
+            payload[roleDef.key] = selEl ? selEl.value.trim() : '';
         });
 
         isSavingRoleAssignment = true;
@@ -4868,11 +4872,11 @@
                 currentRoleAssignmentsData = payload;
                 renderAssignedRolesDisplayGrid();
                 closeScheduleRoleAdminBox();
-                showCustomAlert('Tersimpan', 'Susunan roster, team khusus & 18 tugas harian berhasil disimpan dan langsung sinkron ke seluruh perangkat.');
+                showCustomAlert("Berhasil", "Susunan tugas harian, kode roster, dan team khusus berhasil disimpan secara live.");
             })
-            .catch(err => {
+            .catch((err) => {
                 console.error("Gagal menyimpan susunan tugas harian:", err);
-                showCustomAlert('Gagal Menyimpan', 'Terjadi kendala koneksi saat menyimpan data: ' + err.message);
+                showCustomAlert("Gagal", "Gagal menyimpan pengaturan ke server. Periksa koneksi jaringan Anda.");
             })
             .finally(() => {
                 isSavingRoleAssignment = false;
@@ -4883,117 +4887,164 @@
             });
     }
 
-    function copyDailyRolesToClipboard() {
-        try {
-            const { dateKey, readableDate } = getDatePartsFromIso(currentSelectedScheduleDate);
-            const scheduleList = Array.isArray(scheduleCacheByDate[dateKey]) ? scheduleCacheByDate[dateKey] : [];
-            const rosterPagi = (currentRoleAssignmentsData && currentRoleAssignmentsData.rosterPagi) ? String(currentRoleAssignmentsData.rosterPagi).trim() : '';
-            const rosterSiang = (currentRoleAssignmentsData && currentRoleAssignmentsData.rosterSiang) ? String(currentRoleAssignmentsData.rosterSiang).trim() : '';
-            const specialTeams = toSafeArray(currentRoleAssignmentsData && currentRoleAssignmentsData.specialTeams);
+    // --- HELPER PEMBANGUN TEKS SALIN WA (TEAM KHUSUS DI ATAS + KODE ROSTER DI SHIFT + 18 TUGAS) ---
+    function buildDailyScheduleWhatsAppText() {
+        const { dateKey, readableDate } = getDatePartsFromIso(currentSelectedScheduleDate);
+        const scheduleList = Array.isArray(scheduleCacheByDate[dateKey]) ? scheduleCacheByDate[dateKey] : [];
 
-            const pagiMembers = scheduleList.filter(m => m && m.shiftType === 'P');
-            const siangMembers = scheduleList.filter(m => m && m.shiftType === 'S');
+        const specialTeams = toSafeArray(currentRoleAssignmentsData && currentRoleAssignmentsData.specialTeams);
+        const rosterPagi = (currentRoleAssignmentsData && currentRoleAssignmentsData.rosterPagi)
+            ? String(currentRoleAssignmentsData.rosterPagi).trim()
+            : '';
+        const rosterSiang = (currentRoleAssignmentsData && currentRoleAssignmentsData.rosterSiang)
+            ? String(currentRoleAssignmentsData.rosterSiang).trim()
+            : '';
 
-            const formatTeamListByZone = (membersArr) => {
-                if (!membersArr || membersArr.length === 0) {
-                    return `   _(Belum ada data jadwal)_\n`;
-                }
-                const grouped = {};
-                membersArr.forEach(m => {
-                    const z = m.zone || 'LAINNYA';
-                    if (!grouped[z]) grouped[z] = [];
-                    grouped[z].push(m);
-                });
+        // Petakan personel team khusus agar tidak terduplikasi atau tetap tercatat rapi
+        const specialMemberNamesSet = new Set();
+        specialTeams.forEach(st => {
+            toSafeArray(st.members).forEach(m => specialMemberNamesSet.add(String(m).trim().toUpperCase()));
+        });
 
-                let block = '';
-                let globalNo = 1;
-                Object.keys(grouped).forEach(zoneName => {
-                    block += `   *[${zoneName}]*\n`;
-                    grouped[zoneName].forEach(person => {
-                        block += `   ${globalNo}. ${person.name} (${person.role})\n`;
-                        globalNo++;
-                    });
-                });
-                return block;
-            };
-
-            let lines = [
-                `📅 *JADWAL SHIFT & TUGAS HARIAN*`,
-                `Tanggal: *${readableDate}*`,
-                ``
-            ];
-
-            // 1. BAGIAN PALING ATAS: TEAM KHUSUS / ROSTER BERBEDA (JIKA ADA)
-            if (specialTeams.length > 0) {
-                lines.push(`⚡ *TEAM KHUSUS / ROSTER BERBEDA*`);
-                specialTeams.forEach((stItem, idx) => {
-                    const shiftLabel = stItem.shift === 'S' ? 'Shift Siang (X)' : 'Shift Pagi (P)';
-                    const headerParts = [`*Team Khusus ${idx + 1}* (${shiftLabel})`];
-                    if (stItem.roster) headerParts.push(`[${stItem.roster}]`);
-                    lines.push(headerParts.join(' '));
-                    if (stItem.note) {
-                        lines.push(`📌 Keterangan: _${stItem.note}_`);
-                    }
-                    const members = toSafeArray(stItem.members);
-                    if (members.length > 0) {
-                        members.forEach((mName, mIdx) => {
-                            lines.push(`   ${mIdx + 1}. ${mName}`);
-                        });
-                    } else {
-                        lines.push(`   _(Belum ada personel dipilih)_`);
-                    }
-                    lines.push(``);
-                });
-            }
-
-            // 2. SUSUNAN 18 TUGAS HARIAN
-            lines.push(`👑 *PENANGGUNG JAWAB TUGAS HARIAN*`);
+        const getRolesForPerson = (personName) => {
+            const matched = [];
             DAILY_ROLE_DEFINITIONS.forEach(roleDef => {
-                const val = (currentRoleAssignmentsData && currentRoleAssignmentsData[roleDef.key])
+                const assigned = currentRoleAssignmentsData && currentRoleAssignmentsData[roleDef.key]
                     ? String(currentRoleAssignmentsData[roleDef.key]).trim()
-                    : '-';
-                lines.push(`• *${roleDef.label}*: ${val}`);
+                    : '';
+                if (assigned && assigned.toUpperCase() === personName.toUpperCase()) {
+                    matched.push(roleDef.label);
+                }
             });
+            return matched;
+        };
 
-            // 3. DAFTAR TEAM SHIFT PAGI (P) + KODE ROSTER DI SAMPINGNYA
-            const pagiHeader = rosterPagi
-                ? `☀️ *TEAM SHIFT PAGI (P) — ${rosterPagi}* (${pagiMembers.length} Orang)`
-                : `☀️ *TEAM SHIFT PAGI (P)* (${pagiMembers.length} Orang)`;
-            lines.push(``, pagiHeader);
-            lines.push(formatTeamListByZone(pagiMembers).trimEnd());
+        let waLines = [];
+        waLines.push(`📅 *JADWAL & TUGAS HARIAN LW KOWIS*`);
+        waLines.push(`🗓️ *${readableDate}*`);
+        waLines.push(``);
 
-            // 4. DAFTAR TEAM SHIFT SIANG (X) + KODE ROSTER DI SAMPINGNYA
-            const siangHeader = rosterSiang
-                ? `🌙 *TEAM SHIFT SIANG (X) — ${rosterSiang}* (${siangMembers.length} Orang)`
-                : `🌙 *TEAM SHIFT SIANG (X)* (${siangMembers.length} Orang)`;
-            lines.push(``, siangHeader);
-            lines.push(formatTeamListByZone(siangMembers).trimEnd());
+        // 1. BAGIAN PALING ATAS: TEAM KHUSUS / ROSTER BERBEDA (JIKA ADA)
+        if (specialTeams.length > 0) {
+            waLines.push(`⚡ *TEAM KHUSUS / ROSTER BERBEDA*`);
+            specialTeams.forEach((stItem, tIdx) => {
+                const shiftText = stItem.shift === 'S' ? 'Shift Siang (X)' : 'Shift Pagi (P)';
+                const rosterText = stItem.roster ? ` | ${stItem.roster}` : '';
+                const noteText = stItem.note ? ` — *(${stItem.note})*` : '';
+                waLines.push(`*${tIdx + 1}. ${shiftText}${rosterText}*${noteText}`);
 
-            const textToCopy = lines.join('\n');
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(textToCopy).then(() => {
-                    showCustomAlert('Berhasil Disalin', 'Susunan team khusus, 18 tugas harian, roster & daftar team Shift Pagi/Siang berhasil disalin untuk WhatsApp.');
-                }).catch(() => {
-                    prompt('Salin teks jadwal berikut:', textToCopy);
-                });
-            } else {
-                prompt('Salin teks jadwal berikut:', textToCopy);
-            }
-        } catch (e) {
-            console.error("Error copyDailyRolesToClipboard:", e);
+                const membersArr = toSafeArray(stItem.members);
+                if (membersArr.length === 0) {
+                    waLines.push(`   - _(Belum ada personel)_`);
+                } else {
+                    membersArr.forEach((memberName, mIdx) => {
+                        const foundInfo = scheduleList.find(s => s && s.name.toUpperCase() === String(memberName).trim().toUpperCase());
+                        const roles = getRolesForPerson(memberName);
+                        const zoneStr = foundInfo ? ` [${foundInfo.zone} - ${foundInfo.role}]` : '';
+                        const roleTag = roles.length > 0 ? ` 👉 *${roles.join(', ')}*` : '';
+                        waLines.push(`   ${mIdx + 1}. ${memberName}${zoneStr}${roleTag}`);
+                    });
+                }
+                waLines.push(``);
+            });
         }
+
+        // 2. SUSUNAN 18 PENANGGUNG JAWAB TUGAS HARIAN
+        waLines.push(`📌 *SUSUNAN PENANGGUNG JAWAB TUGAS HARIAN*`);
+        DAILY_ROLE_DEFINITIONS.forEach((roleDef, idx) => {
+            const person = (currentRoleAssignmentsData && currentRoleAssignmentsData[roleDef.key])
+                ? String(currentRoleAssignmentsData[roleDef.key]).trim()
+                : '-';
+            waLines.push(`${idx + 1}. *${roleDef.label}:* ${person || '-'}`);
+        });
+        waLines.push(``);
+
+        // 3. DAFTAR PERSONEL SHIFT PAGI & SIANG BESERTA KODE ROSTER DI SAMPINGNYA
+        const pagiRegular = scheduleList.filter(m => m && m.shiftType === 'P' && !specialMemberNamesSet.has(m.name.toUpperCase()));
+        const siangRegular = scheduleList.filter(m => m && m.shiftType === 'S' && !specialMemberNamesSet.has(m.name.toUpperCase()));
+
+        const pagiHeaderSuffix = rosterPagi ? ` — [${rosterPagi}]` : '';
+        waLines.push(`☀️ *SHIFT PAGI (P) (${pagiRegular.length} Org)*${pagiHeaderSuffix}`);
+        if (pagiRegular.length === 0) {
+            waLines.push(`- Tidak ada personel reguler`);
+        } else {
+            pagiRegular.forEach((m, i) => {
+                const roles = getRolesForPerson(m.name);
+                const roleTag = roles.length > 0 ? ` 👉 *${roles.join(', ')}*` : '';
+                waLines.push(`${i + 1}. ${m.name} (${m.zone} - ${m.role})${roleTag}`);
+            });
+        }
+        waLines.push(``);
+
+        const siangHeaderSuffix = rosterSiang ? ` — [${rosterSiang}]` : '';
+        waLines.push(`🌙 *SHIFT SIANG (X) (${siangRegular.length} Org)*${siangHeaderSuffix}`);
+        if (siangRegular.length === 0) {
+            waLines.push(`- Tidak ada personel reguler`);
+        } else {
+            siangRegular.forEach((m, i) => {
+                const roles = getRolesForPerson(m.name);
+                const roleTag = roles.length > 0 ? ` 👉 *${roles.join(', ')}*` : '';
+                waLines.push(`${i + 1}. ${m.name} (${m.zone} - ${m.role})${roleTag}`);
+            });
+        }
+
+        return waLines.join('\n');
+    }
+
+    function copyDailyRolesToClipboard() {
+        const textToCopy = buildDailyScheduleWhatsAppText();
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(textToCopy)
+                .then(() => {
+                    showCustomAlert("Tersalin", "Susunan tugas harian, kode roster, team khusus & jadwal shift lengkap berhasil disalin ke clipboard (siap paste ke WhatsApp)!");
+                })
+                .catch(() => {
+                    fallbackCopyTextToClipboard(textToCopy);
+                });
+        } else {
+            fallbackCopyTextToClipboard(textToCopy);
+        }
+    }
+
+    function fallbackCopyTextToClipboard(text) {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.opacity = "0";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            showCustomAlert("Tersalin", "Susunan tugas harian, kode roster, team khusus & jadwal shift berhasil disalin!");
+        } catch (err) {
+            showCustomAlert("Gagal Salin", "Browser menolak akses clipboard otomatis.");
+        }
+        document.body.removeChild(textArea);
+    }
+
+    function setScheduleShiftFilter(filterVal) {
+        currentScheduleShiftFilter = filterVal;
+        ['ALL', 'P', 'S'].forEach(key => {
+            const btn = document.getElementById(`schedFilter-${key}`);
+            if (!btn) return;
+            if (key === filterVal) {
+                btn.className = 'sched-filter-btn px-3 py-1.5 rounded-lg bg-indigo-600 text-white';
+            } else {
+                btn.className = 'sched-filter-btn px-3 py-1.5 rounded-lg bg-white text-slate-600 border border-slate-200';
+            }
+        });
+        renderDailyScheduleContent();
     }
 
     async function loadScheduleForSelectedDate(forceRefresh = false) {
         const bodyEl = document.getElementById('dailyScheduleBody');
-        const dateLabelEl = document.getElementById('dailyScheduleDateLabel');
+        const labelEl = document.getElementById('dailyScheduleDateLabel');
         const summaryEl = document.getElementById('dailyScheduleSummary');
         if (!bodyEl) return;
 
-        const { dayNum, dateKey, sheetName, readableDate } = getDatePartsFromIso(currentSelectedScheduleDate);
-        if (dateLabelEl) {
-            dateLabelEl.textContent = `${readableDate} • Sheet: ${sheetName} (Tanggal ${dayNum})`;
-        }
+        const { dayNum, sheetName, readableDate, dateKey } = getDatePartsFromIso(currentSelectedScheduleDate);
+        if (labelEl) labelEl.textContent = `${readableDate} • Sheet ${sheetName}`;
 
         bindDailyRoleListener(dateKey);
 
@@ -5003,93 +5054,165 @@
             return;
         }
 
-        bodyEl.innerHTML = `<div class="text-center py-10 text-slate-500 animate-pulse">⏳ Mengambil data jadwal dari tab <b>${escapeHtml(sheetName)}</b>...</div>`;
+        bodyEl.innerHTML = `<div class="text-center py-10 text-slate-500 font-medium">⏳ Mengambil jadwal tanggal ${dayNum} (${sheetName})...</div>`;
         if (summaryEl) summaryEl.textContent = 'Memuat data...';
 
         try {
             const csvUrl = `https://docs.google.com/spreadsheets/d/${SCHEDULE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}&_t=${Date.now()}`;
             const response = await fetch(csvUrl);
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
+            if (!response.ok) throw new Error('Gagal mengakses Google Spreadsheet');
             const csvText = await response.text();
             const rows = parseScheduleCsvRows(csvText);
 
-            if (!rows || rows.length < 2) {
-                throw new Error(`Sheet "${sheetName}" kosong atau tidak ditemukan.`);
-            }
-
             let headerRowIdx = -1;
             let dayColIdx = -1;
-            for (let r = 0; r < Math.min(rows.length, 15); r++) {
-                const idx = rows[r].findIndex(col => String(col).trim() === String(dayNum));
-                if (idx !== -1) {
+            let nameColIdx = -1;
+            let deptColIdx = -1;
+
+            for (let r = 0; r < Math.min(rows.length, 25); r++) {
+                const row = rows[r];
+                if (!row) continue;
+
+                // Deteksi kolom header tanggal serta kolom DEPT/JABATAN atau NAMA
+                let tempDayCol = -1;
+                let tempDeptCol = -1;
+                let tempNameCol = -1;
+
+                for (let c = 0; c < row.length; c++) {
+                    const cellStr = String(row[c] || '').trim();
+                    const cellUpper = cellStr.toUpperCase();
+
+                    if (cellUpper.includes('DEPT') || cellUpper.includes('JABATAN')) {
+                        tempDeptCol = c;
+                    } else if (cellUpper === 'NAMA' || cellUpper === 'NAMA KARYAWAN' || cellUpper === 'NAMA STAFF') {
+                        tempNameCol = c;
+                    }
+
+                    const numVal = parseInt(cellStr, 10);
+                    if (!isNaN(numVal) && String(numVal) === cellStr && numVal === dayNum && c >= 2) {
+                        tempDayCol = c;
+                    }
+                }
+
+                if (tempDayCol !== -1) {
                     headerRowIdx = r;
-                    dayColIdx = idx;
+                    dayColIdx = tempDayCol;
+                    deptColIdx = tempDeptCol !== -1 ? tempDeptCol : 0;
+                    nameColIdx = tempNameCol !== -1 ? tempNameCol : -1;
                     break;
                 }
             }
 
             if (headerRowIdx === -1 || dayColIdx === -1) {
-                throw new Error(`Kolom tanggal ${dayNum} tidak ditemukan pada sheet ${sheetName}.`);
+                throw new Error(`Kolom tanggal ${dayNum} tidak ditemukan pada sheet ${sheetName}`);
+            }
+
+            // Jika kolom nama terpisah tidak ada di header, cari kolom tepat sebelum tanggal pertama
+            if (nameColIdx === -1) {
+                let firstDateCol = dayColIdx;
+                for (let c = deptColIdx + 1; c <= dayColIdx; c++) {
+                    const val = String(rows[headerRowIdx][c] || '').trim();
+                    if (/^\d+$/.test(val)) {
+                        firstDateCol = c;
+                        break;
+                    }
+                }
+                nameColIdx = firstDateCol > deptColIdx + 1 ? firstDateCol - 1 : -1;
             }
 
             const parsedList = [];
-            let currentZone = 'UMUM / LAINNYA';
+            let currentZone = 'UMUM';
 
             for (let r = headerRowIdx + 1; r < rows.length; r++) {
                 const row = rows[r];
-                const colZone = String(row[0] || '').trim();
-                const colRole = String(row[1] || '').trim();
-                const colName = String(row[2] || '').trim();
-                const shiftCode = String(row[dayColIdx] || '').trim().toUpperCase();
+                if (!row || row.length === 0) continue;
 
-                if (colZone) {
-                    currentZone = colZone;
+                const col0 = String(row[deptColIdx] || '').trim();
+                const col0Upper = col0.toUpperCase();
+
+                if (
+                    col0Upper.startsWith('TOTAL') ||
+                    col0Upper.startsWith('PS PAGI') ||
+                    col0Upper.startsWith('SMT PAGI') ||
+                    col0Upper.startsWith('PS SIANG') ||
+                    col0Upper.startsWith('SMT SIANG') ||
+                    col0Upper === 'OFF' ||
+                    col0Upper === 'RO' ||
+                    col0Upper === 'CUTI' ||
+                    col0Upper === 'SAKIT' ||
+                    col0Upper === 'IZIN'
+                ) {
+                    break;
                 }
 
-                if (!colName || colName.toUpperCase() === 'NAMA' || colName.toUpperCase() === 'TOTAL') {
-                    continue;
+                // Cek baris pemisah zona (misal: LIVING A10, ASHLEY, HOME DECORE tanpa /PS atau /SMT)
+                if (col0 && !col0.includes('/') && !col0Upper.startsWith('DEPT')) {
+                    currentZone = col0Upper;
                 }
 
-                if (shiftCode === 'P' || shiftCode === 'X' || shiftCode === 'S') {
-                    const normalizedShift = (shiftCode === 'X' || shiftCode === 'S') ? 'S' : 'P';
-                    parsedList.push({
-                        zone: currentZone,
-                        role: colRole || '-',
-                        name: colName,
-                        rawCode: shiftCode,
-                        shiftType: normalizedShift
-                    });
+                const rawShift = String(row[dayColIdx] || '').trim().toUpperCase();
+                let shiftType = '';
+                if (rawShift === 'P' || rawShift.startsWith('PAGI')) {
+                    shiftType = 'P';
+                } else if (rawShift === 'X' || rawShift === 'S' || rawShift.startsWith('SIANG')) {
+                    shiftType = 'S';
                 }
+
+                if (!shiftType) continue;
+
+                let zoneLabel = currentZone;
+                let roleLabel = 'SMT';
+                if (col0.includes('/')) {
+                    const parts = col0.split('/');
+                    zoneLabel = (parts[0] || currentZone).trim().toUpperCase();
+                    roleLabel = (parts[1] || 'SMT').trim().toUpperCase();
+                } else if (col0) {
+                    roleLabel = col0Upper;
+                }
+
+                // Cari nama karyawan pada kolom yang tersedia di sebelah kiri kolom tanggal
+                let staffName = '';
+                if (nameColIdx !== -1 && row[nameColIdx]) {
+                    staffName = String(row[nameColIdx]).trim();
+                }
+                if (!staffName) {
+                    for (let c = deptColIdx + 1; c < dayColIdx; c++) {
+                        const candidate = String(row[c] || '').trim();
+                        if (candidate && candidate.length > 2 && !/^\d+$/.test(candidate) && candidate.toUpperCase() !== zoneLabel) {
+                            staffName = candidate;
+                            break;
+                        }
+                    }
+                }
+
+                if (!staffName) {
+                    staffName = `${zoneLabel} (${roleLabel})`;
+                }
+
+                parsedList.push({
+                    name: staffName.toUpperCase(),
+                    zone: zoneLabel,
+                    role: roleLabel,
+                    shiftCode: rawShift,
+                    shiftType
+                });
             }
 
             scheduleCacheByDate[dateKey] = parsedList;
             renderDailyScheduleContent();
-            if (isScheduleRoleUnlocked) renderAllRoleSelectInputs();
+            if (isScheduleRoleUnlocked) {
+                renderAllRoleSelectInputs();
+            }
         } catch (err) {
-            console.error('Gagal memuat jadwal shift:', err);
+            console.error('Error fetch schedule:', err);
             bodyEl.innerHTML = `
-                <div class="bg-rose-50 border border-rose-200 text-rose-700 p-4 rounded-xl text-center space-y-2">
-                    <div class="font-bold">⚠️ Gagal memuat jadwal dari Google Spreadsheet</div>
-                    <div class="text-xs">${escapeHtml(err.message)}</div>
-                    <div class="text-[11px] text-rose-500">Pastikan akses spreadsheet terbuka untuk publik (Anyone with the link) dan nama tab bulan (${escapeHtml(sheetName)}) sesuai.</div>
+                <div class="text-center py-8 px-4 bg-rose-50 rounded-xl border border-rose-200 text-rose-700">
+                    <p class="font-bold mb-1">Gagal memuat jadwal dari Spreadsheet</p>
+                    <p class="text-xs">${escapeHtml(err.message || 'Pastikan spreadsheet dapat diakses publik / koneksi stabil.')}</p>
                 </div>
             `;
-            if (summaryEl) summaryEl.textContent = 'Gagal memuat jadwal';
+            if (summaryEl) summaryEl.textContent = 'Gagal memuat data';
         }
-    }
-
-    function setScheduleShiftFilter(filterCode) {
-        currentScheduleShiftFilter = filterCode;
-        document.querySelectorAll('.sched-filter-btn').forEach(btn => {
-            btn.className = 'sched-filter-btn px-3 py-1.5 rounded-lg bg-white text-slate-600 border border-slate-200';
-        });
-        const activeBtn = document.getElementById(`schedFilter-${filterCode}`);
-        if (activeBtn) {
-            activeBtn.className = 'sched-filter-btn px-3 py-1.5 rounded-lg bg-indigo-600 text-white';
-        }
-        renderDailyScheduleContent();
     }
 
     function renderDailyScheduleContent() {
@@ -5098,72 +5221,74 @@
         const searchInput = document.getElementById('dailyScheduleSearch');
         if (!bodyEl) return;
 
-        const { dateKey } = getDatePartsFromIso(currentSelectedScheduleDate);
+        const { dateKey, readableDate } = getDatePartsFromIso(currentSelectedScheduleDate);
         const list = Array.isArray(scheduleCacheByDate[dateKey]) ? scheduleCacheByDate[dateKey] : [];
-        const keyword = searchInput ? searchInput.value.trim().toLowerCase() : '';
+        const keyword = (searchInput ? searchInput.value : '').trim().toLowerCase();
 
         const filtered = list.filter(item => {
-            const matchShift = currentScheduleShiftFilter === 'ALL' || item.shiftType === currentScheduleShiftFilter;
-            const matchKeyword = !keyword ||
-                item.name.toLowerCase().includes(keyword) ||
-                item.zone.toLowerCase().includes(keyword) ||
-                item.role.toLowerCase().includes(keyword);
-            return matchShift && matchKeyword;
+            if (currentScheduleShiftFilter !== 'ALL' && item.shiftType !== currentScheduleShiftFilter) {
+                return false;
+            }
+            if (keyword) {
+                const matchName = item.name.toLowerCase().includes(keyword);
+                const matchZone = item.zone.toLowerCase().includes(keyword);
+                const matchRole = item.role.toLowerCase().includes(keyword);
+                if (!matchName && !matchZone && !matchRole) return false;
+            }
+            return true;
         });
 
         const totalPagi = list.filter(i => i.shiftType === 'P').length;
         const totalSiang = list.filter(i => i.shiftType === 'S').length;
         if (summaryEl) {
-            summaryEl.textContent = `Total Masuk: ${list.length} orang (☀️ Pagi: ${totalPagi} | 🌙 Siang: ${totalSiang})`;
+            summaryEl.textContent = `Total Bertugas: ${list.length} personel (☀️ Pagi: ${totalPagi} | 🌙 Siang: ${totalSiang})`;
         }
 
         if (filtered.length === 0) {
-            bodyEl.innerHTML = `<div class="text-center py-8 text-slate-400">Tidak ada jadwal personel yang sesuai filter pada tanggal ini.</div>`;
+            bodyEl.innerHTML = `<div class="text-center py-10 text-slate-400 italic">Tidak ada personel bertugas yang cocok pada tanggal ${escapeHtml(readableDate)}.</div>`;
             return;
         }
 
         const groupedByZone = {};
         filtered.forEach(item => {
-            if (!groupedByZone[item.zone]) {
-                groupedByZone[item.zone] = [];
-            }
-            groupedByZone[item.zone].push(item);
+            const z = item.zone || 'UMUM';
+            if (!groupedByZone[z]) groupedByZone[z] = [];
+            groupedByZone[z].push(item);
         });
 
-        let html = '';
-        Object.keys(groupedByZone).forEach(zoneName => {
-            const members = groupedByZone[zoneName];
-            html += `
-                <div class="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
-                    <div class="bg-slate-100 px-3.5 py-2 font-bold text-xs text-slate-700 flex items-center justify-between">
-                        <span>📍 ${escapeHtml(zoneName)}</span>
-                        <span class="text-slate-500 font-semibold">${members.length} orang</span>
+        bodyEl.innerHTML = Object.entries(groupedByZone).map(([zoneName, members]) => {
+            const cardsHtml = members.map(m => {
+                const isPagi = m.shiftType === 'P';
+                const badgeClass = isPagi
+                    ? 'bg-amber-100 text-amber-800 border-amber-200'
+                    : 'bg-indigo-100 text-indigo-800 border-indigo-200';
+                const shiftText = isPagi ? `☀️ Pagi (${m.shiftCode})` : `🌙 Siang (${m.shiftCode})`;
+
+                return `
+                    <div class="flex items-center justify-between gap-2 bg-white border border-slate-200/90 rounded-xl px-3.5 py-2.5 shadow-2xs">
+                        <div>
+                            <div class="font-bold text-slate-900 text-xs sm:text-sm">${escapeHtml(m.name)}</div>
+                            <div class="text-[11px] text-slate-500 font-medium">${escapeHtml(m.role)} • ${escapeHtml(m.zone)}</div>
+                        </div>
+                        <span class="text-[11px] font-bold px-2.5 py-1 rounded-lg border shrink-0 ${badgeClass}">
+                            ${escapeHtml(shiftText)}
+                        </span>
                     </div>
-                    <div class="divide-y divide-slate-100">
-                        ${members.map(m => {
-                            const isPagi = m.shiftType === 'P';
-                            const badgeClass = isPagi
-                                ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                                : 'bg-indigo-100 text-indigo-800 border border-indigo-200';
-                            const badgeText = isPagi ? '☀️ Pagi (P)' : `🌙 Siang (${escapeHtml(m.rawCode)})`;
-                            return `
-                                <div class="px-3.5 py-2.5 flex items-center justify-between gap-2 hover:bg-slate-50">
-                                    <div>
-                                        <div class="font-semibold text-slate-800 text-xs sm:text-sm">${escapeHtml(m.name)}</div>
-                                        <div class="text-[11px] text-slate-400">${escapeHtml(m.role)}</div>
-                                    </div>
-                                    <span class="text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0 ${badgeClass}">
-                                        ${badgeText}
-                                    </span>
-                                </div>
-                            `;
-                        }).join('')}
+                `;
+            }).join('');
+
+            return `
+                <div class="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-3.5 space-y-2.5">
+                    <div class="flex items-center justify-between border-b border-slate-200/70 pb-2">
+                        <span class="text-xs font-extrabold uppercase tracking-wider text-slate-800">📍 ${escapeHtml(zoneName)}</span>
+                        <span class="text-[11px] font-semibold text-slate-500">${members.length} personel</span>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        ${cardsHtml}
                     </div>
                 </div>
             `;
-        });
-
-        bodyEl.innerHTML = html;
+        }).join('');
     }
     </script>
 </body>
