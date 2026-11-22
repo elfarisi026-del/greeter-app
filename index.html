@@ -5427,24 +5427,43 @@
         dataLock: null,
         updatedAt: ''
     };
-    let isPromoPortalListenerBound = false;
+    let isPromoPortalLoadedOnce = false;
+    let isPromoPortalFetching = false;
 
     function initPromoPortalModule() {
         onCalcPromoTypeChange();
-        if (!isPromoPortalListenerBound && db) {
-            isPromoPortalListenerBound = true;
-            db.ref('promoPortalData').on('value', (snap) => {
-                const val = snap.val();
-                if (val && typeof val === 'object') {
-                    promoPortalState.banners = toSafeArray(val.banners);
-                    promoPortalState.dataLock = val.dataLock || null;
-                    promoPortalState.updatedAt = val.updatedAt || '';
-                } else {
-                    promoPortalState = { banners: [], dataLock: null, updatedAt: '' };
-                }
-                renderPromoPortalAllViews();
-            });
+    }
+
+    function fetchPromoPortalDataOnce(forceRefresh = false) {
+        if (!db) return Promise.resolve();
+        if (isPromoPortalFetching) return Promise.resolve();
+        if (isPromoPortalLoadedOnce && !forceRefresh) return Promise.resolve();
+
+        isPromoPortalFetching = true;
+        const lastUpdatedEl = document.getElementById('promoPortalLastUpdated');
+        if (lastUpdatedEl) {
+            lastUpdatedEl.textContent = '⏳ Memuat materi promo & data lock...';
         }
+
+        return db.ref('promoPortalData').once('value').then((snap) => {
+            const val = snap.val();
+            if (val && typeof val === 'object') {
+                promoPortalState.banners = toSafeArray(val.banners);
+                promoPortalState.dataLock = val.dataLock || null;
+                promoPortalState.updatedAt = val.updatedAt || '';
+            } else {
+                promoPortalState = { banners: [], dataLock: null, updatedAt: '' };
+            }
+            isPromoPortalLoadedOnce = true;
+            renderPromoPortalAllViews();
+        }).catch((err) => {
+            console.error('Gagal mengunduh promoPortalData:', err);
+            if (lastUpdatedEl) {
+                lastUpdatedEl.textContent = 'Gagal memuat materi promo. Periksa koneksi internet.';
+            }
+        }).finally(() => {
+            isPromoPortalFetching = false;
+        });
     }
 
     function openPromoPortalModal() {
@@ -5456,6 +5475,7 @@
         switchPromoTab('mekanisme');
         renderPromoPortalAllViews();
         calculatePromoSimulation();
+        fetchPromoPortalDataOnce(true);
     }
 
     function closePromoPortalModal() {
@@ -5581,10 +5601,16 @@
             const existingBanners = toSafeArray(promoPortalState.banners);
             const combinedBanners = [...newBanners, ...existingBanners].slice(0, 12);
 
+            const updatedTimestamp = `${getWibDateString()} ${getWibTimeString()} WIB`;
             await db.ref('promoPortalData').update({
                 banners: combinedBanners,
-                updatedAt: `${getWibDateString()} ${getWibTimeString()} WIB`
+                updatedAt: updatedTimestamp
             });
+
+            promoPortalState.banners = combinedBanners;
+            promoPortalState.updatedAt = updatedTimestamp;
+            isPromoPortalLoadedOnce = true;
+            renderPromoPortalAllViews();
 
             fileInput.value = '';
             if (titleInput) titleInput.value = '';
@@ -5604,10 +5630,14 @@
         if (!confirm('Hapus poster mekanisme promo ini?')) return;
         try {
             const filtered = toSafeArray(promoPortalState.banners).filter(b => b && b.id !== bannerId);
+            const updatedTimestamp = `${getWibDateString()} ${getWibTimeString()} WIB`;
             await db.ref('promoPortalData').update({
                 banners: filtered,
-                updatedAt: `${getWibDateString()} ${getWibTimeString()} WIB`
+                updatedAt: updatedTimestamp
             });
+            promoPortalState.banners = filtered;
+            promoPortalState.updatedAt = updatedTimestamp;
+            renderPromoPortalAllViews();
         } catch (err) {
             showCustomAlert('Gagal', 'Gagal menghapus poster: ' + err.message);
         }
@@ -5616,10 +5646,14 @@
     async function clearAllPromoBanners() {
         if (!confirm('Yakin ingin menghapus SEMUA poster mekanisme promo?')) return;
         try {
+            const updatedTimestamp = `${getWibDateString()} ${getWibTimeString()} WIB`;
             await db.ref('promoPortalData').update({
                 banners: [],
-                updatedAt: `${getWibDateString()} ${getWibTimeString()} WIB`
+                updatedAt: updatedTimestamp
             });
+            promoPortalState.banners = [];
+            promoPortalState.updatedAt = updatedTimestamp;
+            renderPromoPortalAllViews();
             showCustomAlert('Berhasil', 'Semua poster mekanisme promo telah dihapus.');
         } catch (err) {
             showCustomAlert('Gagal', 'Gagal menghapus poster: ' + err.message);
@@ -5677,10 +5711,16 @@
                 uploadedAt: `${getWibDateString()} ${getWibTimeString()} WIB`
             };
 
+            const updatedTimestamp = `${getWibDateString()} ${getWibTimeString()} WIB`;
             await db.ref('promoPortalData').update({
                 dataLock: dataLockObj,
-                updatedAt: `${getWibDateString()} ${getWibTimeString()} WIB`
+                updatedAt: updatedTimestamp
             });
+
+            promoPortalState.dataLock = dataLockObj;
+            promoPortalState.updatedAt = updatedTimestamp;
+            isPromoPortalLoadedOnce = true;
+            renderPromoPortalAllViews();
 
             fileInput.value = '';
             if (noteInput) noteInput.value = '';
@@ -5700,10 +5740,14 @@
     async function clearPromoDataLock() {
         if (!confirm('Yakin ingin menghapus data spreadsheet Data Lock saat ini?')) return;
         try {
+            const updatedTimestamp = `${getWibDateString()} ${getWibTimeString()} WIB`;
             await db.ref('promoPortalData').update({
                 dataLock: null,
-                updatedAt: `${getWibDateString()} ${getWibTimeString()} WIB`
+                updatedAt: updatedTimestamp
             });
+            promoPortalState.dataLock = null;
+            promoPortalState.updatedAt = updatedTimestamp;
+            renderPromoPortalAllViews();
             showCustomAlert('Berhasil', 'Data Lock telah dihapus.');
         } catch (err) {
             showCustomAlert('Gagal', 'Gagal menghapus Data Lock: ' + err.message);
