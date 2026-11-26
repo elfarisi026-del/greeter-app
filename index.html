@@ -701,11 +701,27 @@
         employees = [...defaultEmployees];
     }
 
-    function mergeCustomEmployeesFromFirebase(remoteCustomMap) {
+    let remoteCustomEmployeesCache = null;
+    let remoteDeletedEmployeesCache = null;
+
+    function mergeCustomEmployeesFromFirebase(remoteCustomMap, remoteDeletedMap) {
+        if (remoteCustomMap !== undefined) remoteCustomEmployeesCache = remoteCustomMap;
+        if (remoteDeletedMap !== undefined) remoteDeletedEmployeesCache = remoteDeletedMap;
+
+        const deletedSet = new Set();
+        if (remoteDeletedEmployeesCache && typeof remoteDeletedEmployeesCache === 'object') {
+            Object.keys(remoteDeletedEmployeesCache).forEach(k => {
+                if (remoteDeletedEmployeesCache[k]) deletedSet.add(String(k).trim());
+            });
+        }
+
         const mergedMap = new Map();
         defaultEmployees.forEach(e => {
             if (e && e.nik) {
-                mergedMap.set(String(e.nik).trim(), { nik: String(e.nik).trim(), name: String(e.name || '').trim().toUpperCase() });
+                const cNik = String(e.nik).trim();
+                if (!deletedSet.has(cNik)) {
+                    mergedMap.set(cNik, { nik: cNik, name: String(e.name || '').trim().toUpperCase() });
+                }
             }
         });
         try {
@@ -713,18 +729,21 @@
             if (Array.isArray(localStored)) {
                 localStored.forEach(e => {
                     if (e && e.nik && e.name) {
-                        mergedMap.set(String(e.nik).trim(), { nik: String(e.nik).trim(), name: String(e.name || '').trim().toUpperCase() });
+                        const cNik = String(e.nik).trim();
+                        if (!deletedSet.has(cNik)) {
+                            mergedMap.set(cNik, { nik: cNik, name: String(e.name || '').trim().toUpperCase() });
+                        }
                     }
                 });
             }
         } catch (err) {}
 
-        if (remoteCustomMap && typeof remoteCustomMap === 'object') {
-            Object.entries(remoteCustomMap).forEach(([keyNik, val]) => {
+        if (remoteCustomEmployeesCache && typeof remoteCustomEmployeesCache === 'object') {
+            Object.entries(remoteCustomEmployeesCache).forEach(([keyNik, val]) => {
                 if (!val) return;
                 const cleanNik = String(val.nik || keyNik || '').trim();
                 const cleanName = String(val.name || '').trim().toUpperCase();
-                if (cleanNik && cleanName) {
+                if (cleanNik && cleanName && !deletedSet.has(cleanNik)) {
                     mergedMap.set(cleanNik, { nik: cleanNik, name: cleanName });
                 }
             });
@@ -738,6 +757,9 @@
         if (typeof populateAdminPinStaffDropdown === 'function') {
             populateAdminPinStaffDropdown();
         }
+        if (typeof populateAdminEditStaffDropdown === 'function') {
+            populateAdminEditStaffDropdown();
+        }
         if (typeof updateAttendanceStats === 'function') {
             updateAttendanceStats();
         }
@@ -750,7 +772,11 @@
     }
 
     db.ref('customEmployees').on('value', (snap) => {
-        mergeCustomEmployeesFromFirebase(snap ? snap.val() : null);
+        mergeCustomEmployeesFromFirebase(snap ? snap.val() : null, undefined);
+    });
+
+    db.ref('deletedEmployees').on('value', (snap) => {
+        mergeCustomEmployeesFromFirebase(undefined, snap ? snap.val() : null);
     });
 
     let activeQueue = []; 
@@ -1604,6 +1630,36 @@
                             <input type="text" id="admin-new-name" placeholder="Nama Lengkap SMT..." class="border border-slate-300 rounded-xl px-3 py-2 text-xs uppercase bg-white">
                         </div>
                         <button onclick="adminAddNewEmployee()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition w-full">Tambah Karyawan</button>
+                    </div>
+
+                    <!-- KONTROL 3B: EDIT & HAPUS DATA KARYAWAN SMT -->
+                    <div class="bg-amber-50/70 border border-amber-200 p-4 rounded-xl space-y-3">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                                <h5 class="font-bold text-amber-950 text-sm">✏️ Edit NIK & Nama SMT / Hapus Karyawan dari Sistem</h5>
+                                <p class="text-xs text-amber-800">Ubah NIK/Nama SMT atau hapus permanen dari master tim sehingga total keseluruhan tim otomatis terhitung ulang.</p>
+                            </div>
+                            <span id="admin-total-team-badge" class="text-xs font-extrabold bg-amber-600 text-white px-3 py-1 rounded-full">Total Tim: 54 SMT</span>
+                        </div>
+                        <div class="space-y-2">
+                            <select id="admin-edit-staff-select" onchange="onAdminEditStaffSelectChange()" class="border border-slate-300 rounded-xl px-3.5 py-2 w-full text-xs bg-white font-semibold text-slate-800">
+                                <option value="">-- Pilih Karyawan SMT yang Ingin Diedit / Dihapus --</option>
+                            </select>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-700 mb-1">NIK SMT:</label>
+                                    <input type="text" id="admin-edit-nik-input" placeholder="Nomor NIK..." class="border border-slate-300 rounded-xl px-3 py-2 w-full text-xs font-mono bg-white">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Nama Lengkap SMT:</label>
+                                    <input type="text" id="admin-edit-name-input" placeholder="Nama Lengkap SMT..." class="border border-slate-300 rounded-xl px-3 py-2 w-full text-xs uppercase bg-white">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                                <button type="button" onclick="adminSaveEditedEmployee()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition shadow-xs">💾 Simpan Perubahan NIK & Nama</button>
+                                <button type="button" onclick="adminDeleteEmployeePermanent()" class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition shadow-xs">🗑️ Hapus SMT dari Master Tim</button>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- KONTROL 4: CUSTOM CSS / LAYOUT OVERRIDE -->
@@ -2512,6 +2568,220 @@
         });
     }
 
+    function populateAdminEditStaffDropdown() {
+        const selectEl = document.getElementById('admin-edit-staff-select');
+        const badgeEl = document.getElementById('admin-total-team-badge');
+        if (badgeEl) {
+            badgeEl.textContent = `Total Tim: ${employees.length} SMT`;
+        }
+        if (!selectEl) return;
+        const prevVal = selectEl.value;
+        selectEl.innerHTML = '<option value="">-- Pilih Karyawan SMT yang Ingin Diedit / Dihapus --</option>';
+
+        const sortedEmps = [...employees].sort((a, b) => String(a.name).localeCompare(String(b.name)));
+        sortedEmps.forEach(emp => {
+            if (!emp || !emp.nik) return;
+            const nikStr = String(emp.nik).trim();
+            const opt = document.createElement('option');
+            opt.value = nikStr;
+            opt.textContent = `${emp.name} (NIK: ${nikStr})`;
+            selectEl.appendChild(opt);
+        });
+
+        if (prevVal && employees.some(e => String(e.nik).trim() === prevVal)) {
+            selectEl.value = prevVal;
+        }
+        onAdminEditStaffSelectChange();
+    }
+
+    function onAdminEditStaffSelectChange() {
+        const selectEl = document.getElementById('admin-edit-staff-select');
+        const nikInput = document.getElementById('admin-edit-nik-input');
+        const nameInput = document.getElementById('admin-edit-name-input');
+        if (!selectEl || !nikInput || !nameInput) return;
+
+        const selectedNik = selectEl.value.trim();
+        if (!selectedNik) {
+            nikInput.value = '';
+            nameInput.value = '';
+            return;
+        }
+
+        const foundEmp = employees.find(e => e && String(e.nik).trim() === selectedNik);
+        if (foundEmp) {
+            nikInput.value = String(foundEmp.nik).trim();
+            nameInput.value = String(foundEmp.name || '').trim().toUpperCase();
+        } else {
+            nikInput.value = '';
+            nameInput.value = '';
+        }
+    }
+
+    function adminSaveEditedEmployee() {
+        const selectEl = document.getElementById('admin-edit-staff-select');
+        const nikInput = document.getElementById('admin-edit-nik-input');
+        const nameInput = document.getElementById('admin-edit-name-input');
+        if (!selectEl || !nikInput || !nameInput) return;
+
+        const oldNik = selectEl.value.trim();
+        const newNik = nikInput.value.trim();
+        const newName = nameInput.value.trim().toUpperCase();
+
+        if (!oldNik) {
+            showCustomAlert('Perhatian', 'Silakan pilih karyawan SMT yang ingin diedit terlebih dahulu.');
+            return;
+        }
+        if (!newNik || !newName) {
+            showCustomAlert('Perhatian', 'NIK dan Nama SMT baru tidak boleh kosong.');
+            return;
+        }
+        if (newNik !== oldNik && employees.some(e => String(e.nik).trim() === newNik)) {
+            showCustomAlert('Perhatian', `NIK ${newNik} sudah digunakan oleh karyawan lain.`);
+            return;
+        }
+        if (!isFirebaseConnected) {
+            showCustomAlert('Koneksi Terputus', 'Perangkat sedang offline. Periksa jaringan sebelum mengubah data SMT.');
+            return;
+        }
+
+        const updatedEmpObj = { nik: newNik, name: newName };
+        const fbOps = [];
+
+        if (newNik !== oldNik) {
+            fbOps.push(db.ref(`customEmployees/${oldNik}`).remove());
+            fbOps.push(db.ref(`deletedEmployees/${oldNik}`).set(true));
+            fbOps.push(db.ref(`deletedEmployees/${newNik}`).remove());
+            fbOps.push(db.ref(`customEmployees/${newNik}`).set(updatedEmpObj));
+
+            if (customStaffPins && customStaffPins[oldNik]) {
+                const oldCustomPin = customStaffPins[oldNik];
+                fbOps.push(db.ref(`staffPins/${newNik}`).set(oldCustomPin));
+                fbOps.push(db.ref(`staffPins/${oldNik}`).remove());
+            }
+        } else {
+            fbOps.push(db.ref(`deletedEmployees/${newNik}`).remove());
+            fbOps.push(db.ref(`customEmployees/${newNik}`).set(updatedEmpObj));
+        }
+
+        Promise.all(fbOps).then(() => {
+            employees = employees.map(e => String(e.nik).trim() === oldNik ? updatedEmpObj : e);
+            localStorage.setItem('custom_employees_list', JSON.stringify(employees));
+
+            // Perbarui juga jika sedang aktif di shift, antrean, titik, atau sesi hari ini
+            if (hasReceivedInitialFirebaseSnapshot) {
+                commitAtomicIntent((st) => {
+                    let changed = false;
+                    const syncEmpRecord = (item) => {
+                        if (item && String(item.nik).trim() === oldNik) {
+                            item.nik = newNik;
+                            item.name = newName;
+                            changed = true;
+                        }
+                    };
+                    st.shiftMorningQueue.forEach(syncEmpRecord);
+                    st.shiftAfternoonQueue.forEach(syncEmpRecord);
+                    st.activeQueue.forEach(syncEmpRecord);
+                    st.pausedQueue.forEach(p => { if (p && p.staff) syncEmpRecord(p.staff); });
+                    st.activeSessions.forEach(s => { if (s && s.staff) syncEmpRecord(s.staff); });
+                    st.currentSpots.forEach(group => {
+                        if (Array.isArray(group)) group.forEach(syncEmpRecord);
+                    });
+                    return changed;
+                });
+            }
+
+            populateAdminPinStaffDropdown();
+            populateAdminEditStaffDropdown();
+            const updatedSelect = document.getElementById('admin-edit-staff-select');
+            if (updatedSelect) {
+                updatedSelect.value = newNik;
+                onAdminEditStaffSelectChange();
+            }
+            updateAttendanceStats();
+            updateDisplay();
+            showCustomAlert('Berhasil', `Data SMT berhasil diperbarui menjadi ${newName} (NIK: ${newNik}) di seluruh perangkat.`);
+        }).catch(err => {
+            showCustomAlert('Gagal', 'Gagal menyimpan perubahan data SMT: ' + err.message);
+        });
+    }
+
+    function adminDeleteEmployeePermanent() {
+        const selectEl = document.getElementById('admin-edit-staff-select');
+        if (!selectEl) return;
+
+        const targetNik = selectEl.value.trim();
+        if (!targetNik) {
+            showCustomAlert('Perhatian', 'Silakan pilih karyawan SMT yang ingin dihapus terlebih dahulu.');
+            return;
+        }
+
+        const targetEmp = employees.find(e => e && String(e.nik).trim() === targetNik);
+        const targetName = targetEmp ? targetEmp.name : targetNik;
+
+        if (!confirm(`⚠️ Yakin ingin menghapus ${targetName} (NIK: ${targetNik}) dari master tim?
+
+Total keseluruhan tim akan otomatis berkurang dan personel ini juga dikeluarkan dari antrean/shift hari ini.`)) {
+            return;
+        }
+
+        if (!isFirebaseConnected) {
+            showCustomAlert('Koneksi Terputus', 'Perangkat sedang offline. Periksa jaringan sebelum menghapus data SMT.');
+            return;
+        }
+
+        Promise.all([
+            db.ref(`customEmployees/${targetNik}`).remove(),
+            db.ref(`deletedEmployees/${targetNik}`).set(true),
+            db.ref(`staffPins/${targetNik}`).remove()
+        ]).then(() => {
+            employees = employees.filter(e => String(e.nik).trim() !== targetNik);
+            localStorage.setItem('custom_employees_list', JSON.stringify(employees));
+
+            if (hasReceivedInitialFirebaseSnapshot) {
+                commitAtomicIntent((st) => {
+                    let changed = false;
+                    const beforeMorning = st.shiftMorningQueue.length;
+                    st.shiftMorningQueue = st.shiftMorningQueue.filter(e => !(e && String(e.nik).trim() === targetNik));
+                    if (st.shiftMorningQueue.length !== beforeMorning) changed = true;
+
+                    const beforeAfternoon = st.shiftAfternoonQueue.length;
+                    st.shiftAfternoonQueue = st.shiftAfternoonQueue.filter(e => !(e && String(e.nik).trim() === targetNik));
+                    if (st.shiftAfternoonQueue.length !== beforeAfternoon) changed = true;
+
+                    const beforeQueue = st.activeQueue.length;
+                    st.activeQueue = st.activeQueue.filter(e => !(e && String(e.nik).trim() === targetNik));
+                    if (st.activeQueue.length !== beforeQueue) changed = true;
+
+                    const beforePaused = st.pausedQueue.length;
+                    st.pausedQueue = st.pausedQueue.filter(p => !(p && p.staff && String(p.staff.nik).trim() === targetNik));
+                    if (st.pausedQueue.length !== beforePaused) changed = true;
+
+                    st.currentSpots.forEach((group, s) => {
+                        if (Array.isArray(group)) {
+                            group.forEach((sf, p) => {
+                                if (sf && String(sf.nik).trim() === targetNik) {
+                                    st.currentSpots[s][p] = null;
+                                    if (st.spotShiftOrigin[s]) st.spotShiftOrigin[s][p] = null;
+                                    changed = true;
+                                }
+                            });
+                        }
+                    });
+
+                    return changed;
+                });
+            }
+
+            populateAdminPinStaffDropdown();
+            populateAdminEditStaffDropdown();
+            updateAttendanceStats();
+            updateDisplay();
+            showCustomAlert('Berhasil Dihapus', `Karyawan ${targetName} (NIK: ${targetNik}) berhasil dihapus. Total keseluruhan tim sekarang: ${employees.length} SMT.`);
+        }).catch(err => {
+            showCustomAlert('Gagal', 'Gagal menghapus data SMT: ' + err.message);
+        });
+    }
+
     function openMasterControlModal() {
         document.getElementById('master-pin-input').value = '';
         document.getElementById('master-pin-error').classList.add('hidden');
@@ -2522,6 +2792,7 @@
         const newPinInput = document.getElementById('admin-pin-new-value');
         if (newPinInput) newPinInput.value = '';
         populateAdminPinStaffDropdown();
+        populateAdminEditStaffDropdown();
         document.getElementById('master-control-modal').classList.remove('hidden');
         setTimeout(() => document.getElementById('master-pin-input').focus(), 100);
     }
@@ -2536,6 +2807,7 @@
             document.getElementById('master-step-pin').classList.add('hidden');
             document.getElementById('master-step-content').classList.remove('hidden');
             populateAdminPinStaffDropdown();
+            populateAdminEditStaffDropdown();
         } else {
             document.getElementById('master-pin-error').classList.remove('hidden');
         }
@@ -2774,7 +3046,10 @@
         }
 
         const newEmpObj = { nik, name };
-        db.ref(`customEmployees/${nik}`).set(newEmpObj).then(() => {
+        Promise.all([
+            db.ref(`deletedEmployees/${nik}`).remove(),
+            db.ref(`customEmployees/${nik}`).set(newEmpObj)
+        ]).then(() => {
             if (!employees.some(e => String(e.nik).trim() === String(nik))) {
                 employees.push(newEmpObj);
             }
@@ -2782,6 +3057,7 @@
             document.getElementById('admin-new-nik').value = '';
             document.getElementById('admin-new-name').value = '';
             populateAdminPinStaffDropdown();
+            populateAdminEditStaffDropdown();
             updateAttendanceStats();
             showCustomAlert('Berhasil', `Pegawai ${name} (${nik}) berhasil ditambahkan dan disinkronkan ke seluruh perangkat!`);
         }).catch(err => {
@@ -2790,13 +3066,17 @@
     }
 
     function resetCustomEmployeesToDefault() {
-        if (!confirm("Yakin ingin mereset daftar karyawan SMT kembali ke daftar bawaan (menghapus semua karyawan tambahan di seluruh perangkat)?")) {
+        if (!confirm("Yakin ingin mereset daftar karyawan SMT kembali ke daftar bawaan (mengembalikan karyawan yang terhapus dan menghapus perubahan/tambahan di seluruh perangkat)?")) {
             return;
         }
-        db.ref('customEmployees').remove().then(() => {
+        Promise.all([
+            db.ref('customEmployees').remove(),
+            db.ref('deletedEmployees').remove()
+        ]).then(() => {
             localStorage.removeItem('custom_employees_list');
             employees = [...defaultEmployees];
             populateAdminPinStaffDropdown();
+            populateAdminEditStaffDropdown();
             updateAttendanceStats();
             showCustomAlert('Berhasil', 'Daftar karyawan SMT berhasil dikembalikan ke default di seluruh perangkat.');
         }).catch(err => {
